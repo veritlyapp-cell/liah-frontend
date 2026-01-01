@@ -400,7 +400,7 @@ export default function RegisterCandidate() {
                     {/* Submit */}
                     <button
                         type="submit"
-                        disabled={loading || uploadingCUL || (warning && warning.includes('BLOQUEADO'))}
+                        disabled={loading || uploadingCUL || Boolean(warning && warning.includes('BLOQUEADO'))}
                         className="w-full gradient-bg text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {uploadingCUL ? 'Subiendo documento...' : loading ? 'Registrando...' : 'Registrarme'}
