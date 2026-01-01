@@ -1,26 +1,335 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* ====================================
+   LIAH Design System - High-End Tech
+   ==================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand Colors - Violet Electric → Cyan Vibrant */
+  --violet-500: 124 58 237;
+  /* #7C3AED */
+  --violet-400: 139 92 246;
+  /* #8B5CF6 */
+  --violet-600: 109 40 217;
+  /* #6D28D9 */
+
+  --cyan-500: 6 182 212;
+  /* #06B6D4 */
+  --cyan-400: 34 211 238;
+  /* #22D3EE */
+  --cyan-600: 8 145 178;
+  /* #0891B2 */
+
+  /* Neutrals - White Snow & Ultra Light Gray */
+  --white: 255 255 255;
+  /* #FFFFFF */
+  --gray-50: 249 250 251;
+  /* #F9FAFB */
+  --gray-100: 243 244 246;
+  /* #F3F4F6 */
+  --gray-200: 229 231 235;
+  /* #E5E7EB */
+  --gray-900: 17 24 39;
+  /* #111827 */
+
+  /* Semantic Colors - Vibrantes */
+  --success: 34 197 94;
+  /* #22C55E */
+  --warning: 251 191 36;
+  /* #FBBF24 */
+  --error: 239 68 68;
+  /* #EF4444 */
+  --info: var(--cyan-500);
+
+  /* Effects */
+  --gradient-primary: linear-gradient(135deg, rgb(var(--violet-500)) 0%, rgb(var(--cyan-500)) 100%);
+  --gradient-card: linear-gradient(135deg, rgba(var(--violet-500), 0.1) 0%, rgba(var(--cyan-500), 0.1) 100%);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-shadow: 0 8px 32px 0 rgba(var(--violet-500), 0.1);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(var(--violet-500), 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(var(--violet-500), 0.15);
+  --shadow-xl: 0 20px 25px -5px rgba(var(--violet-500), 0.2);
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Colors */
+  --color-violet-500: rgb(var(--violet-500));
+  --color-violet-400: rgb(var(--violet-400));
+  --color-violet-600: rgb(var(--violet-600));
+
+  --color-cyan-500: rgb(var(--cyan-500));
+  --color-cyan-400: rgb(var(--cyan-400));
+  --color-cyan-600: rgb(var(--cyan-600));
+
+  --color-white: rgb(var(--white));
+  --color-gray-50: rgb(var(--gray-50));
+  --color-gray-100: rgb(var(--gray-100));
+  --color-gray-200: rgb(var(--gray-200));
+  --color-gray-900: rgb(var(--gray-900));
+
+  --color-success: rgb(var(--success));
+  --color-warning: rgb(var(--warning));
+  --color-error: rgb(var(--error));
+
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Inter', sans-serif;
+
+  /* Radius */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --box-shadow-sm: var(--shadow-sm);
+  --box-shadow-md: var(--shadow-md);
+  --box-shadow-lg: var(--shadow-lg);
+  --box-shadow-xl: var(--shadow-xl);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Reset & Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: rgb(var(--gray-50));
+  color: rgb(var(--gray-900));
+  font-family: var(--font-sans);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Utility Classes */
+.gradient-primary {
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-bg {
+  background: var(--gradient-primary);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-dark {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Smooth Scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection */
+::selection {
+  background: rgba(var(--violet-500), 0.2);
+  color: rgb(var(--violet-600));
+}
+
+/* Focus Visible */
+*:focus-visible {
+  outline: 2px solid rgb(var(--violet-500));
+  outline-offset: 2px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ====================================
+   Mobile PWA Optimizations
+   ==================================== */
+
+/* Safe area for notch/home indicator */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Touch-friendly targets (min 44px) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Disable text selection on buttons for mobile */
+button,
+.touch-manipulation {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Prevent pull-to-refresh in PWA */
+body.pwa-mode {
+  overscroll-behavior-y: contain;
+}
+
+/* Mobile-first responsive utilities */
+@media (max-width: 640px) {
+
+  /* Larger touch targets on mobile */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  /* Adjust font sizes */
+  .text-responsive {
+    font-size: 14px;
+  }
+
+  /* Cards with more padding */
+  .card-mobile {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  /* Bottom navigation space */
+  .has-mobile-nav {
+    padding-bottom: 80px;
+  }
+}
+
+/* Slide up animation for PWA install prompt */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Standalone mode styles (when installed as PWA) */
+@media (display-mode: standalone) {
+
+  /* Remove address bar spacing */
+  body {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Status bar color area */
+  .pwa-header {
+    padding-top: calc(env(safe-area-inset-top, 0) + 12px);
+  }
+}
+
+/* Haptic feedback simulation */
+.haptic-tap:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease-out;
+}
+
+/* Loading skeleton for mobile */
+.skeleton {
+  background: linear-gradient(90deg,
+      rgb(var(--gray-100)) 25%,
+      rgb(var(--gray-200)) 50%,
+      rgb(var(--gray-100)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }

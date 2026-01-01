@@ -1,0 +1,6 @@
+email,displayName,marca,tienda,role
+manager.miraflores@papajohns.pe,Juan Pérez,Papa Johns,Miraflores,store_manager
+manager.sanisidro@papajohns.pe,María García,Papa Johns,San Isidro,store_manager
+manager.surco@pizzahut.pe,Carlos López,Pizza Hut,Surco,store_manager
+recruiter.papajohns@ngr.pe,Ana Martínez,Papa Johns,,recruiter
+supervisor.lima@ngr.pe,Roberto Silva,Papa Johns,,supervisor

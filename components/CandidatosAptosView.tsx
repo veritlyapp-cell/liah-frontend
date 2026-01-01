@@ -1,0 +1,304 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import type { Candidate } from '@/lib/firestore/candidates';
+import DatePickerModal from './DatePickerModal';
+
+interface CandidatosAptosViewProps {
+    storeId: string;
+    marcaId: string;
+}
+
+export default function CandidatosAptosView({ storeId, marcaId }: CandidatosAptosViewProps) {
+    const [candidates, setCandidates] = useState<Candidate[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [selectedCandidate, setSelectedCandidate] = useState<{ id: string, appId: string, name: string } | null>(null);
+
+    useEffect(() => {
+        loadAptoCandidates();
+    }, [storeId, marcaId]);
+
+    const loadAptoCandidates = async () => {
+        setLoading(true);
+        try {
+            // Use getCandidatesByMarca
+            const { getCandidatesByMarca } = await import('@/lib/firestore/recruiter-queries');
+            const allCandidates = await getCandidatesByMarca(marcaId);
+
+            // Filtrar candidatos que:
+            // 1. Tienen CUL Apto O
+            // 2. Tienen una aplicación aprobada (principal o backup) para esta tienda
+            const aptoCandidates = allCandidates.filter(c => {
+                const hasCULApto = c.culStatus === 'apto';
+                const hasApprovedAppForStore = c.applications?.some(app =>
+                    app.tiendaId === storeId && app.status === 'approved'
+                );
+                // Show if apto OR has approved application
+                return hasCULApto || hasApprovedAppForStore;
+            });
+
+            setCandidates(aptoCandidates);
+        } catch (error) {
+            console.error('Error loading apto candidates:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const confirmHire = async (date: Date) => {
+        if (!selectedCandidate) return;
+
+        try {
+            const { markCandidateHired } = await import('@/lib/firestore/hiring-actions');
+            await markCandidateHired(
+                selectedCandidate.id,
+                selectedCandidate.appId,
+                'store-manager-user',
+                date
+            );
+            alert('✅ Candidato marcado como INGRESADO');
+            loadAptoCandidates();
+        } catch (error) {
+            console.error('Error marking hired:', error);
+            alert('Error al marcar ingreso');
+        } finally {
+            setSelectedCandidate(null);
+        }
+    };
+
+    const handleMarkNotHired = async (candidateId: string, applicationId: string) => {
+        const reasons = [
+            'Desistió',
+            'No pasó examen médico',
+            'Encontró mejor oferta',
+            'No se presentó',
+            'Documentación incompleta',
+            'Otro'
+        ];
+
+        const reasonIndex = prompt(
+            'Selecciona razón:\n' +
+            reasons.map((r, i) => `${i + 1}. ${r}`).join('\n') +
+            '\n\nIngresa el número:'
+        );
+
+        if (!reasonIndex) return;
+        const index = parseInt(reasonIndex) - 1;
+
+        let reason = reasons[index];
+        if (index === reasons.length - 1) {
+            reason = prompt('Especifica la razón:') || 'Otro';
+        }
+
+        try {
+            const { markCandidateNotHired } = await import('@/lib/firestore/hiring-actions');
+            await markCandidateNotHired(candidateId, applicationId, 'store-manager-user', reason);
+            alert('❌ Candidato marcado como NO INGRESADO');
+            loadAptoCandidates();
+        } catch (error) {
+            console.error('Error marking not hired:', error);
+            alert('Error al marcar como no ingresado');
+        }
+    };
+
+    if (loading) {
+        return <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+        </div>;
+    }
+
+    // Agrupar por estado de ingreso
+    const pending = candidates.filter(c =>
+        !c.applications?.some(app => app.hiredStatus)
+    );
+    const hired = candidates.filter(c =>
+        c.applications?.some(app => app.hiredStatus === 'hired')
+    );
+    const notHired = candidates.filter(c =>
+        c.applications?.some(app => app.hiredStatus === 'not_hired')
+    );
+
+    return (
+        <div className="space-y-6">
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-600">Pendientes Ingreso</p>
+                    <p className="text-3xl font-bold text-yellow-900">{pending.length}</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 opacity-75">
+                    <p className="text-sm text-green-600">Ingresaron</p>
+                    <p className="text-3xl font-bold text-green-900">{hired.length}</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 opacity-75">
+                    <p className="text-sm text-gray-600">No Ingresaron</p>
+                    <p className="text-3xl font-bold text-gray-900">{notHired.length}</p>
+                </div>
+            </div>
+
+            {/* Pending Candidates (Always Visible) */}
+            {pending.length > 0 && (
+                <div>
+                    <h3 className="text-lg font-semibold mb-3">⏳ Candidatos Aptos - Pendientes de Ingreso</h3>
+                    <div className="space-y-3">
+                        {pending.map(candidate => {
+                            const aptoApp = candidate.applications?.find(app => app.status === 'approved');
+                            if (!aptoApp) return null;
+
+                            const fullName = `${candidate.nombre} ${candidate.apellidoPaterno} ${candidate.apellidoMaterno}`;
+
+                            return (
+                                <div key={candidate.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h4 className="font-semibold text-gray-900">
+                                                    {fullName}
+                                                </h4>
+                                                {aptoApp.priority === 'principal' && (
+                                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                                        ⭐ Principal
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-gray-600">
+                                                <div><span className="font-medium">DNI:</span> {candidate.dni}</div>
+                                                <div><span className="font-medium">Email:</span> {candidate.email}</div>
+                                                <div><span className="font-medium">Teléfono:</span> {candidate.telefono}</div>
+                                                <div><span className="font-medium">Posición:</span> {aptoApp.posicion}</div>
+                                                <div><span className="font-medium">Modalidad:</span> {aptoApp.modalidad || 'Full Time'}</div>
+                                                {aptoApp.turno && <div><span className="font-medium">Turno:</span> {aptoApp.turno}</div>}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2 ml-4">
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedCandidate({
+                                                        id: candidate.id,
+                                                        appId: aptoApp.id,
+                                                        name: fullName
+                                                    });
+                                                    setShowDatePicker(true);
+                                                }}
+                                                className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 transition-colors text-sm"
+                                            >
+                                                ✅ Confirmar Ingreso
+                                            </button>
+                                            <button
+                                                onClick={() => handleMarkNotHired(candidate.id, aptoApp.id)}
+                                                className="px-4 py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700 transition-colors text-sm"
+                                            >
+                                                ❌ No Ingresó
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Toggle History Button */}
+            {(hired.length > 0 || notHired.length > 0) && (
+                <div className="flex justify-center pt-4">
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="text-sm text-violet-600 font-medium hover:underline flex items-center gap-2"
+                    >
+                        {showHistory ? 'Ocultar Historial' : `Ver Historial (${hired.length + notHired.length} archivados)`}
+                    </button>
+                </div>
+            )}
+
+            {/* Hired Candidates (History) */}
+            {showHistory && hired.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                    <h3 className="text-lg font-semibold mb-3 text-green-700">✅ Candidatos que Ingresaron</h3>
+                    <div className="space-y-2">
+                        {hired.map(candidate => {
+                            const hiredApp = candidate.applications?.find(app => app.hiredStatus === 'hired');
+                            if (!hiredApp) return null;
+
+                            return (
+                                <div key={candidate.id} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <span className="font-medium text-gray-900">
+                                                {candidate.nombre} {candidate.apellidoPaterno}
+                                            </span>
+                                            <span className="text-sm text-gray-600 ml-3">
+                                                {hiredApp.posicion} - {hiredApp.modalidad}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-gray-600">
+                                            Ingresó: {hiredApp.startDate?.toDate?.().toLocaleDateString() || 'N/A'}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Not Hired Candidates (History) */}
+            {showHistory && notHired.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                    <h3 className="text-lg font-semibold mb-3 text-gray-700">❌ Candidatos que No Ingresaron</h3>
+                    <div className="space-y-2">
+                        {notHired.map(candidate => {
+                            const notHiredApp = candidate.applications?.find(app => app.hiredStatus === 'not_hired');
+                            if (!notHiredApp) return null;
+
+                            return (
+                                <div key={candidate.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <span className="font-medium text-gray-900">
+                                                {candidate.nombre} {candidate.apellidoPaterno}
+                                            </span>
+                                            <span className="text-sm text-gray-600 ml-3">
+                                                Razón: {notHiredApp.notHiredReason}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {candidates.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <div className="text-6xl mb-4">📋</div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No hay candidatos aptos aún
+                    </h3>
+                    <p className="text-gray-600">
+                        Los candidatos con CUL Apto aparecerán aquí
+                    </p>
+                </div>
+            )}
+
+            {/* Date Picker Modal */}
+            {selectedCandidate && (
+                <DatePickerModal
+                    isOpen={showDatePicker}
+                    onClose={() => {
+                        setShowDatePicker(false);
+                        setSelectedCandidate(null);
+                    }}
+                    onConfirm={confirmHire}
+                    title="Confirmar Ingreso de Candidato"
+                    candidateName={selectedCandidate.name}
+                />
+            )}
+        </div>
+    );
+}

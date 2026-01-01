@@ -1,0 +1,98 @@
+{
+    "name": "LIAH - Reclutamiento Inteligente",
+    "short_name": "LIAH",
+    "description": "Sistema de reclutamiento masivo con IA para retail y restaurantes",
+    "start_url": "/login",
+    "display": "standalone",
+    "background_color": "#f8fafc",
+    "theme_color": "#7c3aed",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icons/icon-72x72.png",
+            "sizes": "72x72",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-128x128.png",
+            "sizes": "128x128",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-144x144.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-152x152.png",
+            "sizes": "152x152",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-384x384.png",
+            "sizes": "384x384",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable any"
+        }
+    ],
+    "categories": [
+        "business",
+        "productivity"
+    ],
+    "screenshots": [
+        {
+            "src": "/screenshots/dashboard.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "label": "Dashboard de Reclutamiento"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Nuevo RQ",
+            "short_name": "RQ",
+            "description": "Crear nuevo requerimiento",
+            "url": "/store-manager?action=new-rq",
+            "icons": [
+                {
+                    "src": "/icons/shortcut-rq.png",
+                    "sizes": "96x96"
+                }
+            ]
+        },
+        {
+            "name": "Candidatos",
+            "short_name": "Candidatos",
+            "description": "Ver candidatos",
+            "url": "/recruiter",
+            "icons": [
+                {
+                    "src": "/icons/shortcut-candidates.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ]
+}

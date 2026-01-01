@@ -1,0 +1,19 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "rqs",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "marcaId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}
