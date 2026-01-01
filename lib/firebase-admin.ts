@@ -78,10 +78,3 @@ export async function getAdminFirestore() {
     const { getFirestore } = await import('firebase-admin/firestore');
     return getFirestore(app);
 }
-
-// For backward compatibility - export a simple db reference
-export const adminDb = {
-    get: async () => {
-        return await getAdminFirestore();
-    }
-};
