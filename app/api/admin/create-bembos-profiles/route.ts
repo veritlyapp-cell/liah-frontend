@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 const BEMBOS_PROFILES = [
     {
@@ -70,6 +70,7 @@ const BEMBOS_PROFILES = [
 
 export async function POST(request: NextRequest) {
     try {
+        const adminDb = await getAdminFirestore();
         const batch = adminDb.batch();
         const jobProfilesRef = adminDb.collection('jobProfiles');
         const createdProfiles: string[] = [];

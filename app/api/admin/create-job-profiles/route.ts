@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,6 +12,10 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // Import Timestamp dynamically
+        const { Timestamp } = await import('firebase-admin/firestore');
+        const adminDb = await getAdminFirestore();
 
         const profiles = [
             {
