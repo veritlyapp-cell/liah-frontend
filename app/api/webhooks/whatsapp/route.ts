@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
         Logger.success('✅ Webhook verified successfully');
         return new NextResponse(challenge, { status: 200 });
     } else {
-        Logger.error('❌ Webhook verification failed: Token mismatch or missing');
-        return new NextResponse('Forbidden', { status: 403 });
+        // Human-readable status for browser testing
+        return new NextResponse('Liah Webhook is Live 🤖 (Ready for Meta)', { status: 200 });
     }
 }
 
