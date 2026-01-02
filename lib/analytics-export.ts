@@ -30,8 +30,8 @@ export function generateCSV(data: AnalyticsDashboardData): string {
     sections.push('═══════════════════════════════════════');
     sections.push('MÉTRICAS DE EFICIENCIA');
     sections.push('═══════════════════════════════════════');
-    sections.push(`Hire Rate,${data.efficiency.hireRate.toFixed(2)}%`);
-    sections.push(`Fill Rate,${data.efficiency.fillRate.toFixed(2)}%`);
+    sections.push(`Tasa Ingresos,${data.efficiency.tasaIngresos.toFixed(2)}%`);
+    sections.push(`Tasa Aptos,${data.efficiency.tasaAptos.toFixed(2)}%`);
     sections.push(`Tiempo Promedio para Cubrir (días),${data.efficiency.avgTimeToFill.toFixed(1)}`);
     sections.push(`Tiempo Promedio Screening (días),${data.efficiency.avgTimeToScreen.toFixed(1)}`);
     sections.push(`Tiempo Promedio Entrevista (días),${data.efficiency.avgTimeToInterview.toFixed(1)}`);
@@ -167,8 +167,8 @@ function generateExcelHTML(data: AnalyticsDashboardData): string {
             <h3>⚡ Métricas de Eficiencia</h3>
             <table>
                 <tr><th>Métrica</th><th>Valor</th></tr>
-                <tr><td>Hire Rate</td><td>${data.efficiency.hireRate.toFixed(2)}%</td></tr>
-                <tr><td>Fill Rate</td><td>${data.efficiency.fillRate.toFixed(2)}%</td></tr>
+                <tr><td>Tasa Ingresos</td><td>${data.efficiency.tasaIngresos.toFixed(2)}%</td></tr>
+                <tr><td>Tasa Aptos</td><td>${data.efficiency.tasaAptos.toFixed(2)}%</td></tr>
                 <tr><td>Tiempo Promedio para Cubrir</td><td>${data.efficiency.avgTimeToFill.toFixed(1)} días</td></tr>
                 <tr><td>Tiempo Promedio Screening</td><td>${data.efficiency.avgTimeToScreen.toFixed(1)} días</td></tr>
                 <tr><td>Tiempo Promedio Entrevista</td><td>${data.efficiency.avgTimeToInterview.toFixed(1)} días</td></tr>
