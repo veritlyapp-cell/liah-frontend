@@ -48,7 +48,7 @@ async function setAdminClaims() {
     } catch (error) {
         console.error('❌ Error:', error);
 
-        if (error.code === 'auth/user-not-found') {
+        if ((error as any).code === 'auth/user-not-found') {
             console.log('\n💡 User not found. Please create the user first:');
             console.log('   1. Go to Firebase Console → Authentication');
             console.log('   2. Add user: admin@ngr.pe');
