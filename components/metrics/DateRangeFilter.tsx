@@ -57,15 +57,15 @@ export default function DateRangeFilter({ onChange, defaultRange = 'all' }: Date
 
             {/* Preset Buttons */}
             <div className="flex flex-wrap gap-2 mb-4">
-                {([
-                    { value: 'all', label: 'Todo el histórico' },
-                    { value: '30', label: 'Últimos 30 días' },
-                    { value: '90', label: 'Últimos 90 días' },
-                    { value: '180', label: 'Últimos 6 meses' }
-                ] as const).map(preset => (
+                {[
+                    { value: 'all' as const, label: 'Todo el histórico' },
+                    { value: '30' as const, label: 'Últimos 30 días' },
+                    { value: '90' as const, label: 'Últimos 90 días' },
+                    { value: '180' as const, label: 'Últimos 6 meses' }
+                ].map(preset => (
                     <button
                         key={preset.value}
-                        onClick={() => handlePresetChange(preset.value)}
+                        onClick={() => handlePresetChange(preset.value as '30' | 'all' | '90' | '180')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedRange === preset.value
                             ? 'bg-violet-600 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
