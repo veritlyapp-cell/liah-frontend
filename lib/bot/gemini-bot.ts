@@ -124,8 +124,8 @@ ACCIÓN: Despedida amable explicando que no cumple con los requisitos indispensa
      * Process user message and generate response
      */
     async processMessage(phone: string, message: string, origin_id: string, tenant_id: string): Promise<any> {
+        Logger.info(`🤖 Starting processMessage for ${phone} (${tenant_id})`);
         try {
-            Logger.info(`📥 Processing message from ${phone} (${tenant_id}): "${message}"`);
 
             const conversation = await ConversationManager.getOrCreateConversation(phone, tenant_id, origin_id);
             await ConversationManager.addMessage(phone, 'user', message);

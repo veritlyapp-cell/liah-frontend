@@ -31,9 +31,10 @@ export async function GET(req: NextRequest) {
  * Handle Incoming Webhook Events (POST request from Meta)
  */
 export async function POST(req: NextRequest) {
+    console.log('[DEBUG] [WHATSAPP] 🚀 Webhook POST received');
     try {
         const body = await req.json();
-        console.log('[DEBUG] [WHATSAPP] Raw Webhook Body:', JSON.stringify(body, null, 2));
+        console.log('[DEBUG] [WHATSAPP] Raw Body Content:', JSON.stringify(body));
 
         // Check if it's a WhatsApp message event
         if (body.object === 'whatsapp_business_account') {
