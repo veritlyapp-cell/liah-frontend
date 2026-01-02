@@ -9,20 +9,18 @@ export default function HomePage() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        // User logged in - redirect to login page which will handle proper dashboard redirect
-        router.push('/login');
-      } else {
-        // Not logged in - show landing page
-        router.push('/landing');
-      }
-    }
+    if (loading) return;
+
+    // If user is logged in, the login page will handle the role-based redirect
+    // If not logged in, show the public landing page
+    router.replace(user ? '/login' : '/landing');
   }, [user, loading, router]);
 
+  // Loading spinner while checking auth status
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
     </div>
   );
 }
+
