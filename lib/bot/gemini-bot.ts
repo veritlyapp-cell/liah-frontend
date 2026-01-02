@@ -14,8 +14,8 @@ class GeminiChatbot {
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY!;
         this.genAI = new GoogleGenerativeAI(apiKey);
 
-        // Usar modelo estable para evitar problemas de cuota
-        const model = "gemini-1.5-flash";
+        // Usar modelo 2.0 estable (más capacidad que el experimental)
+        const model = "gemini-2.0-flash";
 
         this.model = this.genAI.getGenerativeModel({ model });
         this.modelName = model;
