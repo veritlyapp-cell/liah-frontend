@@ -131,9 +131,10 @@ export const calculateEfficiencyMetrics = (
     const totalPositions = rqs.reduce((sum, r) => sum + r.vacancies, 0);
     const filledRqs = rqs.filter(r => r.timeToFill !== undefined);
 
+
     return {
-        aptosRate: totalPositions > 0 ? (approved / totalPositions) * 100 : 0,
-        fillRate: totalPositions > 0 ? (hired / totalPositions) * 100 : 0,
+        tasaAptos: totalPositions > 0 ? (approved / totalPositions) * 100 : 0,
+        tasaIngresos: totalPositions > 0 ? (hired / totalPositions) * 100 : 0,
         avgTimeToFill: filledRqs.length > 0 ?
             filledRqs.reduce((sum, r) => sum + (r.timeToFill || 0), 0) / filledRqs.length : 0,
         avgTimeToScreen: 4, // hours (mock)
