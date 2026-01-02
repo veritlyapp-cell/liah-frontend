@@ -28,9 +28,16 @@ async function initializeFirebaseAdmin() {
     if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
         console.log('[Firebase Admin] Using environment variables');
 
-        const privateKey = process.env.FIREBASE_PRIVATE_KEY.includes('\\n')
-            ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-            : process.env.FIREBASE_PRIVATE_KEY;
+        // Sanitize the private key (handle quotes, escaped newlines, etc.)
+        let privateKey = process.env.FIREBASE_PRIVATE_KEY.trim();
+
+        // Remove surrounding quotes if they exist
+        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+            privateKey = privateKey.substring(1, privateKey.length - 1);
+        }
+
+        // Handle escaped newlines
+        privateKey = privateKey.replace(/\\n/g, '\n');
 
         adminApp = admin.initializeApp({
             credential: cert({
