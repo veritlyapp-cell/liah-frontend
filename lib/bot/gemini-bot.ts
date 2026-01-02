@@ -14,7 +14,7 @@ class GeminiChatbot {
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY!;
         this.genAI = new GoogleGenerativeAI(apiKey);
 
-        // Usar gemini-1.5-flash (el nombre exacto para evitar 404 en v1beta)
+        // Usar gemini-1.5-flash (formato estándar para evitar 404)
         const model = "gemini-1.5-flash";
 
         this.model = this.genAI.getGenerativeModel({ model });
