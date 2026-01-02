@@ -13,7 +13,8 @@ export default function DateRangeFilter({ onChange, defaultRange = 'all' }: Date
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
 
-    function handlePresetChange(preset: string) {
+
+    function handlePresetChange(preset: 'all' | '30' | '90' | '180') {
         setSelectedRange(preset);
 
         const today = new Date();
@@ -66,8 +67,8 @@ export default function DateRangeFilter({ onChange, defaultRange = 'all' }: Date
                         key={preset.value}
                         onClick={() => handlePresetChange(preset.value)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedRange === preset.value
-                                ? 'bg-violet-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         {preset.label}
