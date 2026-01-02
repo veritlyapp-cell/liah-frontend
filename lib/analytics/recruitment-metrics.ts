@@ -94,8 +94,8 @@ export async function calculateMarcaMetrics(
         candidatesInvited: 0, // Would need invitations collection
         applicationsCompleted: applications.length,
         smApproved: applications.filter(app => app.status === 'approved').length,
-        culAptos: applications.filter(app => app.cul_resultado === 'apto').length,
-        hired: applications.filter(app => app.hiringStatus === 'hired').length,
+        culAptos: applications.filter(app => (app as any).cul_resultado === 'apto').length,
+        hired: applications.filter(app => (app as any).hiringStatus === 'hired').length,
 
         invitedToApplied: 0,
         approvedToApto: 0,
@@ -124,15 +124,15 @@ export async function calculateMarcaMetrics(
 
     // Calculate avgAptoToHired
     const hiredApps = applications.filter(app =>
-        app.hiringStatus === 'hired' &&
-        app.cul_fecha &&
-        app.hiredAt
+        (app as any).hiringStatus === 'hired' &&
+        (app as any).cul_fecha &&
+        (app as any).hiredAt
     );
 
     if (hiredApps.length > 0) {
         const totalDays = hiredApps.reduce((sum, app) => {
-            const aptoDate = app.cul_fecha?.toDate?.();
-            const hiredDate = app.hiredAt?.toDate?.();
+            const aptoDate = (app as any).cul_fecha?.toDate?.();
+            const hiredDate = (app as any).hiredAt?.toDate?.();
             if (aptoDate && hiredDate) {
                 const diff = (hiredDate.getTime() - aptoDate.getTime()) / (1000 * 60 * 60 * 24);
                 return sum + diff;
@@ -144,8 +144,8 @@ export async function calculateMarcaMetrics(
 
     // Calculate avgRQToHired
     const hiredWithRQDate = applications.filter(app =>
-        app.hiringStatus === 'hired' &&
-        app.hiredAt
+        (app as any).hiringStatus === 'hired' &&
+        (app as any).hiredAt
     );
 
     if (hiredWithRQDate.length > 0 && rqs.length > 0) {
@@ -156,7 +156,7 @@ export async function calculateMarcaMetrics(
         }, 0) / rqs.length;
 
         const totalDays = hiredWithRQDate.reduce((sum, app) => {
-            const hiredDate = app.hiredAt?.toDate?.();
+            const hiredDate = (app as any).hiredAt?.toDate?.();
             if (hiredDate) {
                 const diff = (hiredDate.getTime() - avgRQDate) / (1000 * 60 * 60 * 24);
                 return sum + Math.max(0, diff);
