@@ -310,8 +310,8 @@ export function calculateEfficiencyMetrics(
     }
 
     return {
-        aptosRate: totalPositions > 0 ? (approved / totalPositions) * 100 : 0,
-        fillRate: totalPositions > 0 ? (hired / totalPositions) * 100 : 0,
+        tasaAptos: totalPositions > 0 ? (approved / totalPositions) * 100 : 0,
+        tasaIngresos: totalPositions > 0 ? (hired / totalPositions) * 100 : 0,
         avgTimeToFill,
         avgTimeToScreen: 4, // Could be calculated from conversation timestamps
         avgTimeToInterview: 3
