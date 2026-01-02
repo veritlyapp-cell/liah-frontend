@@ -66,8 +66,8 @@ class Scheduler {
                 throw new Error('Candidate not found');
             }
 
-            const candidateData = candidateDoc.data()!;
-            let storeDetails = candidateData.candidateData?.selectedStore || {
+            const candidateData = candidateDoc.data() as any;
+            let storeDetails = candidateData?.candidateData?.selectedStore || {
                 id: tiendaId,
                 nombre: 'Tienda ' + tiendaId,
                 marca: 'NGR'

@@ -37,13 +37,13 @@ class StoreMatcher {
 
             // 3. Search through stores
             for (const tiendaDoc of tiendasSnapshot.docs) {
-                const tiendaData = tiendaDoc.data();
+                const tiendaData = tiendaDoc.data() as any;
                 const tienda = { id: tiendaDoc.id, ...tiendaData };
 
                 // 4. Determine Store Location
                 let storeLocation = null;
-                if (tienda.lat && tienda.lng) {
-                    storeLocation = { lat: parseFloat(tienda.lat), lng: parseFloat(tienda.lng) };
+                if (tiendaData.lat && tiendaData.lng) {
+                    storeLocation = { lat: parseFloat(tiendaData.lat), lng: parseFloat(tiendaData.lng) };
                 } else if (tienda.coordinates) {
                     storeLocation = tienda.coordinates;
                 } else if (tienda.distrito) {
@@ -70,11 +70,12 @@ class StoreMatcher {
                         // Filter vacancies by shift compatibility
                         const compatibleVacancies: any[] = [];
                         vacantesSnapshot.docs.forEach(vacanteDoc => {
-                            const vacante = { id: vacanteDoc.id, ...vacanteDoc.data() };
+                            const vacanteData = vacanteDoc.data() as any;
+                            const vacante = { id: vacanteDoc.id, ...vacanteData };
                             const isShiftCompatible =
-                                vacante.tipoTurno === 'mixto' ||
+                                vacanteData.tipoTurno === 'mixto' ||
                                 disponibilidad === 'mixto' ||
-                                vacante.tipoTurno === disponibilidad;
+                                vacanteData.tipoTurno === disponibilidad;
 
                             if (isShiftCompatible) {
                                 compatibleVacancies.push(vacante);
