@@ -323,14 +323,14 @@ export default function AnalyticsPage() {
                             />
                             <KPICard
                                 title="Tasa Aptos"
-                                value={`${data.efficiency.aptosRate.toFixed(1)}%`}
+                                value={`${data.efficiency.tasaAptos.toFixed(1)}%`}
                                 icon={<TrendUpIcon />}
                                 color="cyan"
                                 trend={{ value: 5, isPositive: true }}
                             />
                             <KPICard
                                 title="Tasa Ingresos"
-                                value={`${data.efficiency.fillRate.toFixed(1)}%`}
+                                value={`${data.efficiency.tasaIngresos.toFixed(1)}%`}
                                 icon={<UsersIcon />}
                                 color="blue"
                             />
