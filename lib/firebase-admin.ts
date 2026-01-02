@@ -28,20 +28,18 @@ async function initializeFirebaseAdmin() {
     if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
         console.log('[Firebase Admin] Using environment variables');
 
-        // Sanitize the private key (handle quotes, escaped newlines, and PEM format)
+        // Extremely robust sanitization
         let privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim();
 
-        // Remove surrounding quotes
-        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-            privateKey = privateKey.substring(1, privateKey.length - 1);
-        }
+        // Remove any surrounding quotes (single or double)
+        privateKey = privateKey.replace(/^["']|["']$/g, '');
 
-        // Ensure literal newlines are handled
-        privateKey = privateKey.replace(/\\n/g, '\n');
+        // Replace literal \n or escaped \\n with actual newlines
+        privateKey = privateKey.replace(/\\+n/g, '\n');
 
-        // Safety check: if the key doesn't have the PEM headers, it definitely won't work
+        // Check for headers
         if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-            console.error('[Firebase Admin] ❌ Private key is missing PEM headers!');
+            console.error('[Firebase Admin] ❌ Private key missing headers. Starts with:', privateKey.substring(0, 20));
         }
 
         adminApp = admin.initializeApp({
