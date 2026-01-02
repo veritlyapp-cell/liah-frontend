@@ -11,11 +11,11 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        // User logged in - redirect to dashboard based on role
-        router.push('/login'); // AuthContext will handle proper redirect
-      } else {
-        // Not logged in - show login
+        // User logged in - redirect to login page which will handle proper dashboard redirect
         router.push('/login');
+      } else {
+        // Not logged in - show landing page
+        router.push('/landing');
       }
     }
   }, [user, loading, router]);
