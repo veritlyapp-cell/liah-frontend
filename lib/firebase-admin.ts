@@ -28,16 +28,21 @@ async function initializeFirebaseAdmin() {
     if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
         console.log('[Firebase Admin] Using environment variables');
 
-        // Sanitize the private key (handle quotes, escaped newlines, etc.)
-        let privateKey = process.env.FIREBASE_PRIVATE_KEY.trim();
+        // Sanitize the private key (handle quotes, escaped newlines, and PEM format)
+        let privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim();
 
-        // Remove surrounding quotes if they exist
+        // Remove surrounding quotes
         if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
             privateKey = privateKey.substring(1, privateKey.length - 1);
         }
 
-        // Handle escaped newlines
+        // Ensure literal newlines are handled
         privateKey = privateKey.replace(/\\n/g, '\n');
+
+        // Safety check: if the key doesn't have the PEM headers, it definitely won't work
+        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+            console.error('[Firebase Admin] ❌ Private key is missing PEM headers!');
+        }
 
         adminApp = admin.initializeApp({
             credential: cert({
@@ -46,6 +51,7 @@ async function initializeFirebaseAdmin() {
                 privateKey: privateKey,
             }),
         });
+        console.log('[Firebase Admin] ✅ Initialized for project:', process.env.FIREBASE_PROJECT_ID);
         return adminApp;
     }
     // Development: Try file-based service account
