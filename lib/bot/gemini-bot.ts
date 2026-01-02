@@ -14,8 +14,8 @@ class GeminiChatbot {
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY!;
         this.genAI = new GoogleGenerativeAI(apiKey);
 
-        // Usar gemini-1.5-flash-latest para asegurar compatibilidad con la API v1beta
-        const model = "gemini-1.5-flash-latest";
+        // Usar gemini-1.5-flash (el nombre exacto para evitar 404 en v1beta)
+        const model = "gemini-1.5-flash";
 
         this.model = this.genAI.getGenerativeModel({ model });
         this.modelName = model;
