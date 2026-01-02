@@ -14,12 +14,13 @@ class GeminiChatbot {
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY!;
         this.genAI = new GoogleGenerativeAI(apiKey);
 
-        // Usar gemini-1.5-flash (formato estándar)
-        const modelName = "gemini-1.5-flash";
+        // Usar gemini-2.5-flash (modelo actual 2025+)
+        const modelName = "gemini-2.5-flash";
         this.modelName = modelName;
         this.model = this.genAI.getGenerativeModel({ model: modelName });
 
         console.log(`[INFO] [BOT] 🤖 Gemini initialized with model: ${this.modelName}`);
+
     }
 
     /**
