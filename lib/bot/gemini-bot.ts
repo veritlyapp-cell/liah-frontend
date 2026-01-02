@@ -14,9 +14,8 @@ class GeminiChatbot {
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY!;
         this.genAI = new GoogleGenerativeAI(apiKey);
 
-        // Usar gemini-1.5-flash por ahora para evitar el error de cuota 'limit 0'
-        // que está dando el modelo 2.0 en algunas cuentas de Free Tier.
-        const model = "gemini-1.5-flash";
+        // Usar gemini-1.5-flash-latest para asegurar compatibilidad con la API v1beta
+        const model = "gemini-1.5-flash-latest";
 
         this.model = this.genAI.getGenerativeModel({ model });
         this.modelName = model;
