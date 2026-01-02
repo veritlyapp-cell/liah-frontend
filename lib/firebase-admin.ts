@@ -78,3 +78,9 @@ export async function getAdminFirestore() {
     const { getFirestore } = await import('firebase-admin/firestore');
     return getFirestore(app);
 }
+
+export async function getFieldValue() {
+    await initializeFirebaseAdmin();
+    const { FieldValue } = await import('firebase-admin/firestore');
+    return FieldValue;
+}
