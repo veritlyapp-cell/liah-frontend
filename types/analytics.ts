@@ -108,8 +108,8 @@ export interface VolumeMetrics {
 }
 
 export interface EfficiencyMetrics {
-    aptosRate: number;          // % (Aptos / Posiciones Solicitadas)
-    fillRate: number;           // % (Ingresados / Posiciones Solicitadas)
+    tasaAptos: number;          // % (Aptos / Total Posiciones)
+    tasaIngresos: number;       // % (Ingresados / Total Posiciones)
     avgTimeToFill: number;      // days
     avgTimeToScreen: number;    // hours
     avgTimeToInterview: number; // days
