@@ -15,10 +15,36 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
     const { user } = useAuth();
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [culFilter, setCulFilter] = useState<string>('all');
 
-    // Search filtering
+    // Search and CUL status filtering
     const filteredCandidates = candidates.filter(candidate => {
-        // Search filter
+        // CUL status filter
+        if (culFilter !== 'all') {
+            const culStatus = candidate.culStatus || 'pending';
+            const culValidationStatus = (candidate as any).culValidationStatus;
+
+            if (culFilter === 'verified') {
+                // Show approved by AI or manually
+                if (culStatus !== 'apto' && culValidationStatus !== 'approved_ai' && culValidationStatus !== 'approved_manual') {
+                    return false;
+                }
+            } else if (culFilter === 'rejected') {
+                // Show rejected by AI or manually
+                if (culStatus !== 'no_apto' && culValidationStatus !== 'rejected_ai' && culValidationStatus !== 'rejected_manual' && culValidationStatus !== 'rejected_invalid_doc') {
+                    return false;
+                }
+            } else if (culFilter === 'manual_review') {
+                // Show pending manual review
+                if (culStatus !== 'manual_review' && culValidationStatus !== 'pending_review') {
+                    return false;
+                }
+            } else if (culFilter === 'pending') {
+                // Show not validated yet
+                if (culStatus && culStatus !== 'pending') return false;
+                if (culValidationStatus) return false;
+            }
+        }
 
         // Search filter
         const search = searchTerm.toLowerCase();
@@ -99,6 +125,19 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                 </div>
+
+                {/* CUL Validation Filter */}
+                <select
+                    value={culFilter}
+                    onChange={(e) => setCulFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                >
+                    <option value="all">📋 Todos los estados</option>
+                    <option value="verified">✅ Verificados (Aptos)</option>
+                    <option value="rejected">❌ Rechazados</option>
+                    <option value="manual_review">⚠️ Por Validar</option>
+                    <option value="pending">⏳ Sin Validar</option>
+                </select>
                 <button
                     onClick={async () => {
                         const { exportAllCandidatesExcel } = await import('@/lib/utils/export-excel');

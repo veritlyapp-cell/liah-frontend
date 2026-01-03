@@ -246,6 +246,23 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             // 4. Marcar invitación como completada
             await markInvitationAsCompleted(invitation.id, candidateId);
 
+            // 5. NUEVO: Validación automática de CUL con IA (en background)
+            const culUrl = uploadedDocs['cul'] || candidateData.certificadoUnicoLaboral;
+            if (culUrl && candidateId) {
+                console.log('🤖 Triggering automatic CUL validation...');
+                // No await - run in background to not block user
+                fetch('/api/ai/auto-validate-cul', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        candidateId,
+                        culUrl
+                    })
+                }).then(res => res.json())
+                    .then(data => console.log('🤖 Auto-validation result:', data.validationStatus))
+                    .catch(err => console.warn('Auto-validation failed (non-blocking):', err));
+            }
+
             // 5. Enviar correo de confirmación al candidato
             try {
                 await fetch('/api/send-registration-email', {
