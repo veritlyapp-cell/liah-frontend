@@ -99,11 +99,11 @@ export default function AdminDashboard() {
     const [showEditBrandModal, setShowEditBrandModal] = useState(false);
     const [holdingId, setHoldingId] = useState('ngr'); // TODO: Get from userAssignments
 
-    // Real-time store count per brand
     const [storeCounts, setStoreCounts] = useState<Record<string, number>>({});
+    const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string } | null>(null);
 
     // Features based on plan
-    const currentPlan = MOCK_HOLDING_INFO.plan as string;
+    const currentPlan = holdingInfo?.plan || 'full_stack';
     const hasRQFeature = currentPlan === 'rq_only' || currentPlan === 'full_stack';
     const hasBotFeature = currentPlan === 'bot_only' || currentPlan === 'full_stack';
 
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
         }
     }, [user, claims, loading, router]);
 
-    // Load user's holdingId from userAssignments
+    // Load user's holdingId and holding info from userAssignments
     useEffect(() => {
         async function loadUserHolding() {
             if (!user) return;
@@ -123,6 +123,18 @@ export default function AdminDashboard() {
                 if (assignment?.holdingId) {
                     setHoldingId(assignment.holdingId);
                     console.log('✅ Admin holdingId loaded:', assignment.holdingId);
+
+                    // Load holding info from Firestore
+                    const holdingDoc = await getDoc(doc(db, 'holdings', assignment.holdingId));
+                    if (holdingDoc.exists()) {
+                        const data = holdingDoc.data();
+                        setHoldingInfo({
+                            nombre: data.nombre || assignment.holdingId,
+                            plan: data.plan || 'full_stack',
+                            logo: data.logo
+                        });
+                        console.log('✅ Holding info loaded:', data.nombre);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading user holding:', error);
@@ -264,13 +276,13 @@ export default function AdminDashboard() {
                             <Logo size="sm" />
                             <div>
                                 <div className="flex items-center gap-3">
-                                    <h1 className="text-xl font-bold text-gray-900">{MOCK_HOLDING_INFO.nombre}</h1>
-                                    <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${MOCK_HOLDING_INFO.plan === 'full_stack' ? 'bg-violet-100 text-violet-700' :
-                                        MOCK_HOLDING_INFO.plan === 'rq_only' ? 'bg-cyan-100 text-cyan-700' :
+                                    <h1 className="text-xl font-bold text-gray-900">{holdingInfo?.nombre || 'Cargando...'}</h1>
+                                    <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${currentPlan === 'full_stack' ? 'bg-violet-100 text-violet-700' :
+                                        currentPlan === 'rq_only' ? 'bg-cyan-100 text-cyan-700' :
                                             'bg-blue-100 text-blue-700'
                                         }`}>
-                                        {MOCK_HOLDING_INFO.plan === 'full_stack' ? '⚡ Full Stack' :
-                                            MOCK_HOLDING_INFO.plan === 'rq_only' ? '📋 RQ Only' : '🤖 Bot Only'}
+                                        {currentPlan === 'full_stack' ? '⚡ Full Stack' :
+                                            currentPlan === 'rq_only' ? '📋 RQ Only' : '🤖 Bot Only'}
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">Admin Dashboard</p>
