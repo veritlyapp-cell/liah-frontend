@@ -56,9 +56,11 @@ export default function CreateHoldingModal({ show, onCancel, onSave }: CreateHol
             setNombre('');
             setId('');
             setPlan('full_stack');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creando empresa:', error);
-            alert('❌ Error creando empresa. Ver consola para detalles.');
+            console.error('Error code:', error.code);
+            console.error('Error message:', error.message);
+            alert(`❌ Error creando empresa: ${error.message || 'Error desconocido'}\n\nCódigo: ${error.code || 'N/A'}`);
         } finally {
             setSaving(false);
         }
