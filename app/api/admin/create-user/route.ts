@@ -1,195 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
-// GET handler for health check
-export async function GET() {
-    return NextResponse.json({
-        status: 'ok',
-        endpoint: '/api/admin/create-user',
-        method: 'POST',
-        requiredFields: ['email', 'displayName', 'role'],
-        optionalFields: ['holdingId', 'marcaId', 'storeId', 'storeName', 'marcaName'],
-        message: 'Usa POST para crear un usuario. Ejemplo: { "email": "test@example.com", "displayName": "Test User", "role": "store_manager" }'
-    });
-}
-
-// Default password for new users
-const DEFAULT_PASSWORD = 'Liah2025!';
-
-interface CreateUserRequest {
-    email: string;
-    displayName: string;
-    role: string;
-    holdingId?: string;
-    marcaId?: string;
-    zonaId?: string;
-    storeId?: string;
-    storeName?: string;
-    marcaName?: string;
-    selectedMarcas?: { marcaId: string; marcaNombre: string }[]; // For recruiters with multiple brands
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
     try {
-        const body: CreateUserRequest = await request.json();
+        const body = await req.json();
+        const { email, password, displayName, role, holdingId, approvalLevel, marcaId, tiendaId } = body;
 
-        // Validate required fields
-        if (!body.email || !body.displayName || !body.role) {
+        // Validaciones
+        if (!email || !displayName || !role || !holdingId) {
             return NextResponse.json(
-                { error: 'Missing required fields: email, displayName, role' },
+                { error: 'Campos requeridos: email, displayName, role, holdingId' },
                 { status: 400 }
             );
         }
 
-        // Dynamically import firebase-admin to avoid Turbopack symlink issues
-        const admin = (await import('firebase-admin')).default;
-        const { getApps, cert } = await import('firebase-admin/app');
-        const { getAuth } = await import('firebase-admin/auth');
-        const { getFirestore } = await import('firebase-admin/firestore');
+        // Password por defecto si no se proporciona
+        const userPassword = password || 'Liah2026!';
 
-        // Initialize Firebase Admin if not already initialized
-        if (getApps().length === 0) {
-            // Try to load service account from file
-            const fs = await import('fs');
-            const path = await import('path');
+        console.log(`[CREATE USER] Creating user: ${email}`);
 
-            const possiblePaths = [
-                path.join(process.cwd(), '../firebase-service-account.json'),
-                path.join(process.cwd(), 'firebase-service-account.json'),
-            ];
+        // 1. Crear usuario en Firebase Auth
+        const auth = await getAdminAuth();
+        const userRecord = await auth.createUser({
+            email,
+            password: userPassword,
+            displayName,
+            emailVerified: false,
+        });
 
-            let initialized = false;
-            for (const filePath of possiblePaths) {
-                if (fs.existsSync(filePath)) {
-                    console.log('[API] Using service account:', filePath);
-                    const serviceAccount = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                    admin.initializeApp({
-                        credential: cert(serviceAccount),
-                    });
-                    initialized = true;
-                    break;
-                }
-            }
+        console.log(`[CREATE USER] Auth user created: ${userRecord.uid}`);
 
-            if (!initialized) {
-                // Try environment variables
-                if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
-                    admin.initializeApp({
-                        credential: cert({
-                            projectId: process.env.FIREBASE_PROJECT_ID,
-                            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-                        }),
-                    });
-                    initialized = true;
-                }
-            }
+        // 2. Establecer custom claims
+        await auth.setCustomUserClaims(userRecord.uid, {
+            role,
+            holdingId,
+            marcaId: marcaId || null,
+            tiendaId: tiendaId || null,
+            approvalLevel: approvalLevel || null,
+        });
 
-            if (!initialized) {
-                throw new Error('Firebase Admin SDK: No credentials found');
-            }
-        }
+        console.log(`[CREATE USER] Custom claims set for: ${userRecord.uid}`);
 
-        const auth = getAuth();
-        const db = getFirestore();
-
-        // 1. Create Firebase Auth user
-        let userRecord;
-        try {
-            userRecord = await auth.createUser({
-                email: body.email,
-                password: DEFAULT_PASSWORD,
-                displayName: body.displayName,
-                emailVerified: true,
-                disabled: false,
-            });
-        } catch (authError: any) {
-            if (authError.code === 'auth/email-already-exists') {
-                // Get existing user
-                userRecord = await auth.getUserByEmail(body.email);
-                // Update password to default
-                await auth.updateUser(userRecord.uid, {
-                    password: DEFAULT_PASSWORD,
-                    displayName: body.displayName
-                });
-            } else {
-                throw authError;
-            }
-        }
-
-        // 2. Set custom claims for role-based access
-        const customClaims: Record<string, any> = {
-            role: body.role,
-        };
-        if (body.holdingId) customClaims.holdingId = body.holdingId;
-        if (body.marcaId) customClaims.marcaId = body.marcaId;
-        if (body.storeId) customClaims.storeId = body.storeId;
-
-        await auth.setCustomUserClaims(userRecord.uid, customClaims);
-
-        // 3. Create/Update Firestore userAssignment document
-        const userAssignmentData: Record<string, any> = {
+        // 3. Crear documento en userAssignments
+        const db = await getAdminDb();
+        const userAssignment = {
             userId: userRecord.uid,
-            email: body.email,
-            displayName: body.displayName,
-            role: body.role,
-            holdingId: body.holdingId || null,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            email,
+            displayName,
+            role,
+            holdingId,
+            marcaId: marcaId || null,
+            tiendaId: tiendaId || null,
+            approvalLevel: approvalLevel || null,
+            active: true,
+            createdBy: 'super_admin',
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
         };
 
-        // Add role-specific assignment structures
-        if (body.role === 'jefe_marca') {
-            if (body.marcaId) {
-                userAssignmentData.assignedMarca = {
-                    marcaId: body.marcaId,
-                    marcaNombre: body.marcaName || body.marcaId
-                };
-            }
-        } else if (body.role === 'recruiter') {
-            // Recruiters can have multiple marcas
-            if (body.selectedMarcas && body.selectedMarcas.length > 0) {
-                userAssignmentData.assignedMarcas = body.selectedMarcas;
-                // Also set first as primary for backwards compatibility
-                userAssignmentData.assignedMarca = body.selectedMarcas[0];
-            } else if (body.marcaId) {
-                // Fallback to single marca
-                userAssignmentData.assignedMarca = {
-                    marcaId: body.marcaId,
-                    marcaNombre: body.marcaName || body.marcaId
-                };
-            }
-        } else if (body.role === 'store_manager') {
-            if (body.storeId) {
-                userAssignmentData.assignedStore = {
-                    tiendaId: body.storeId,
-                    tiendaNombre: body.storeName || body.storeId,
-                    marcaId: body.marcaId || null
-                };
-            }
-        } else if (body.role === 'supervisor') {
-            if (body.storeId) {
-                userAssignmentData.assignedStores = [{
-                    tiendaId: body.storeId,
-                    tiendaNombre: body.storeName || body.storeId,
-                    marcaId: body.marcaId || null
-                }];
-            }
-        }
+        await db.collection('userAssignments').doc(userRecord.uid).set(userAssignment);
 
-        await db.collection('userAssignments').doc(userRecord.uid).set(userAssignmentData, { merge: true });
+        console.log(`[CREATE USER] UserAssignment created for: ${userRecord.uid}`);
 
         return NextResponse.json({
             success: true,
-            uid: userRecord.uid,
-            email: body.email,
-            message: `Usuario creado exitosamente. Contraseña temporal: ${DEFAULT_PASSWORD}`,
+            userId: userRecord.uid,
+            email,
+            message: `Usuario creado exitosamente. Contraseña temporal: ${userPassword}`
         });
 
     } catch (error: any) {
-        console.error('Error creating user:', error);
+        console.error('[CREATE USER] Error:', error);
+
+        // Manejar errores específicos de Firebase
+        if (error.code === 'auth/email-already-exists') {
+            return NextResponse.json(
+                { error: 'Ya existe un usuario con este email' },
+                { status: 400 }
+            );
+        }
+
+        if (error.code === 'auth/invalid-email') {
+            return NextResponse.json(
+                { error: 'Email inválido' },
+                { status: 400 }
+            );
+        }
+
         return NextResponse.json(
-            { error: error.message || 'Error interno del servidor' },
+            { error: error.message || 'Error creando usuario' },
             { status: 500 }
         );
     }

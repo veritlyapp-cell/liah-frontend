@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface CreateUserModalProps {
     show: boolean;
@@ -11,9 +11,9 @@ interface CreateUserModalProps {
 }
 
 export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: CreateUserModalProps) {
-    const [userId, setUserId] = useState('');
     const [email, setEmail] = useState('');
     const [nombre, setNombre] = useState('');
+    const [password, setPassword] = useState('');
     const [rol, setRol] = useState<string>('client_admin');
     const [holdingId, setHoldingId] = useState('');
     const [holdings, setHoldings] = useState<any[]>([]);
@@ -43,7 +43,7 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
     if (!show) return null;
 
     async function handleSubmit() {
-        if (!userId || !email || !nombre || !holdingId) {
+        if (!email || !nombre || !holdingId) {
             alert('Por favor completa todos los campos');
             return;
         }
@@ -51,25 +51,30 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
         setSaving(true);
 
         try {
-            // Crear documento en Firestore
-            const assignmentsRef = collection(db, 'userAssignments');
-            const userData = {
-                userId,
-                email,
-                displayName: nombre,
-                role: rol,
-                holdingId,
-                approvalLevel: selectedLevel,
-                active: true,
-                createdBy: 'super_admin',
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now()
-            };
+            // Llamar a la API para crear el usuario
+            const response = await fetch('/api/admin/create-user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email,
+                    password: password || undefined, // Si está vacío, la API usará el default
+                    displayName: nombre,
+                    role: rol,
+                    holdingId,
+                    approvalLevel: selectedLevel,
+                }),
+            });
 
-            const docRef = await addDoc(assignmentsRef, userData);
+            const result = await response.json();
 
-            console.log('✅ Usuario creado en Firestore:', docRef.id);
-            alert(`✅ Usuario creado exitosamente!\nID: ${docRef.id}`);
+            if (!response.ok) {
+                throw new Error(result.error || 'Error creando usuario');
+            }
+
+            console.log('✅ Usuario creado:', result);
+            alert(`✅ Usuario creado exitosamente!\n\nEmail: ${email}\nContraseña: ${password || 'Liah2026!'}\n\nEl usuario puede cambiar su contraseña en el primer login.`);
 
             const selectedHolding = holdings.find(h => h.id === holdingId);
 
@@ -82,15 +87,15 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
             });
 
             // Reset form
-            setUserId('');
             setEmail('');
             setNombre('');
+            setPassword('');
             setRol('client_admin');
             setHoldingId('');
             setSelectedLevel(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creando usuario:', error);
-            alert('❌ Error creando usuario. Ver consola para detalles.');
+            alert(`❌ Error: ${error.message}`);
         } finally {
             setSaving(false);
         }
@@ -102,28 +107,11 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                 {/* Header */}
                 <div className="border-b border-gray-200 px-6 py-4">
                     <h2 className="text-2xl font-bold text-gray-900">Crear Nuevo Usuario</h2>
-                    <p className="text-sm text-gray-600 mt-1">Se guardará automáticamente en Firestore</p>
+                    <p className="text-sm text-gray-600 mt-1">Se creará automáticamente en Firebase Auth y Firestore</p>
                 </div>
 
                 {/* Body */}
                 <div className="px-6 py-6 space-y-6">
-                    {/* User ID (UID de Firebase Auth) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            User ID (UID de Firebase Auth) *
-                        </label>
-                        <input
-                            type="text"
-                            value={userId}
-                            onChange={(e) => setUserId(e.target.value)}
-                            placeholder="ABC123xyz456def789"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                            Copia el UID desde Firebase Console → Authentication
-                        </p>
-                    </div>
-
                     {/* Email */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -152,6 +140,23 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                         />
                     </div>
 
+                    {/* Password */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Contraseña (opcional)
+                        </label>
+                        <input
+                            type="text"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Dejar vacío para usar: Liah2026!"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Si no se especifica, se usará la contraseña por defecto: <code className="bg-gray-100 px-1 rounded">Liah2026!</code>
+                        </p>
+                    </div>
+
                     {/* Empresa / Holding */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -172,7 +177,7 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                     {/* Rol y Nivel */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
-                            Rol y Configuración de Aprobación *
+                            Rol *
                         </label>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
@@ -201,6 +206,30 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                                 >
                                     <p className="font-semibold text-gray-900">🔍 Recruiter</p>
                                     <p className="text-xs text-gray-500">Gestión de candidatos</p>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setRol('store_manager')}
+                                    className={`p-4 border-2 rounded-lg transition-all text-left ${rol === 'store_manager'
+                                        ? 'border-violet-600 bg-violet-50'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <p className="font-semibold text-gray-900">🏪 Jefe de Tienda</p>
+                                    <p className="text-xs text-gray-500">Gestión de RQs y candidatos</p>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setRol('brand_manager')}
+                                    className={`p-4 border-2 rounded-lg transition-all text-left ${rol === 'brand_manager'
+                                        ? 'border-violet-600 bg-violet-50'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <p className="font-semibold text-gray-900">⭐ Jefe de Marca</p>
+                                    <p className="text-xs text-gray-500">Aprobación de RQs</p>
                                 </button>
                             </div>
 
@@ -236,26 +265,13 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                         </div>
                     </div>
 
-                    <div className="hidden">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Holding ID (auto-generado)
-                        </label>
-                        <input
-                            type="text"
-                            value={holdingId}
-                            onChange={(e) => setHoldingId(e.target.value)}
-                            placeholder="ngr, intercorp"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm bg-gray-50"
-                        />
-                    </div>
-
                     {/* Info */}
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <p className="text-sm text-green-900">
-                            <strong>✅ Automático:</strong> Al hacer click en "Crear Usuario", se guardará automáticamente en Firestore collection <code className="bg-green-100 px-1 rounded">userAssignments</code>.
+                            <strong>✅ Automático:</strong> El sistema creará el usuario en Firebase Auth y en Firestore automáticamente.
                         </p>
                         <p className="text-xs text-green-800 mt-1">
-                            ⚠️ El usuario debe existir previamente en Firebase Authentication.
+                            El usuario recibirá sus credenciales y podrá iniciar sesión inmediatamente.
                         </p>
                     </div>
                 </div>
@@ -276,10 +292,10 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                     >
                         {saving ? (
                             <>
-                                <span className="animate-spin">⏳</span> Guardando...
+                                <span className="animate-spin">⏳</span> Creando...
                             </>
                         ) : (
-                            <>✓ Crear en Firestore</>
+                            <>✓ Crear Usuario</>
                         )}
                     </button>
                 </div>
