@@ -193,6 +193,26 @@ export default function SuperAdminDashboard() {
         setShowCreateModal(false);
     };
 
+    const handleDeleteHolding = async (holding: any) => {
+        if (!confirm(`¿Eliminar la empresa "${holding.nombre}"?\n\nEsta acción eliminará también todas las marcas y tiendas asociadas.`)) {
+            return;
+        }
+
+        try {
+            // Delete the holding document
+            await deleteDoc(doc(db, 'holdings', holding.id));
+
+            // Update local state
+            setHoldings(holdings.filter(h => h.id !== holding.id));
+
+            alert(`✅ Empresa "${holding.nombre}" eliminada exitosamente`);
+            console.log('✅ Empresa eliminada:', holding.id);
+        } catch (error) {
+            console.error('Error eliminando empresa:', error);
+            alert('❌ Error eliminando empresa. Ver consola para detalles.');
+        }
+    };
+
     const handleCreateUser = (newUser: any) => {
         const userWithId = { ...newUser, id: String(users.length + 1) };
         setUsers([...users, userWithId]);
@@ -446,6 +466,12 @@ export default function SuperAdminDashboard() {
                                                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                                             >
                                                 Editar
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteHolding(holding)}
+                                                className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors"
+                                            >
+                                                🗑️ Eliminar
                                             </button>
                                         </div>
                                     </div>

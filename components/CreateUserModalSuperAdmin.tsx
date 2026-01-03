@@ -24,7 +24,10 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
     useEffect(() => {
         const fetchHoldings = async () => {
             const snap = await getDocs(collection(db, 'holdings'));
-            setHoldings(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            // Filter only active holdings
+            const allHoldings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const activeHoldings = allHoldings.filter((h: any) => h.activo !== false);
+            setHoldings(activeHoldings);
         };
         fetchHoldings();
     }, []);
