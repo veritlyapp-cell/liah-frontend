@@ -271,37 +271,54 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Filtrar por marca (opcional)
+                                            Selecciona marca *
                                         </label>
                                         <select
                                             value={marcaId}
-                                            onChange={(e) => setMarcaId(e.target.value)}
+                                            onChange={(e) => {
+                                                setMarcaId(e.target.value);
+                                                setSelectedStores([]); // Clear stores when marca changes
+                                            }}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                         >
-                                            <option value="">Todas las tiendas</option>
+                                            <option value="">Seleccionar marca...</option>
                                             {marcas.map(m => (
                                                 <option key={m.id} value={m.id}>{m.nombre}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Selecciona tiendas ({selectedStores.length} seleccionadas)
-                                        </label>
-                                        <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-2">
-                                            {storesForMarca.map(store => (
-                                                <label key={store.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedStores.includes(store.id)}
-                                                        onChange={() => toggleStore(store.id)}
-                                                        className="mr-3"
-                                                    />
-                                                    <span className="text-sm">{store.nombre}</span>
-                                                </label>
-                                            ))}
+
+                                    {marcaId ? (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Selecciona tiendas ({selectedStores.length} seleccionadas)
+                                            </label>
+                                            {storesForMarca.length === 0 ? (
+                                                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                                                    <p className="text-gray-500 text-sm">No hay tiendas para esta marca</p>
+                                                    <p className="text-gray-400 text-xs mt-1">Primero crea tiendas en la pestaña "Tiendas"</p>
+                                                </div>
+                                            ) : (
+                                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-2">
+                                                    {storesForMarca.map(store => (
+                                                        <label key={store.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedStores.includes(store.id)}
+                                                                onChange={() => toggleStore(store.id)}
+                                                                className="mr-3"
+                                                            />
+                                                            <span className="text-sm">{store.nombre}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="p-4 bg-blue-50 rounded-lg text-center">
+                                            <p className="text-blue-600 text-sm">↑ Primero selecciona una marca</p>
+                                        </div>
+                                    )}
                                 </>
                             )}
 
@@ -349,41 +366,49 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Filtrar por marca (opcional)
+                                            Selecciona marca *
                                         </label>
                                         <select
                                             value={marcaId}
-                                            onChange={(e) => setMarcaId(e.target.value)}
+                                            onChange={(e) => {
+                                                setMarcaId(e.target.value);
+                                                setStoreId(''); // Clear store when marca changes
+                                            }}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                         >
-                                            <option value="">Todas las marcas</option>
+                                            <option value="">Seleccionar marca...</option>
                                             {marcas.map(m => (
                                                 <option key={m.id} value={m.id}>{m.nombre}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Selecciona tienda *</label>
-                                        {(marcaId ? availableStores.filter(s => s.marcaId === marcaId) : availableStores).length === 0 ? (
-                                            <div className="p-4 bg-gray-50 rounded-lg text-center">
-                                                <p className="text-gray-500 text-sm">No hay tiendas disponibles</p>
-                                                <p className="text-gray-400 text-xs mt-1">Primero crea tiendas en la pestaña "Tiendas"</p>
-                                            </div>
-                                        ) : (
-                                            <select
-                                                value={storeId}
-                                                onChange={(e) => setStoreId(e.target.value)}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            >
-                                                <option value="">Seleccionar...</option>
-                                                {(marcaId ? availableStores.filter(s => s.marcaId === marcaId) : availableStores).map(s => (
-                                                    <option key={s.id} value={s.id}>
-                                                        {s.nombre} ({marcas.find(m => m.id === s.marcaId)?.nombre || 'Sin marca'})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
-                                    </div>
+
+                                    {marcaId ? (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Selecciona tienda *</label>
+                                            {availableStores.filter(s => s.marcaId === marcaId).length === 0 ? (
+                                                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                                                    <p className="text-gray-500 text-sm">No hay tiendas para esta marca</p>
+                                                    <p className="text-gray-400 text-xs mt-1">Primero crea tiendas en la pestaña "Tiendas"</p>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    value={storeId}
+                                                    onChange={(e) => setStoreId(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                >
+                                                    <option value="">Seleccionar tienda...</option>
+                                                    {availableStores.filter(s => s.marcaId === marcaId).map(s => (
+                                                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-blue-50 rounded-lg text-center">
+                                            <p className="text-blue-600 text-sm">↑ Primero selecciona una marca</p>
+                                        </div>
+                                    )}
                                 </>
                             )}
 
