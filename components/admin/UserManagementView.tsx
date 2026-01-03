@@ -173,10 +173,30 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                                     </div>
                                 )}
 
-                                {/* Assigned Marca (Jefe de Marca / Recruiter) */}
-                                {(assignment.role === 'jefe_marca' || assignment.role === 'recruiter') && assignment.assignedMarca && (
+                                {/* Assigned Marca(s) (Jefe de Marca / Recruiter) */}
+                                {(assignment.role === 'jefe_marca' || assignment.role === 'recruiter') && (
                                     <div className="text-sm text-gray-600">
-                                        <p>🏢 Marca: <span className="font-medium">{assignment.assignedMarca.marcaNombre}</span></p>
+                                        {assignment.assignedMarcas && assignment.assignedMarcas.length > 0 ? (
+                                            <>
+                                                <p className="font-medium">🏢 Marcas: {assignment.assignedMarcas.length}</p>
+                                                <ul className="mt-1 space-y-0.5">
+                                                    {assignment.assignedMarcas.slice(0, 3).map(marca => (
+                                                        <li key={marca.marcaId} className="text-xs">
+                                                            • {marca.marcaNombre || marca.marcaId}
+                                                        </li>
+                                                    ))}
+                                                    {assignment.assignedMarcas.length > 3 && (
+                                                        <li className="text-xs text-gray-400">
+                                                            + {assignment.assignedMarcas.length - 3} más
+                                                        </li>
+                                                    )}
+                                                </ul>
+                                            </>
+                                        ) : assignment.assignedMarca ? (
+                                            <p>🏢 Marca: <span className="font-medium">{assignment.assignedMarca.marcaNombre || assignment.assignedMarca.marcaId}</span></p>
+                                        ) : (
+                                            <p className="text-gray-400 italic">Sin marca asignada</p>
+                                        )}
                                     </div>
                                 )}
 

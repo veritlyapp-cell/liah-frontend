@@ -652,6 +652,17 @@ export default function AdminDashboard() {
                     }}
                 />
             )}
+
+            {/* Bulk Upload Stores Modal */}
+            <BulkUploadStoresModal
+                show={showBulkStoreModal}
+                holdingId={holdingId}
+                onCancel={() => setShowBulkStoreModal(false)}
+                onComplete={(result) => {
+                    setShowBulkStoreModal(false);
+                    alert(`✅ Importación completada: ${result.success} tiendas creadas, ${result.errors} errores`);
+                }}
+            />
         </div>
     );
 }
