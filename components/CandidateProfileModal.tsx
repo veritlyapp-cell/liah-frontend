@@ -16,6 +16,9 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
     const [processing, setProcessing] = useState(false);
     const [showRejectReason, setShowRejectReason] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [analyzingCUL, setAnalyzingCUL] = useState(false);
+    const [analyzingDNI, setAnalyzingDNI] = useState(false);
+    const [aiResult, setAiResult] = useState<any>(null);
 
     async function handleApprove(applicationId: string) {
         if (!user) return;
@@ -70,6 +73,91 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         }
     }
 
+    async function handleAnalyzeCUL() {
+        if (!candidate.certificadoUnicoLaboral) {
+            alert('No hay CUL subido para analizar');
+            return;
+        }
+
+        setAnalyzingCUL(true);
+        try {
+            const response = await fetch('/api/ai/analyze-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    documentType: 'cul',
+                    documentUrl: candidate.certificadoUnicoLaboral,
+                    candidateId: candidate.id
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            setAiResult(data);
+
+            // Auto-update CUL status based on AI recommendation
+            if (data.validationStatus === 'approved_ai') {
+                await handleUpdateCUL('apto', `IA: ${data.aiObservation}`);
+            } else if (data.validationStatus === 'rejected_ai') {
+                await handleUpdateCUL('no_apto', `IA: ${data.aiObservation}`);
+            } else {
+                await handleUpdateCUL('manual_review', `IA: ${data.aiObservation}`);
+            }
+
+            alert(`✅ Análisis completado\n\nRecomendación: ${data.validationStatus}\nConfianza: ${data.confidence}%`);
+        } catch (error: any) {
+            console.error('Error analyzing CUL:', error);
+            alert(`❌ Error: ${error.message}`);
+        } finally {
+            setAnalyzingCUL(false);
+        }
+    }
+
+    async function handleAnalyzeDNI() {
+        // First check if there's a DNI document
+        const dniUrl = candidate.documents?.dni || (candidate as any).documentoDNI;
+        if (!dniUrl) {
+            alert('No hay imagen de DNI subida para analizar');
+            return;
+        }
+
+        setAnalyzingDNI(true);
+        try {
+            const response = await fetch('/api/ai/analyze-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    documentType: 'dni',
+                    documentUrl: dniUrl,
+                    candidateId: candidate.id
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            // Update candidate with extracted data
+            await fetch('/api/candidates/update-validation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidateId: candidate.id,
+                    updateType: 'dni_verification',
+                    data: data.extractedData
+                })
+            });
+
+            alert(`✅ DNI analizado y perfil actualizado\n\nNombre: ${data.extractedData?.nombreCompleto}\nDNI: ${data.extractedData?.dni}\nConfianza: ${data.confidence}%`);
+            onRefresh();
+        } catch (error: any) {
+            console.error('Error analyzing DNI:', error);
+            alert(`❌ Error: ${error.message}`);
+        } finally {
+            setAnalyzingDNI(false);
+        }
+    }
+
     const latestApp = candidate.applications && candidate.applications.length > 0
         ? candidate.applications[candidate.applications.length - 1]
         : null;
@@ -109,8 +197,26 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 <p className="font-mono font-semibold text-violet-700">{candidate.candidateCode}</p>
                             </div>
                             <div>
-                                <label className="text-sm text-gray-500">DNI</label>
-                                <p className="font-medium text-gray-900">{candidate.dni}</p>
+                                <label className="text-sm text-gray-500 flex items-center gap-2">
+                                    DNI
+                                    {(candidate as any).dniVerified && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                                            ✅ Verificado por IA
+                                        </span>
+                                    )}
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-medium text-gray-900">{candidate.dni}</p>
+                                    {candidate.documents?.dni && !(candidate as any).dniVerified && (
+                                        <button
+                                            onClick={handleAnalyzeDNI}
+                                            disabled={analyzingDNI}
+                                            className="px-2 py-1 bg-violet-100 text-violet-700 rounded text-xs font-medium hover:bg-violet-200 disabled:opacity-50"
+                                        >
+                                            {analyzingDNI ? '⏳' : '🤖'} Verificar
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <div>
                                 <label className="text-sm text-gray-500">Email</label>
@@ -165,8 +271,61 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             )}
                         </div>
 
-                        {/* CUL Actions */}
-                        <div className="flex gap-2">
+                        {/* AI Analysis Button */}
+                        {candidate.certificadoUnicoLaboral && !candidate.culStatus && (
+                            <div className="mb-4">
+                                <button
+                                    onClick={handleAnalyzeCUL}
+                                    disabled={analyzingCUL || processing}
+                                    className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2"
+                                >
+                                    {analyzingCUL ? (
+                                        <>
+                                            <span className="animate-spin">⏳</span> Analizando con IA...
+                                        </>
+                                    ) : (
+                                        <>🤖 Analizar CUL con IA</>
+                                    )}
+                                </button>
+                                <p className="text-xs text-gray-500 text-center mt-2">
+                                    La IA detectará denuncias y antecedentes automáticamente
+                                </p>
+                            </div>
+                        )}
+
+                        {/* AI Result Display */}
+                        {aiResult && aiResult.documentType === 'cul' && (
+                            <div className="mb-4 p-4 bg-violet-50 border border-violet-200 rounded-xl">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-lg">🤖</span>
+                                    <p className="font-medium text-violet-900">Resultado del Análisis IA</p>
+                                    <span className="text-xs bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full">
+                                        {aiResult.confidence}% confianza
+                                    </span>
+                                </div>
+                                <p className="text-sm text-violet-800">{aiResult.aiObservation}</p>
+                                {aiResult.denunciasEncontradas?.length > 0 && (
+                                    <div className="mt-2 p-2 bg-red-50 rounded">
+                                        <p className="text-sm font-medium text-red-800">⚠️ Denuncias detectadas:</p>
+                                        <ul className="list-disc list-inside text-sm text-red-700">
+                                            {aiResult.denunciasEncontradas.map((d: string, i: number) => (
+                                                <li key={i}>{d}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* CUL Manual Actions */}
+                        <div className="flex gap-2 flex-wrap">
+                            <button
+                                onClick={handleAnalyzeCUL}
+                                disabled={analyzingCUL || processing || !candidate.certificadoUnicoLaboral}
+                                className="px-4 py-2 bg-violet-600 text-white rounded-full text-sm font-medium hover:bg-violet-700 disabled:opacity-50 shadow-sm flex items-center gap-2"
+                            >
+                                <span>🤖</span> Analizar con IA
+                            </button>
                             <button
                                 onClick={() => handleUpdateCUL('apto')}
                                 disabled={processing}
