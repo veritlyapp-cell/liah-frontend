@@ -234,6 +234,18 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                                     <p className="font-semibold text-gray-900">⭐ Jefe de Marca</p>
                                     <p className="text-xs text-gray-500">Aprobación de RQs</p>
                                 </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setRol('supervisor')}
+                                    className={`p-4 border-2 rounded-lg transition-all text-left ${rol === 'supervisor'
+                                        ? 'border-violet-600 bg-violet-50'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <p className="font-semibold text-gray-900">👔 Supervisor</p>
+                                    <p className="text-xs text-gray-500">Supervisión de tiendas</p>
+                                </button>
                             </div>
 
                             {approvalLevels.length > 0 && (
