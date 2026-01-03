@@ -264,8 +264,8 @@ export default function LandingPage() {
               © 2025 LIAH by Relie Labs. Todos los derechos reservados.
             </p>
             <div className="flex items-center gap-6">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">Términos</a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">Privacidad</a>
+              <Link href="/terminos" className="text-gray-400 hover:text-white transition-colors">Términos</Link>
+              <Link href="/privacidad" className="text-gray-400 hover:text-white transition-colors">Privacidad</Link>
             </div>
           </div>
         </div>

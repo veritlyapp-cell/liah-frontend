@@ -597,6 +597,40 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                         </div>
                     )}
 
+                    {/* Consent Checkbox */}
+                    <div className="border-t pt-4">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="consent"
+                                required
+                                className="mt-1 w-5 h-5 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                            />
+                            <span className="text-sm text-gray-600">
+                                He leído y acepto los{' '}
+                                <a
+                                    href="/terminos"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-violet-600 hover:text-violet-700 underline"
+                                >
+                                    Términos y Condiciones
+                                </a>{' '}
+                                y la{' '}
+                                <a
+                                    href="/privacidad"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-violet-600 hover:text-violet-700 underline"
+                                >
+                                    Política de Privacidad
+                                </a>{' '}
+                                de LIAH. Autorizo el tratamiento de mis datos personales para fines de reclutamiento.
+                                <span className="text-red-500"> *</span>
+                            </span>
+                        </label>
+                    </div>
+
                     <button
                         type="submit"
                         disabled={submitting || uploadingCUL}
