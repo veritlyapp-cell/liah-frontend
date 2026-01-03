@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export async function POST(req: NextRequest) {
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         console.log(`[CREATE USER] Custom claims set for: ${userRecord.uid}`);
 
         // 3. Crear documento en userAssignments
-        const db = await getAdminDb();
+        const db = await getAdminFirestore();
         const userAssignment = {
             userId: userRecord.uid,
             email,
