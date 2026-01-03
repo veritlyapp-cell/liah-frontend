@@ -15,7 +15,7 @@ interface BulkUploadStoresModalProps {
 
 interface StoreRow extends ParsedRow {
     nombre: string;
-    marcaId: string;
+    marca: string; // Nombre de la marca (se buscará el ID)
     departamento: string;
     provincia: string;
     distrito: string;
@@ -49,8 +49,8 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
             return;
         }
 
-        // Validate required columns
-        const requiredColumns = ['nombre', 'marcaId', 'departamento', 'provincia', 'distrito', 'direccion'];
+        // Validate required columns - now uses 'marca' name instead of 'marcaId'
+        const requiredColumns = ['nombre', 'marca', 'departamento', 'provincia', 'distrito', 'direccion'];
         const columnErrors = validateColumns(result.data, requiredColumns);
 
         if (columnErrors.length > 0) {
@@ -71,8 +71,8 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
             if (!storeRow.nombre?.trim()) {
                 validationErrs.push(`Fila ${rowNum}: Nombre es requerido`);
             }
-            if (!storeRow.marcaId?.trim()) {
-                validationErrs.push(`Fila ${rowNum}: MarcaId es requerido`);
+            if (!storeRow.marca?.trim()) {
+                validationErrs.push(`Fila ${rowNum}: Marca es requerida`);
             }
 
             // Validate location
@@ -110,14 +110,36 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
         const importErrors: string[] = [];
 
         try {
+            // First, load all marcas for this holding to create a name -> id map
+            const marcasRef = collection(db, 'marcas');
+            const marcasQuery = query(marcasRef, where('holdingId', '==', holdingId));
+            const marcasSnapshot = await getDocs(marcasQuery);
+
+            const marcaMap: Record<string, string> = {};
+            marcasSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const nombreLower = (data.nombre || '').toLowerCase().trim();
+                marcaMap[nombreLower] = doc.id;
+            });
+
+            console.log('Marcas disponibles:', Object.keys(marcaMap));
+
             for (let i = 0; i < parsedData.length; i++) {
                 const store = parsedData[i];
+                const marcaNombre = (store.marca || '').toLowerCase().trim();
+                const marcaId = marcaMap[marcaNombre];
+
+                if (!marcaId) {
+                    errorCount++;
+                    importErrors.push(`Fila ${i + 2}: Marca "${store.marca}" no encontrada`);
+                    continue;
+                }
 
                 try {
                     // Generate store code
                     const marcaPrefix = store.nombre.substring(0, 3).toUpperCase();
                     const tiendasRef = collection(db, 'tiendas');
-                    const q = query(tiendasRef, where('marcaId', '==', store.marcaId));
+                    const q = query(tiendasRef, where('marcaId', '==', marcaId));
                     const existingStores = await getDocs(q);
                     const storeNumber = existingStores.size + 1;
                     const codigo = `TDA-${marcaPrefix}-${String(storeNumber).padStart(3, '0')}`;
@@ -125,7 +147,7 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
                     await addDoc(tiendasRef, {
                         codigo,
                         nombre: store.nombre,
-                        marcaId: store.marcaId,
+                        marcaId: marcaId,
                         holdingId: holdingId,
                         departamento: store.departamento,
                         provincia: store.provincia,
@@ -158,10 +180,10 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
     };
 
     const handleDownloadTemplate = () => {
-        const headers = ['nombre', 'marcaId', 'departamento', 'provincia', 'distrito', 'direccion'];
+        const headers = ['nombre', 'marca', 'departamento', 'provincia', 'distrito', 'direccion'];
         const sampleData = [
-            ['Papa Johns San Isidro', 'marca_id_ejemplo', 'Lima', 'Lima', 'San Isidro', 'Av. Camino Real 1050'],
-            ['Bembos Miraflores', 'marca_id_ejemplo', 'Lima', 'Lima', 'Miraflores', 'Av. Larco 1234']
+            ['Papa Johns San Isidro', 'Papa Johns', 'Lima', 'Lima', 'San Isidro', 'Av. Camino Real 1050'],
+            ['Bembos Miraflores', 'Bembos', 'Lima', 'Lima', 'Miraflores', 'Av. Larco 1234']
         ];
         downloadSampleCSV('plantilla_tiendas.csv', headers, sampleData);
     };

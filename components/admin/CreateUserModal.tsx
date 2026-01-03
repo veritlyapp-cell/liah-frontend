@@ -346,19 +346,45 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                             )}
 
                             {role === 'store_manager' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Selecciona tienda *</label>
-                                    <select
-                                        value={storeId}
-                                        onChange={(e) => setStoreId(e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        {availableStores.map(s => (
-                                            <option key={s.id} value={s.id}>{s.nombre}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Filtrar por marca (opcional)
+                                        </label>
+                                        <select
+                                            value={marcaId}
+                                            onChange={(e) => setMarcaId(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                        >
+                                            <option value="">Todas las marcas</option>
+                                            {marcas.map(m => (
+                                                <option key={m.id} value={m.id}>{m.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Selecciona tienda *</label>
+                                        {(marcaId ? availableStores.filter(s => s.marcaId === marcaId) : availableStores).length === 0 ? (
+                                            <div className="p-4 bg-gray-50 rounded-lg text-center">
+                                                <p className="text-gray-500 text-sm">No hay tiendas disponibles</p>
+                                                <p className="text-gray-400 text-xs mt-1">Primero crea tiendas en la pestaña "Tiendas"</p>
+                                            </div>
+                                        ) : (
+                                            <select
+                                                value={storeId}
+                                                onChange={(e) => setStoreId(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                            >
+                                                <option value="">Seleccionar...</option>
+                                                {(marcaId ? availableStores.filter(s => s.marcaId === marcaId) : availableStores).map(s => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {s.nombre} ({marcas.find(m => m.id === s.marcaId)?.nombre || 'Sin marca'})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                </>
                             )}
 
                             <div className="flex gap-2">
