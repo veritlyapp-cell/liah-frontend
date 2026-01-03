@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { parseCSV, fileToText, downloadTemplate, type UserImportRow, type ParseResult } from '@/lib/utils/csv-parser';
+import { parseCSV, downloadTemplate, type UserImportRow, type ParseResult } from '@/lib/utils/csv-parser';
+import { parseFile as parseExcelFile } from '@/lib/utils/file-parser';
 import { bulkCreateUsers, type BulkCreationResult } from '@/lib/firebase/bulk-user-creation';
 
 interface BulkImportUsersModalProps {
@@ -29,12 +30,48 @@ export default function BulkImportUsersModal({ show, holdingId, createdBy, onCan
         setFile(selectedFile);
 
         try {
-            const content = await fileToText(selectedFile);
-            const parsed = parseCSV(content);
-            setParseResult(parsed);
+            const isExcel = selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
 
-            if (parsed.success || parsed.data.length > 0) {
-                setStep('preview');
+            if (isExcel) {
+                // Parse Excel file
+                const excelResult = await parseExcelFile(selectedFile);
+                if (excelResult.success && excelResult.data.length > 0) {
+                    // Convert to UserImportRow format
+                    const users: UserImportRow[] = excelResult.data.map((row: any) => ({
+                        email: String(row.email || ''),
+                        displayName: String(row.displayName || row.nombre || ''),
+                        marca: String(row.marca || ''),
+                        tienda: row.tienda ? String(row.tienda) : undefined,
+                        role: String(row.role || row.rol || 'store_manager') as any
+                    }));
+
+                    setParseResult({
+                        success: true,
+                        data: users,
+                        errors: [],
+                        warnings: []
+                    });
+                    setStep('preview');
+                } else {
+                    setParseResult({
+                        success: false,
+                        data: [],
+                        errors: [{ row: 0, field: 'file', message: excelResult.errors.join(', ') }],
+                        warnings: []
+                    });
+                }
+            } else {
+                // Parse CSV file
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target?.result as string;
+                    const parsed = parseCSV(content);
+                    setParseResult(parsed);
+                    if (parsed.success || parsed.data.length > 0) {
+                        setStep('preview');
+                    }
+                };
+                reader.readAsText(selectedFile);
             }
         } catch (error) {
             console.error('Error parsing file:', error);
@@ -47,10 +84,13 @@ export default function BulkImportUsersModal({ show, holdingId, createdBy, onCan
         setDragActive(false);
 
         const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile && (droppedFile.name.endsWith('.csv') || droppedFile.name.endsWith('.txt'))) {
+        const validExtensions = ['.csv', '.txt', '.xlsx', '.xls'];
+        const isValid = validExtensions.some(ext => droppedFile.name.toLowerCase().endsWith(ext));
+
+        if (droppedFile && isValid) {
             handleFileSelect(droppedFile);
         } else {
-            alert('Por favor sube un archivo CSV');
+            alert('Por favor sube un archivo CSV o Excel (.xlsx, .xls)');
         }
     };
 
@@ -123,11 +163,11 @@ export default function BulkImportUsersModal({ show, holdingId, createdBy, onCan
                                     Arrastra tu archivo CSV aquí
                                 </p>
                                 <p className="text-sm text-gray-600 mb-4">
-                                    o haz click para seleccionar
+                                    CSV o Excel (.xlsx, .xls)
                                 </p>
                                 <input
                                     type="file"
-                                    accept=".csv,.txt"
+                                    accept=".csv,.txt,.xlsx,.xls"
                                     onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                                     className="hidden"
                                     id="file-upload"
