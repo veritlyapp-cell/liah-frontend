@@ -7,13 +7,14 @@ import type { UserAssignment } from '@/lib/firestore/user-assignments';
 import SupervisorStatsCards from '@/components/supervisor/SupervisorStatsCards';
 import PendingRQsView from '@/components/supervisor/PendingRQsView';
 import ApprovedRQsView from '@/components/supervisor/ApprovedRQsView';
+import SupervisorCreateRQView from '@/components/supervisor/SupervisorCreateRQView';
 import ConfigurationView from '@/components/ConfigurationView';
 import DashboardHeader from '@/components/DashboardHeader';
 
 export default function SupervisorDashboard() {
     const { user } = useAuth();
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
-    const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'candidates' | 'configuracion'>('pending');
+    const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'create' | 'candidates' | 'configuracion'>('pending');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -97,6 +98,15 @@ export default function SupervisorDashboard() {
                                 ✅ RQs Aprobados
                             </button>
                             <button
+                                onClick={() => setActiveTab('create')}
+                                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'create'
+                                    ? 'border-violet-600 text-violet-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                            >
+                                ➕ Crear RQ
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('candidates')}
                                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'candidates'
                                     ? 'border-violet-600 text-violet-600'
@@ -130,6 +140,14 @@ export default function SupervisorDashboard() {
                             <ApprovedRQsView
                                 storeIds={assignedStoreIds}
                                 storeNames={assignedStoreNames}
+                            />
+                        )}
+                        {activeTab === 'create' && assignment && (
+                            <SupervisorCreateRQView
+                                supervisorId={user?.uid || ''}
+                                supervisorName={assignment.displayName}
+                                assignedStores={assignment.assignedStores || []}
+                                holdingId={assignment.holdingId}
                             />
                         )}
                         {activeTab === 'candidates' && (

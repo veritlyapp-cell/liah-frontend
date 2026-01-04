@@ -12,9 +12,10 @@ interface CreateRQModalProps {
     marcaId: string;
     marcaNombre: string;
     isLocked?: boolean;
+    creatorRole?: 'store_manager' | 'supervisor'; // For determining approval flow
 }
 
-export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, storeName, marcaId, marcaNombre, isLocked = false }: CreateRQModalProps) {
+export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, storeName, marcaId, marcaNombre, isLocked = false, creatorRole = 'store_manager' }: CreateRQModalProps) {
     const { user, claims } = useAuth();
 
     // Load job profiles for this marca
@@ -35,9 +36,19 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
 
     if (!isOpen) return null;
 
+    // Filter by categoria: store_manager can only see 'operativo', supervisor can see both
+    const filteredProfiles = profiles.filter(p => {
+        if (creatorRole === 'store_manager') {
+            // Store managers can only request operativo positions (not gerencial like Asistente/Gerente)
+            return !p.categoria || p.categoria === 'operativo';
+        }
+        // Supervisors can request all positions including gerencial
+        return true;
+    });
+
     // Obtener posiciones únicas y turnos/modalidades disponibles
-    const uniquePositions = Array.from(new Set(profiles.map(p => p.posicion)));
-    const selectedProfileData = selectedPosicion ? profiles.find(p => p.posicion === selectedPosicion) : null;
+    const uniquePositions = Array.from(new Set(filteredProfiles.map(p => p.posicion)));
+    const selectedProfileData = selectedPosicion ? filteredProfiles.find(p => p.posicion === selectedPosicion) : null;
 
     const tenantId = claims?.tenant_id || 'ngr_holding';
 

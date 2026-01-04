@@ -32,9 +32,11 @@ export interface JobProfileRequisitos {
 
 export interface JobProfile {
     id: string;
-    marcaId: string;
+    marcaId: string; // Primary marca (for backwards compatibility)
+    marcaIds?: string[]; // Multiple marcas (new)
     marcaNombre: string;
     posicion: string;
+    categoria: 'operativo' | 'gerencial'; // operativo = Store Manager can request, gerencial = Supervisor only
     modalidad: string; // "Part Time", "Full Time", etc.
     turno: string; // "Mañana", "Tarde", "Noche"
     requisitos: JobProfileRequisitos;
@@ -114,6 +116,7 @@ export async function importJobProfilesFromExcel(
                 marcaId: row.marca, // TODO: debería ser el ID real de la marca
                 marcaNombre: row.marca,
                 posicion: row.posicion,
+                categoria: 'operativo', // Default to operativo, can be updated later
                 modalidad: row.modalidad,
                 turno: row.turno,
                 requisitos: {

@@ -134,6 +134,8 @@ export interface RQ {
     tenantId: string;
     creadoPor: string;
     creadorEmail: string;
+    createdByRole?: 'store_manager' | 'supervisor'; // Who created the RQ
+    approvalFlow?: 'standard' | 'short'; // standard = SM->Sup->JM, short = Sup->JM (when Supervisor creates)
     createdAt: any;
     updatedAt: any;
 }
