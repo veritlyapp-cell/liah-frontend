@@ -215,7 +215,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
 
     async function handleAnalyzeCUL() {
-        if (!candidate.certificadoUnicoLaboral) {
+        const culUrl = candidate.certificadoUnicoLaboral || candidate.documents?.cul;
+        if (!culUrl) {
             alert('No hay CUL subido para analizar');
             return;
         }
@@ -227,10 +228,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     documentType: 'cul',
-                    documentUrl: candidate.certificadoUnicoLaboral,
+                    documentUrl: culUrl,
                     candidateId: candidate.id
                 })
             });
+
 
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
@@ -405,9 +407,9 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     )}
                                 </div>
                             </div>
-                            {candidate.certificadoUnicoLaboral ? (
+                            {(candidate.certificadoUnicoLaboral || candidate.documents?.cul) ? (
                                 <a
-                                    href={candidate.certificadoUnicoLaboral}
+                                    href={candidate.certificadoUnicoLaboral || candidate.documents?.cul}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 shadow-sm flex items-center gap-2"
@@ -419,6 +421,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     <span>🚫</span> CUL no cargado
                                 </div>
                             )}
+
                         </div>
 
 
@@ -450,10 +453,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                         <div className="flex gap-2 flex-wrap items-center">
                             <button
                                 onClick={handleAnalyzeCUL}
-                                disabled={analyzingCUL || processing || !candidate.certificadoUnicoLaboral}
+                                disabled={analyzingCUL || processing || (!candidate.certificadoUnicoLaboral && !candidate.documents?.cul)}
                                 className="px-4 py-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white rounded-full text-sm font-medium hover:opacity-90 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
                                 {analyzingCUL ? (
+
                                     <><span className="animate-spin">⌛</span> Analizando...</>
                                 ) : (
                                     <><span className="text-lg">🤖</span> Analizar con IA</>
