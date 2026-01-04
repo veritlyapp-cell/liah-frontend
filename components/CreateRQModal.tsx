@@ -104,7 +104,8 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                 marcaId,
                 marcaNombre,
                 user.uid,
-                user.email || ''
+                user.email || '',
+                creatorRole
             );
 
             alert(`✅ ${vacantes} instancia(s) de RQ creadas correctamente!\n\nEnviadas para aprobación.`);

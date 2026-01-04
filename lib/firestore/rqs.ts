@@ -186,7 +186,8 @@ export async function createRQInstances(
     marcaId: string,
     marcaNombre: string,
     creadoPor: string,
-    creadorEmail: string
+    creadorEmail: string,
+    creatorRole: 'store_manager' | 'supervisor' = 'store_manager'
 ): Promise<string[]> {
     const batch = writeBatch(db);
     const rqsRef = collection(db, 'rqs');
@@ -245,6 +246,8 @@ export async function createRQInstances(
             tenantId,
             creadoPor,
             creadorEmail,
+            createdByRole: creatorRole,
+            approvalFlow: creatorRole === 'supervisor' ? 'short' : 'standard',
             createdAt: now,
             updatedAt: now
         };
@@ -271,7 +274,8 @@ export async function createRQInstances(
                 tiendaId,
                 marcaId,
                 creadoPor,
-                creadorEmail
+                creadorEmail,
+                creatorRole
             );
         } catch (error) {
             console.error(`Failed to assign RQ ${rqId}:`, error);
