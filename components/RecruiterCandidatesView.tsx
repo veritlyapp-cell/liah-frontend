@@ -225,6 +225,15 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                                                     );
                                                 }
 
+                                                // Warning if selected for another RQ
+                                                if (candidate.selectionStatus === 'selected' && latestApp && candidate.selectedForRQ !== latestApp.rqId) {
+                                                    return (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
+                                                            <span>⚠️</span> Sel. en otra tienda/RQ
+                                                        </span>
+                                                    );
+                                                }
+
                                                 if (aptoApp?.hiredStatus === 'hired') {
                                                     return (
                                                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">

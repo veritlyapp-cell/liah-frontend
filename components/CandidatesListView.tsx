@@ -266,6 +266,13 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                     <span>🎯</span> SELECCIONADO
                                                 </span>
                                             )}
+
+                                            {/* Warning if selected for another RQ */}
+                                            {candidate.selectionStatus === 'selected' && candidate.selectedForRQ !== latestApp?.rqId && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
+                                                    <span>⚠️</span> Sel. en otra tienda/RQ
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Info */}
