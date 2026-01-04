@@ -55,14 +55,32 @@ Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones:
   "confidence": número del 0 al 100
 }`;
 
-async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any> {
-    // Fetch image and convert to base64
-    const imageResponse = await fetch(imageUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const base64Image = Buffer.from(imageBuffer).toString('base64');
+// Detect MIME type from URL
+function getMimeType(url: string): string {
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('.pdf')) return 'application/pdf';
+    if (lowerUrl.includes('.png')) return 'image/png';
+    if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) return 'image/jpeg';
+    if (lowerUrl.includes('.webp')) return 'image/webp';
+    // For Firebase Storage URLs, try to detect from token part or default to PDF for CUL
+    if (lowerUrl.includes('pdf')) return 'application/pdf';
+    return 'image/jpeg';  // fallback
+}
 
-    // Determine mime type from URL
-    const mimeType = imageUrl.includes('.png') ? 'image/png' : 'image/jpeg';
+async function analyzeWithVision(documentUrl: string, prompt: string): Promise<any> {
+    console.log(`[DOCUMENT AI] Starting analysis for URL: ${documentUrl.substring(0, 100)}...`);
+
+    // Fetch document and convert to base64
+    const response = await fetch(documentUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch document: ${response.status}`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const base64Data = Buffer.from(buffer).toString('base64');
+    const mimeType = getMimeType(documentUrl);
+
+    console.log(`[DOCUMENT AI] Document fetched. Size: ${buffer.byteLength} bytes, Type: ${mimeType}`);
 
     // Try models in order until one works
     for (const modelName of VISION_MODELS) {
@@ -74,14 +92,14 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
                 prompt,
                 {
                     inlineData: {
-                        data: base64Image,
+                        data: base64Data,
                         mimeType: mimeType
                     }
                 }
             ]);
 
             const responseText = result.response.text();
-            console.log(`[DOCUMENT AI] Raw response:`, responseText);
+            console.log(`[DOCUMENT AI] Raw response:`, responseText.substring(0, 500));
 
             // Parse JSON from response
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -98,6 +116,7 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
 
     throw new Error('All vision models failed');
 }
+
 
 export async function POST(req: NextRequest) {
     try {
