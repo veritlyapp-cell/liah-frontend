@@ -2,21 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getCandidatesByStore } from '@/lib/firestore/candidate-queries';
+import { getCandidatesByStore, getCandidatesByMultipleStores, getCandidatesByMarca } from '@/lib/firestore/candidate-queries';
 import type { Candidate } from '@/lib/firestore/candidates';
 import CandidateProfileModal from '@/components/CandidateProfileModal';
 import PriorityModal from '@/components/PriorityModal';
 
 interface CandidatesListViewProps {
-    storeId: string;
+    storeId?: string;
+    storeIds?: string[]; // [NEW] For supervisors
+    marcaId?: string; // [NEW] For jefe de marca
     filterStatus?: string; // [NEW] Optional filter
 }
 
-export default function CandidatesListView({ storeId, filterStatus }: CandidatesListViewProps) {
+export default function CandidatesListView({ storeId, storeIds, marcaId, filterStatus }: CandidatesListViewProps) {
     const { claims } = useAuth();
     const isStoreManager = claims?.role === 'store_manager';
-    const isAdmin = claims?.role === 'client_admin';
-    const isRecruiter = claims?.role === 'brand_recruiter';
+    const isSupervisor = claims?.role === 'supervisor';
+    const isJefeMarca = claims?.role === 'jefe_marca';
+    const isRecruiter = claims?.role === 'brand_recruiter' || claims?.role === 'recruiter';
+    const isAdmin = claims?.role === 'client_admin' || claims?.role === 'super_admin';
 
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -40,12 +44,19 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
 
     useEffect(() => {
         loadCandidates();
-    }, [storeId]);
+    }, [storeId, JSON.stringify(storeIds), marcaId]);
 
     async function loadCandidates() {
         setLoading(true);
         try {
-            const data = await getCandidatesByStore(storeId);
+            let data: Candidate[] = [];
+            if (marcaId) {
+                data = await getCandidatesByMarca(marcaId);
+            } else if (storeIds && storeIds.length > 0) {
+                data = await getCandidatesByMultipleStores(storeIds);
+            } else if (storeId) {
+                data = await getCandidatesByStore(storeId);
+            }
             setCandidates(data);
         } catch (error) {
             console.error('Error loading candidates:', error);
@@ -77,8 +88,12 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
 
 
     const filteredCandidates = candidates.filter(candidate => {
-        // Obtenemos la aplicación para esta tienda
-        const storeApplications = candidate.applications?.filter(app => app.tiendaId === storeId) || [];
+        // Obtenemos la aplicación para esta tienda, lista de tiendas o marca
+        const relevantStoreIds = storeIds || (storeId ? [storeId] : []);
+        const storeApplications = candidate.applications?.filter(app => {
+            if (marcaId) return app.marcaId === marcaId;
+            return relevantStoreIds.includes(app.tiendaId);
+        }) || [];
         const latestApp = storeApplications[storeApplications.length - 1];
 
         // [NEW] If specific filter is requested, strictly enforce it
@@ -237,11 +252,18 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
                                                 </span>
                                             )}
 
-                                            {/* CUL Global Status Badge */}
-                                            {candidate.culStatus && candidate.culStatus !== 'pending' && (
+                                            {/* CUL Global Status Badge - Visible only to Admin/Recruiter as it is internal */}
+                                            {(isAdmin || isRecruiter) && candidate.culStatus && candidate.culStatus !== 'pending' && (
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1`}>
                                                     <span>📄</span>
                                                     CUL: {candidate.culStatus === 'apto' ? 'Ya Validado (Apto)' : 'Validado (No Apto)'}
+                                                </span>
+                                            )}
+
+                                            {/* Seleccionado Badge - Final state */}
+                                            {candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId) && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                                    <span>🎯</span> SELECCIONADO
                                                 </span>
                                             )}
                                         </div>
@@ -353,17 +375,19 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
                                                     <span className="text-violet-900">
                                                         {latestApp.tiendaNombre} • {latestApp.posicion || 'Posición'} • {new Date(latestApp.appliedAt?.toDate ? latestApp.appliedAt.toDate() : latestApp.appliedAt).toLocaleDateString()}
                                                     </span>
-                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${latestApp.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                        latestApp.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                                                            latestApp.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                                latestApp.status === 'interview_scheduled' ? 'bg-purple-100 text-purple-700' :
-                                                                    'bg-amber-100 text-amber-700'
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${candidate.selectionStatus === 'selected' && candidate.selectedForRQ === latestApp.rqId ? 'bg-emerald-100 text-emerald-700' :
+                                                        latestApp.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                            latestApp.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                                                                latestApp.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                    latestApp.status === 'interview_scheduled' ? 'bg-purple-100 text-purple-700' :
+                                                                        'bg-amber-100 text-amber-700'
                                                         }`}>
-                                                        {latestApp.status === 'completed' ? 'Completado' :
-                                                            latestApp.status === 'approved' ? 'Aprobado' :
-                                                                latestApp.status === 'rejected' ? 'Rechazado' :
-                                                                    latestApp.status === 'interview_scheduled' ? 'Entrevista Agendada' :
-                                                                        'Invitado'}
+                                                        {candidate.selectionStatus === 'selected' && candidate.selectedForRQ === latestApp.rqId ? 'Seleccionado' :
+                                                            latestApp.status === 'completed' ? 'Completado' :
+                                                                latestApp.status === 'approved' ? 'Aprobado' :
+                                                                    latestApp.status === 'rejected' ? 'Rechazado' :
+                                                                        latestApp.status === 'interview_scheduled' ? 'Entrevista Agendada' :
+                                                                            'Invitado'}
                                                     </span>
                                                 </div>
                                             </div>

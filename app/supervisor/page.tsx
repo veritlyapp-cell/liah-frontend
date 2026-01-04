@@ -10,6 +10,7 @@ import ApprovedRQsView from '@/components/supervisor/ApprovedRQsView';
 import SupervisorCreateRQView from '@/components/supervisor/SupervisorCreateRQView';
 import ConfigurationView from '@/components/ConfigurationView';
 import DashboardHeader from '@/components/DashboardHeader';
+import CandidatesListView from '@/components/CandidatesListView';
 
 export default function SupervisorDashboard() {
     const { user } = useAuth();
@@ -151,8 +152,8 @@ export default function SupervisorDashboard() {
                             />
                         )}
                         {activeTab === 'candidates' && (
-                            <div className="text-center py-12 text-gray-500">
-                                Vista de candidatos - En desarrollo
+                            <div className="space-y-6">
+                                <CandidatesListView storeIds={assignedStoreIds} />
                             </div>
                         )}
                         {activeTab === 'configuracion' && (

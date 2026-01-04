@@ -26,7 +26,7 @@ export interface Application {
     modalidad?: 'Full Time' | 'Part Time';  // Modalidad de trabajo
     turno?: string;  // Turno de trabajo (ej: "Mañana", "Tarde", "Noche")
     appliedAt: any;
-    status: 'invited' | 'completed' | 'approved' | 'rejected' | 'interview_scheduled';
+    status: 'invited' | 'completed' | 'approved' | 'rejected' | 'interview_scheduled' | 'selected';
     invitedBy?: string;
     invitationId?: string;
     origenConvocatoria?: string; // [NEW] Origen de la postulación
@@ -114,6 +114,12 @@ export interface Candidate {
     blacklistReason?: string;
     blacklistedAt?: any;
     blacklistedBy?: string;
+
+    // Tracking de selección final
+    selectionStatus?: 'pending' | 'selected' | 'rejected';
+    selectedAt?: any;
+    selectedBy?: string;
+    selectedForRQ?: string;
 
     // Entrevista (Bot)
     entrevista?: {

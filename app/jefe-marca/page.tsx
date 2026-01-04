@@ -8,6 +8,7 @@ import MarcaStatsCards from '@/components/jefe-marca/MarcaStatsCards';
 import MarcaPendingRQsView from '@/components/jefe-marca/MarcaPendingRQsView';
 import MarcaApprovedRQsView from '@/components/jefe-marca/MarcaApprovedRQsView';
 import DashboardHeader from '@/components/DashboardHeader';
+import CandidatesListView from '@/components/CandidatesListView';
 
 export default function JefeMarcaDashboard() {
     const { user } = useAuth();
@@ -119,8 +120,8 @@ export default function JefeMarcaDashboard() {
                             <MarcaApprovedRQsView marcaId={marcaId} />
                         )}
                         {activeTab === 'candidates' && (
-                            <div className="text-center py-12 text-gray-500">
-                                Vista de candidatos - En desarrollo
+                            <div className="space-y-6">
+                                <CandidatesListView marcaId={marcaId} />
                             </div>
                         )}
                     </div>

@@ -102,14 +102,23 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 })
             });
 
-            // Update candidate status to 'selected'
+            // Update candidate status and its applications
             const { updateDoc, doc } = await import('firebase/firestore');
             const { db } = await import('@/lib/firebase');
+
+            const updatedApplications = candidate.applications?.map(app => {
+                if (app.id === latestApp?.id) {
+                    return { ...app, status: 'selected' as const, selectedAt: new Date(), selectedBy: user.uid };
+                }
+                return app;
+            }) || [];
+
             await updateDoc(doc(db, 'candidates', candidate.id), {
                 selectionStatus: 'selected',
                 selectedAt: new Date(),
                 selectedBy: user.uid,
-                selectedForRQ: latestApp?.rqId
+                selectedForRQ: latestApp?.rqId,
+                applications: updatedApplications
             });
 
             alert('🎉 Candidato SELECCIONADO. Se ha enviado el correo de notificación.');

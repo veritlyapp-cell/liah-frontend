@@ -41,3 +41,25 @@ export async function getCandidatesByMarca(marcaId: string): Promise<Candidate[]
 
     return candidates;
 }
+
+/**
+ * Obtener candidatos por lista de tiendas (para supervisores)
+ */
+export async function getCandidatesByMultipleStores(storeIds: string[]): Promise<Candidate[]> {
+    if (!storeIds || storeIds.length === 0) return [];
+
+    const candidatesRef = collection(db, 'candidates');
+    const snapshot = await getDocs(candidatesRef);
+
+    // Filtrar candidatos que tienen applications para alguna de estas tiendas
+    const candidates = snapshot.docs
+        .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Candidate))
+        .filter(candidate =>
+            candidate.applications?.some(app => storeIds.includes(app.tiendaId))
+        );
+
+    return candidates;
+}

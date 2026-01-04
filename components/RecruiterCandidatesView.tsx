@@ -104,6 +104,8 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                 return 'Rechazado';
             case 'completed':
                 return 'Completado';
+            case 'selected':
+                return 'Seleccionado';
             default:
                 return 'Invitado';
         }
@@ -213,7 +215,16 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
 
                                             {/* Hiring Status Badge */}
                                             {(() => {
-                                                const aptoApp = candidate.applications?.find(app => app.status === 'approved');
+                                                const aptoApp = candidate.applications?.find(app => (app.status === 'approved' || app.status === 'selected'));
+
+                                                if (candidate.selectionStatus === 'selected' && latestApp && candidate.selectedForRQ === latestApp.rqId) {
+                                                    return (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                                            <span>🎯</span> SELECCIONADO
+                                                        </span>
+                                                    );
+                                                }
+
                                                 if (aptoApp?.hiredStatus === 'hired') {
                                                     return (
                                                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">
