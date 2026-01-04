@@ -89,9 +89,32 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
 
     const [listFilter, setListFilter] = useState<'process' | 'selected' | 'rejected'>('process');
 
+    // Calculate counts for tabs
+    const relevantStoreIds = storeIds || (storeId ? [storeId] : []);
+    const tabCounts = candidates.reduce((acc, candidate) => {
+        const storeApplications = candidate.applications?.filter(app => {
+            if (marcaId) return app.marcaId === marcaId;
+            return relevantStoreIds.includes(app.tiendaId);
+        }) || [];
+        const latestApp = storeApplications[storeApplications.length - 1];
+
+        if (!latestApp) return acc;
+
+        const isSelected = candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId);
+        const isApprovedBySM = latestApp?.status === 'approved';
+
+        if (isSelected || isApprovedBySM) {
+            acc.selected++;
+        } else if (latestApp.status === 'rejected') {
+            acc.rejected++;
+        } else {
+            acc.process++;
+        }
+        return acc;
+    }, { process: 0, selected: 0, rejected: 0 });
+
     const filteredCandidates = candidates.filter(candidate => {
         // Obtenemos la aplicación para esta tienda, lista de tiendas o marca
-        const relevantStoreIds = storeIds || (storeId ? [storeId] : []);
         const storeApplications = candidate.applications?.filter(app => {
             if (marcaId) return app.marcaId === marcaId;
             return relevantStoreIds.includes(app.tiendaId);
@@ -182,30 +205,39 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                 <div className="flex border-b border-gray-200">
                     <button
                         onClick={() => setListFilter('process')}
-                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${listFilter === 'process'
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${listFilter === 'process'
                             ? 'border-violet-600 text-violet-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         🔄 En Proceso
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'process' ? 'bg-violet-100' : 'bg-gray-100'}`}>
+                            {tabCounts.process}
+                        </span>
                     </button>
                     <button
                         onClick={() => setListFilter('selected')}
-                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${listFilter === 'selected'
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${listFilter === 'selected'
                             ? 'border-violet-600 text-violet-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         🎯 Seleccionados
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'selected' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>
+                            {tabCounts.selected}
+                        </span>
                     </button>
                     <button
                         onClick={() => setListFilter('rejected')}
-                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${listFilter === 'rejected'
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${listFilter === 'rejected'
                             ? 'border-violet-600 text-violet-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         🚫 Rechazados
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100'}`}>
+                            {tabCounts.rejected}
+                        </span>
                     </button>
                 </div>
             )}
@@ -233,33 +265,12 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 0 01.707.293l5.414 5.414a1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Exportar CSV
                 </button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <p className="text-sm text-gray-600">Total en Proceso</p>
-                    <p className="text-2xl font-bold text-gray-900">{filteredCandidates.length}</p>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <p className="text-sm text-gray-600">Aceptados (Tienda)</p>
-                    <p className="text-2xl font-bold text-green-600">
-                        {candidates.filter(c => {
-                            const apps = c.applications?.filter(a => a.tiendaId === storeId) || [];
-                            return apps[apps.length - 1]?.status === 'approved';
-                        }).length}
-                    </p>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <p className="text-sm text-gray-600">Revisión de CUL</p>
-                    <p className="text-2xl font-bold text-yellow-600">
-                        {filteredCandidates.filter(c => c.culStatus === 'pending' || c.culStatus === 'manual_review').length}
-                    </p>
-                </div>
-            </div>
 
             {/* Candidates List */}
             {filteredCandidates.length === 0 ? (

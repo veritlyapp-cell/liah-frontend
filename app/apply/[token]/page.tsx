@@ -23,6 +23,8 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
     const [success, setSuccess] = useState(false);
     const [candidateCode, setCandidateCode] = useState('');
     const [holdingConfig, setHoldingConfig] = useState<any>(null);
+    const [marcaLogo, setMarcaLogo] = useState<string>('');
+    const [holdingLogo, setHoldingLogo] = useState<string>('');
 
     const [formData, setFormData] = useState({
         dni: '',
@@ -81,15 +83,18 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
             setInvitation(inv);
 
-            // Obtener configuración del holding
+            // Obtener configuración del holding y logos
             const brandSnap = await getDoc(doc(db, 'marcas', inv.marcaId));
             if (brandSnap.exists()) {
                 const brandData = brandSnap.data();
+                setMarcaLogo(brandData.logoUrl || '');
                 const holdingId = brandData.holdingId;
                 if (holdingId) {
                     const holdingSnap = await getDoc(doc(db, 'holdings', holdingId));
                     if (holdingSnap.exists()) {
-                        setHoldingConfig(holdingSnap.data().config || {});
+                        const hData = holdingSnap.data();
+                        setHoldingConfig(hData.config || {});
+                        setHoldingLogo(hData.logoUrl || '');
                     }
                 }
             }
@@ -293,11 +298,29 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-4xl mb-4">⏳</div>
-                    <p>Cargando...</p>
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+                <div className="text-center animate-pulse">
+                    <div className="inline-block p-4 bg-violet-50 rounded-3xl mb-6 shadow-xl shadow-violet-100/50">
+                        <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center">
+                            <span className="text-4xl font-bold text-white">L</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                        <div className="h-2 w-48 bg-gray-100 rounded-full overflow-hidden relative">
+                            <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-cyan-500 w-1/2 rounded-full animate-loading-bar"></div>
+                        </div>
+                        <p className="text-gray-500 font-medium text-sm">Cargando postulación...</p>
+                    </div>
                 </div>
+                <style jsx>{`
+                    @keyframes loading-bar {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(200%); }
+                    }
+                    .animate-loading-bar {
+                        animation: loading-bar 1.5s infinite ease-in-out;
+                    }
+                `}</style>
             </div>
         );
     }
@@ -342,11 +365,21 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-violet-50 to-cyan-50">
             <div className="max-w-2xl w-full glass-card rounded-2xl p-8">
                 <div className="text-center mb-8">
-                    {/* LIAH Logo */}
-                    <div className="flex justify-center mb-4">
-                        <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                            <span className="text-3xl font-bold text-white">L</span>
-                        </div>
+                    {/* Brand/Holding Logo */}
+                    <div className="flex justify-center mb-6">
+                        {marcaLogo || holdingLogo ? (
+                            <div className="max-w-[200px] max-h-[80px] flex items-center justify-center">
+                                <img
+                                    src={marcaLogo || holdingLogo}
+                                    alt={invitation?.marcaNombre || 'Empresa'}
+                                    className="max-w-full max-h-full object-contain drop-shadow-sm"
+                                />
+                            </div>
+                        ) : (
+                            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg shadow-violet-200">
+                                <span className="text-4xl font-bold text-white">L</span>
+                            </div>
+                        )}
                     </div>
                     <h1 className="text-3xl font-bold gradient-primary mb-2">
                         Postulación {invitation?.marcaNombre}

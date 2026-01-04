@@ -72,7 +72,8 @@ export function candidatesToCSV(candidates: Candidate[]): string {
             app.tiendaNombre || '',
             app.status === 'approved' ? 'Aprobado' :
                 app.status === 'rejected' ? 'Rechazado' :
-                    app.status === 'completed' ? 'Completado' : 'Invitado',
+                    app.status === 'selected' ? 'Seleccionado' :
+                        app.status === 'completed' ? 'Completado' : 'Invitado',
             app.appliedAt?.toDate ? app.appliedAt.toDate().toLocaleDateString() : '',
             app.approvedBy || '',
             app.rejectedBy || '',

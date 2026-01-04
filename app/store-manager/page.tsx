@@ -203,7 +203,7 @@ export default function StoreManagerDashboard() {
                             }`}
                     >
                         <span className="flex items-center gap-2">
-                            Candidatos Aptos
+                            Candidatos Seleccionados
                             <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800">
                                 Para Ingreso
                             </span>
