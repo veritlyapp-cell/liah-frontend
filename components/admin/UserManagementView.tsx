@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllUserAssignments, deactivateUser } from '@/lib/firestore/user-assignment-actions';
+import { getAllUserAssignments } from '@/lib/firestore/user-assignment-actions';
 import type { UserAssignment } from '@/lib/firestore/user-assignments';
 import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
@@ -57,17 +57,28 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
         }
     }
 
-    async function handleDeactivate(userId: string, displayName: string) {
-        const confirmed = confirm(`¿Desactivar usuario ${displayName}?`);
+    async function handleDeleteUser(userId: string, email: string, displayName: string) {
+        const confirmed = confirm(`¿Eliminar usuario ${displayName} permanentemente?\n\nEsto eliminará el usuario de Firebase Auth y permitirá recrearlo con el mismo correo.`);
         if (!confirmed) return;
 
         try {
-            await deactivateUser(userId);
-            alert('Usuario desactivado');
+            const response = await fetch('/api/admin/delete-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, email })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Error al eliminar usuario');
+            }
+
+            alert('✅ Usuario eliminado correctamente');
             loadAssignments();
-        } catch (error) {
-            console.error('Error deactivating user:', error);
-            alert('Error al desactivar usuario');
+        } catch (error: any) {
+            console.error('Error deleting user:', error);
+            alert(error.message || 'Error al eliminar usuario');
         }
     }
 
@@ -216,7 +227,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                                     ✏️ Editar
                                 </button>
                                 <button
-                                    onClick={() => handleDeactivate(assignment.userId, assignment.displayName)}
+                                    onClick={() => handleDeleteUser(assignment.userId, assignment.email, assignment.displayName)}
                                     className="flex-1 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
                                 >
                                     🗑️ Eliminar

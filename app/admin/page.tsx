@@ -134,6 +134,14 @@ export default function AdminDashboard() {
                             logo: data.logo
                         });
                         console.log('✅ Holding info loaded:', data.nombre);
+                    } else {
+                        // Holding document doesn't exist, use holdingId as fallback
+                        setHoldingInfo({
+                            nombre: assignment.holdingId,
+                            plan: 'full_stack',
+                            logo: undefined
+                        });
+                        console.log('⚠️ Holding document not found, using ID as name:', assignment.holdingId);
                     }
                 }
             } catch (error) {
