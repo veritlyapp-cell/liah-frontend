@@ -38,8 +38,19 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 // Use brand from latest application
                 const brandId = candidate.applications[candidate.applications.length - 1].marcaId;
                 const rqs = await getRQsByMarca(brandId);
-                // Filter only active and approved RQs
-                const activeRQs = rqs.filter(r => r.status === 'active' && r.approvalStatus === 'approved');
+                // Filter RQs:
+                // 1. Must be active (not closed/filled/cancelled)
+                // 2. Must be pending or approved
+                // 3. Exclude RQs where the candidate already has an application
+                const activeRQs = rqs.filter(r => {
+                    const isAvailable = (r.status === 'active' || !r.status) &&
+                        (r.approvalStatus === 'approved' || r.approvalStatus === 'pending');
+
+                    const alreadyApplied = candidate.applications?.some(app => app.rqId === r.id);
+
+                    return isAvailable && !alreadyApplied;
+                });
+
                 setAvailableRQs(activeRQs);
             } catch (error) {
                 console.error('Error fetching RQs:', error);
@@ -572,7 +583,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 disabled={loadingRQs || processing || availableRQs.length === 0}
                                 className="flex-1 px-3 py-2 border border-violet-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-violet-500 font-medium"
                             >
-                                <option value="">{loadingRQs ? 'Cargando requerimientos...' : availableRQs.length === 0 ? 'No hay RQs activos' : 'Seleccionar RQ activo...'}</option>
+                                <option value="">
+                                    {loadingRQs ? 'Cargando requerimientos...' :
+                                        availableRQs.length === 0 ? 'No hay otros RQs disponibles para esta marca' :
+                                            'Seleccionar RQ activo...'}
+                                </option>
                                 {availableRQs.map(rq => (
                                     <option key={rq.id} value={rq.id}>
                                         {rq.rqNumber} - {rq.posicion} ({rq.tiendaNombre})

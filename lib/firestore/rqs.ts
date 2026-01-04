@@ -486,15 +486,22 @@ export async function getRQsByMarca(marcaId: string): Promise<RQ[]> {
     const rqsRef = collection(db, 'rqs');
     const q = query(
         rqsRef,
-        where('marcaId', '==', marcaId),
-        orderBy('createdAt', 'desc')
+        where('marcaId', '==', marcaId)
+        // orderBy('createdAt', 'desc') // Commented to avoid index requirement
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const rqs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
     } as RQ));
+
+    // Sort manually by createdAt desc
+    return rqs.sort((a, b) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+    });
 }
 
 /**
