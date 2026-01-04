@@ -26,6 +26,9 @@ export interface UserAssignment {
     assignedStore?: { tiendaId: string; tiendaNombre: string; marcaId: string };
     tiendaId?: string;
     marcaId?: string;
+    vacationMode?: boolean;
+    backupUserId?: string;
+    backupDisplayName?: string;
 }
 
 /**

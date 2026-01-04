@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createRQInstances } from '@/lib/firestore/rqs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobProfiles } from '@/lib/hooks/useJobProfiles';
@@ -200,21 +200,23 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                     </div>
 
                     {/* Turno */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Turno <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            value={selectedTurno}
-                            onChange={(e) => setSelectedTurno(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                        >
-                            <option value="">Seleccionar turno...</option>
-                            <option value="Mañana">Mañana</option>
-                            <option value="Tarde">Tarde</option>
-                            <option value="Noche">Noche</option>
-                        </select>
-                    </div>
+                    {selectedProfileData.categoria !== 'gerencial' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Turno <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={selectedTurno}
+                                onChange={(e) => setSelectedTurno(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                            >
+                                <option value="">Seleccionar turno...</option>
+                                <option value="Mañana">Mañana</option>
+                                <option value="Tarde">Tarde</option>
+                                <option value="Noche">Noche</option>
+                            </select>
+                        </div>
+                    )}
 
                     {/* Modalidad */}
                     <div>
@@ -223,11 +225,12 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                         </label>
                         <div className="flex gap-3">
                             <button
-                                onClick={() => setSelectedModalidad('Part Time')}
+                                onClick={() => selectedProfileData.categoria !== 'gerencial' && setSelectedModalidad('Part Time')}
                                 className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${selectedModalidad === 'Part Time'
                                     ? 'border-violet-500 bg-violet-50 text-violet-700'
                                     : 'border-gray-300 bg-white text-gray-700 hover:border-violet-300'
-                                    }`}
+                                    } ${selectedProfileData.categoria === 'gerencial' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={selectedProfileData.categoria === 'gerencial'}
                             >
                                 Part Time
                             </button>
@@ -241,59 +244,30 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                                 Full Time
                             </button>
                         </div>
-                    </div>
-
-                    {/* Motivo */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Motivo del RQ <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            value={motivo}
-                            onChange={(e) => setMotivo(e.target.value as 'Reemplazo' | 'Necesidad de Venta')}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                        >
-                            <option value="">Seleccionar motivo...</option>
-                            <option value="Reemplazo">Reemplazo</option>
-                            <option value="Necesidad de Venta">Necesidad de Venta</option>
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                            ℹ️ Este dato se usa para métricas y análisis de contratación
-                        </p>
-                    </div>
-
-                    {/* Número de vacantes */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Número de Vacantes <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={numVacantes}
-                            onChange={(e) => setNumVacantes(e.target.value)}
-                            className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                            placeholder="1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                            ℹ️ Se creará una instancia de RQ por cada vacante (max: 20)
-                        </p>
-                    </div>
-
-                    {/* Preview */}
-                    {parseInt(numVacantes) > 1 && (
-                        <div className="glass-card rounded-xl p-4 bg-cyan-50">
-                            <p className="text-sm text-cyan-800">
-                                ✨ Se crearán <strong>{numVacantes} instancias</strong> independientes.
-                                Cada una puede ser aprobada y gestionada por separado.
+                        {selectedProfileData.categoria === 'gerencial' && (
+                            <p className="text-xs text-violet-600 mt-1 italic">
+                                ✨ Puestos gerenciales son requeridos únicamente en modalidad Full Time.
                             </p>
-                        </div>
-                    )}
+                        )}
+                    </div>
+
                 </>
             )}
         </div>
     );
+
+    // Effect to handle auto-setting fields for Gerencial positions
+    useEffect(() => {
+        if (selectedProfileData?.categoria === 'gerencial') {
+            if (selectedModalidad !== 'Full Time') {
+                setSelectedModalidad('Full Time');
+            }
+            if (selectedTurno !== 'Administrativo') {
+                setSelectedTurno('Administrativo');
+            }
+        }
+    }, [selectedProfileData, selectedModalidad, selectedTurno]);
+
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">

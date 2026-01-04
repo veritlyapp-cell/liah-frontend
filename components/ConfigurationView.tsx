@@ -1,17 +1,81 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { getUserAssignment, updateUserAssignment, getAssignmentsByRole } from '@/lib/firestore/user-assignment-actions';
+import type { UserAssignment } from '@/lib/firestore/user-assignments';
 
 export default function ConfigurationView() {
-    const { user, signOut } = useAuth();
+    const { user, claims, signOut } = useAuth();
+    const [assignment, setAssignment] = useState<UserAssignment | null>(null);
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [vacationLoading, setVacationLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [vacationMessage, setVacationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    // Vacation Mode state
+    const [vacationMode, setVacationMode] = useState(false);
+    const [backupUserId, setBackupUserId] = useState('');
+    const [potentialBackups, setPotentialBackups] = useState<UserAssignment[]>([]);
+
+    useEffect(() => {
+        if (user) {
+            loadAssignment();
+        }
+    }, [user]);
+
+    async function loadAssignment() {
+        if (!user) return;
+        try {
+            const ua = await getUserAssignment(user.uid);
+            if (ua) {
+                setAssignment(ua);
+                setVacationMode(ua.vacationMode || false);
+                setBackupUserId(ua.backupUserId || '');
+
+                // If user is supervisor or jefe_marca, load other users of same role for backup
+                if (ua.role === 'supervisor' || ua.role === 'jefe_marca') {
+                    const backups = await getAssignmentsByRole(ua.role);
+                    // Filter out self and same holding if necessary (usually backups should be in same holding)
+                    setPotentialBackups(backups.filter(b => b.userId !== user.uid && b.holdingId === ua.holdingId));
+                }
+            }
+        } catch (error) {
+            console.error('Error loading assignment:', error);
+        }
+    }
+
+    async function handleToggleVacation() {
+        if (!assignment) return;
+        setVacationLoading(true);
+        setVacationMessage(null);
+
+        try {
+            const backupUser = potentialBackups.find(b => b.userId === backupUserId);
+
+            await updateUserAssignment(assignment.id, {
+                vacationMode: !vacationMode,
+                backupUserId: !vacationMode ? backupUserId : '',
+                backupDisplayName: !vacationMode ? (backupUser?.displayName || '') : ''
+            });
+
+            setVacationMode(!vacationMode);
+            setVacationMessage({
+                type: 'success',
+                text: !vacationMode
+                    ? `✅ Modo vacaciones activado. Delegado: ${backupUser?.displayName || 'Desconocido'}`
+                    : '✅ Modo vacaciones desactivado. Has retomado tus aprobaciones.'
+            });
+        } catch (error: any) {
+            console.error('Error updating vacation mode:', error);
+            setVacationMessage({ type: 'error', text: 'Error al actualizar modo vacaciones' });
+        } finally {
+            setVacationLoading(false);
+        }
+    }
 
     async function handleChangePassword(e: React.FormEvent) {
         e.preventDefault();
@@ -60,9 +124,71 @@ export default function ConfigurationView() {
         }
     }
 
+    const showVacationSection = assignment?.role === 'supervisor' || assignment?.role === 'jefe_marca';
+
     return (
-        <div className="max-w-2xl mx-auto">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">⚙️ Configuración</h2>
+        <div className="max-w-2xl mx-auto space-y-6 pb-12">
+            <h2 className="text-xl font-bold text-gray-900">⚙️ Configuración</h2>
+
+            {/* Vacation Mode Section */}
+            {showVacationSection && (
+                <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-orange-400">
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="text-2xl">🏖️</span>
+                        <h3 className="text-lg font-semibold text-gray-900">Modo Vacaciones / Delegación</h3>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-6">
+                        Si sales de vacaciones o no estarás disponible, activa esta opción para que tus aprobaciones de RQs se deleguen automáticamente a otro compañero.
+                    </p>
+
+                    <div className="space-y-4">
+                        {!vacationMode && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Seleccionar Delegado (Backup)
+                                </label>
+                                <select
+                                    value={backupUserId}
+                                    onChange={(e) => setBackupUserId(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                                    disabled={vacationLoading}
+                                >
+                                    <option value="">Selecciona un compañero...</option>
+                                    {potentialBackups.map(b => (
+                                        <option key={b.userId} value={b.userId}>
+                                            {b.displayName} ({b.role})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {vacationMessage && (
+                            <div className={`p-3 rounded-lg text-sm ${vacationMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                {vacationMessage.text}
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handleToggleVacation}
+                            disabled={vacationLoading || (!vacationMode && !backupUserId)}
+                            className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${vacationMode
+                                    ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                    : 'bg-orange-600 text-white hover:bg-orange-700'
+                                } disabled:opacity-50`}
+                        >
+                            {vacationLoading ? (
+                                <div className="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full"></div>
+                            ) : vacationMode ? (
+                                <>🔚 Finalizar Vacaciones</>
+                            ) : (
+                                <>🏖️ Activar Modo Vacaciones</>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Change Password Section */}
             <div className="bg-white rounded-xl shadow-lg p-6">
@@ -127,10 +253,11 @@ export default function ConfigurationView() {
             </div>
 
             {/* Account Info Section */}
-            <div className="mt-6 bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">👤 Información de Cuenta</h3>
                 <div className="space-y-3">
                     <p className="text-gray-600"><span className="font-medium">Email:</span> {user?.email}</p>
+                    <p className="text-gray-600"><span className="font-medium">Rol:</span> <span className="capitalize">{assignment?.role.replace('_', ' ')}</span></p>
 
                     <div className="pt-4 border-t border-gray-100">
                         <button
@@ -145,3 +272,4 @@ export default function ConfigurationView() {
         </div>
     );
 }
+

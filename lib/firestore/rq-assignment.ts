@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
 import type { UserAssignment } from './user-assignments';
 
 /**
@@ -66,15 +66,31 @@ export async function assignRQToApprovers(
         currentLevel = 2; // Pending supervisor
     }
 
+    // VACATION MODE: Check if titulars are on vacation and delegate to backup
+    let finalSupervisor = supervisor;
+    let finalJefeMarca = jefeMarca;
+
+    if (supervisor?.vacationMode && supervisor.backupUserId) {
+        console.log(`🏖️ Supervisor ${supervisor.displayName} is on vacation. Delegating to ${supervisor.backupDisplayName}...`);
+        const backup = await findActiveUserById(supervisor.backupUserId);
+        if (backup) finalSupervisor = backup;
+    }
+
+    if (jefeMarca?.vacationMode && jefeMarca.backupUserId) {
+        console.log(`🏖️ Jefe de Marca ${jefeMarca.displayName} is on vacation. Delegating to ${jefeMarca.backupDisplayName}...`);
+        const backup = await findActiveUserById(jefeMarca.backupUserId);
+        if (backup) finalJefeMarca = backup;
+    }
+
     // Update RQ with assignments
     const rqRef = doc(db, 'rqs', rqId);
     await updateDoc(rqRef, {
         approvalChain,
         currentApprovalLevel: currentLevel,
-        assignedSupervisor: supervisor?.userId || null,
-        assignedSupervisorName: supervisor?.displayName || null,
-        assignedJefeMarca: jefeMarca?.userId || null,
-        assignedJefeMarcaName: jefeMarca?.displayName || null
+        assignedSupervisor: finalSupervisor?.userId || null,
+        assignedSupervisorName: finalSupervisor?.displayName || null,
+        assignedJefeMarca: finalJefeMarca?.userId || null,
+        assignedJefeMarcaName: finalJefeMarca?.displayName || null
     });
 }
 
@@ -143,6 +159,23 @@ async function findJefeForMarca(marcaId: string): Promise<UserAssignment | null>
     }
 
     console.log(`⚠️ No jefe de marca found for marca ${marcaId}`);
+    return null;
+}
+
+/**
+ * Find active user as backup
+ */
+async function findActiveUserById(userId: string): Promise<UserAssignment | null> {
+    const docRef = doc(db, 'userAssignments', userId);
+    const snap = await getDoc(docRef);
+
+    if (snap.exists()) {
+        const data = snap.data();
+        const isActive = data.isActive === true || data.active === true;
+        if (isActive) {
+            return { id: snap.id, ...data } as UserAssignment;
+        }
+    }
     return null;
 }
 
