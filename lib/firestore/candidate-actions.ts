@@ -66,10 +66,23 @@ export async function rejectCandidate(
         return app;
     });
 
-    await updateDoc(candidateRef, {
+    const updateData: any = {
         applications: updatedApplications,
         updatedAt: Timestamp.now()
-    });
+    };
+
+    // If the candidate was selected for this specific RQ, clear the global selection status
+    const candidateData = candidateDoc as any;
+    const isSelectedForThisRQ = candidateData.selectionStatus === 'selected' && candidateData.selectedForRQ === applicationId;
+
+    if (isSelectedForThisRQ) {
+        updateData.selectionStatus = 'rejected';
+        updateData.selectedForRQ = null;
+        updateData.selectedAt = null;
+        updateData.selectedBy = null;
+    }
+
+    await updateDoc(candidateRef, updateData);
 }
 
 /**

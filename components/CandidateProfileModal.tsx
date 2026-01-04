@@ -6,7 +6,8 @@ import type { Candidate } from '@/lib/firestore/candidates';
 import { approveCandidate, rejectCandidate, updateCULStatus } from '@/lib/firestore/candidate-actions';
 import { getRQsByMarca, RQ } from '@/lib/firestore/rqs';
 import { createApplication } from '@/lib/firestore/applications';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface CandidateProfileModalProps {
     candidate: Candidate;
@@ -144,8 +145,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             });
 
             // Update candidate status and its applications
-            const { updateDoc, doc } = await import('firebase/firestore');
-            const { db } = await import('@/lib/firebase');
+            // const { updateDoc, doc } = await import('firebase/firestore'); // Removed dynamic imports
+            // const { db } = await import('@/lib/firebase');
 
             const updatedApplications = candidate.applications?.map(app => {
                 if (app.id === latestApp?.id) {

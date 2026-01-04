@@ -28,15 +28,23 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
             const allCandidates = await getCandidatesByMarca(marcaId);
 
             // Filtrar candidatos que:
-            // 1. Tienen CUL Apto O
-            // 2. Tienen una aplicación aprobada (principal o backup) para esta tienda
+            // 1. Tienen una aplicación aprobada (principal o backup) para esta tienda
+            // 2. O tienen CUL Apto Y NO han sido rechazados para esta tienda
             const aptoCandidates = allCandidates.filter(c => {
-                const hasCULApto = c.culStatus === 'apto';
                 const hasApprovedAppForStore = c.applications?.some(app =>
                     app.tiendaId === storeId && app.status === 'approved'
                 );
-                // Show if apto OR has approved application
-                return hasCULApto || hasApprovedAppForStore;
+
+                const isRejectedForStore = c.applications?.some(app =>
+                    app.tiendaId === storeId && app.status === 'rejected'
+                );
+
+                const hasCULApto = c.culStatus === 'apto';
+
+                // Show if:
+                // - Has approved app for this store
+                // - OR (Has CUL apto AND hasn't been rejected for this store)
+                return hasApprovedAppForStore || (hasCULApto && !isRejectedForStore);
             });
 
             setCandidates(aptoCandidates);

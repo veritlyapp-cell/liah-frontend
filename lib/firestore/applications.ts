@@ -29,7 +29,7 @@ export async function createApplication(
     }
 
     const applicationId = uuidv4();
-    const application: Partial<Application> = {
+    const application: any = {
         id: applicationId,
         marcaId: data.marcaId,
         marcaNombre: data.marcaNombre,
@@ -40,12 +40,15 @@ export async function createApplication(
         posicion: data.posicion,
         modalidad: data.modalidad || 'Full Time',
         appliedAt: Timestamp.now(),
-        status: 'completed',  // El candidato ya completó el formulario
-        invitationId: data.invitationId,
-        invitedBy: data.sentBy,
-        origenConvocatoria: data.origenConvocatoria, // [NEW]
-        categoria: data.categoria // [NEW]
+        status: 'completed',
+        invitationId: data.invitationId || '',
+        invitedBy: data.sentBy || '',
+        origenConvocatoria: data.origenConvocatoria || 'Directo',
+        categoria: data.categoria || 'operativo'
     };
+
+    // Clean up undefined properties just in case
+    Object.keys(application).forEach(key => (application[key] === undefined) && delete application[key]);
 
     // Agregar application al candidato
     const candidateRef = doc(db, 'candidates', candidateId);
