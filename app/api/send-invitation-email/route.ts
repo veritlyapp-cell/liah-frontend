@@ -62,7 +62,7 @@ export async function POST(request: Request) {
                     </div>
                     
                     <p style="font-size: 16px; color: #374151; line-height: 1.5; margin-bottom: 30px;">
-                        Hemos revisado tu perfil y creemos que serías una excelente opción para este equipo. Si estás interesado/a, por favor completa tu postulación haciendo clic en el siguiente botón:
+                        Fue un gusto conocerte en la entrevista. Creemos que serías una excelente opción para nuestro equipo. Para continuar con tu proceso, por favor completa tu postulación haciendo clic en el siguiente botón:
                     </p>
                     
                     <div style="text-align: center; margin-bottom: 30px;">

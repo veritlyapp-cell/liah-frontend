@@ -21,6 +21,19 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+    const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
+
+    const toggleHistory = (candidateId: string) => {
+        setExpandedHistory(prev => {
+            const next = new Set(prev);
+            if (next.has(candidateId)) {
+                next.delete(candidateId);
+            } else {
+                next.add(candidateId);
+            }
+            return next;
+        });
+    };
 
     useEffect(() => {
         loadCandidates();
@@ -171,9 +184,17 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
             ) : (
                 <div className="space-y-3">
                     {filteredCandidates.map(candidate => {
-                        // Obtener su última aplicación a esta tienda
+                        // Obtener su última aplicación a esta tienda (ACTUAL)
                         const storeApplications = candidate.applications?.filter(app => app.tiendaId === storeId) || [];
                         const latestApp = storeApplications[storeApplications.length - 1];
+
+                        // Historial: todas las demás aplicaciones (otras tiendas o anteriores)
+                        const otherApplications = candidate.applications?.filter(app =>
+                            app.id !== latestApp?.id
+                        ) || [];
+                        const hasHistory = otherApplications.length > 0;
+
+                        const showCandidateHistory = expandedHistory.has(candidate.id);
 
                         return (
                             <div key={candidate.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
@@ -289,33 +310,68 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
                                             )}
                                         </div>
 
-                                        {/* Applications */}
-                                        {storeApplications.length > 0 && (
+                                        {/* Postulación Actual - Solo la más reciente */}
+                                        {latestApp && (
                                             <div className="mt-3 pt-3 border-t border-gray-100">
-                                                <p className="text-xs text-gray-500 mb-2">Postulaciones ({storeApplications.length}):</p>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <p className="text-xs text-gray-500 font-medium">Postulación Actual:</p>
+                                                    {hasHistory && (
+                                                        <button
+                                                            onClick={() => toggleHistory(candidate.id)}
+                                                            className="text-xs text-violet-600 hover:underline flex items-center gap-1"
+                                                        >
+                                                            📜 {showCandidateHistory ? 'Ocultar' : 'Ver'} Historial ({otherApplications.length})
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs bg-violet-50 rounded px-3 py-2 flex items-center justify-between">
+                                                    <span className="text-violet-900">
+                                                        {latestApp.tiendaNombre} • {latestApp.posicion || 'Posición'} • {new Date(latestApp.appliedAt?.toDate ? latestApp.appliedAt.toDate() : latestApp.appliedAt).toLocaleDateString()}
+                                                    </span>
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${latestApp.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                        latestApp.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                                                            latestApp.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                latestApp.status === 'interview_scheduled' ? 'bg-purple-100 text-purple-700' :
+                                                                    'bg-amber-100 text-amber-700'
+                                                        }`}>
+                                                        {latestApp.status === 'completed' ? 'Completado' :
+                                                            latestApp.status === 'approved' ? 'Aprobado' :
+                                                                latestApp.status === 'rejected' ? 'Rechazado' :
+                                                                    latestApp.status === 'interview_scheduled' ? 'Entrevista Agendada' :
+                                                                        'Invitado'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Historial Expandible */}
+                                        {showCandidateHistory && otherApplications.length > 0 && (
+                                            <div className="mt-2 bg-gray-50 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <p className="text-xs text-gray-500 mb-2 font-medium">📜 Historial de Procesos Anteriores:</p>
                                                 <div className="space-y-1">
-                                                    {storeApplications.slice(-2).map((app, idx) => (
-                                                        <div key={idx} className="text-xs bg-violet-50 rounded px-2 py-1 flex items-center justify-between">
-                                                            <span className="text-violet-900">
-                                                                {app.tiendaNombre} • {new Date(app.appliedAt?.toDate ? app.appliedAt.toDate() : app.appliedAt).toLocaleDateString()}
+                                                    {otherApplications.map((app, idx) => (
+                                                        <div key={idx} className="text-xs bg-white rounded px-2 py-1.5 flex items-center justify-between border border-gray-200">
+                                                            <span className="text-gray-700">
+                                                                {app.tiendaNombre} • {app.posicion || 'N/A'} • {new Date(app.appliedAt?.toDate ? app.appliedAt.toDate() : app.appliedAt).toLocaleDateString()}
                                                             </span>
-                                                            <span className={`px-2 py-0.5 rounded text-xs ${app.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                                app.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                                                                    app.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                                        app.status === 'interview_scheduled' ? 'bg-purple-100 text-purple-700 font-medium' :
-                                                                            'bg-gray-100 text-gray-700'
+                                                            <span className={`px-2 py-0.5 rounded text-xs ${app.hiredStatus === 'hired' ? 'bg-green-100 text-green-700 font-bold' :
+                                                                app.hiredStatus === 'not_hired' ? 'bg-gray-100 text-gray-600' :
+                                                                    app.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                                                                        app.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                            'bg-gray-100 text-gray-600'
                                                                 }`}>
-                                                                {app.status === 'completed' ? 'Completado' :
-                                                                    app.status === 'approved' ? 'Aprobado' :
-                                                                        app.status === 'rejected' ? 'Rechazado' :
-                                                                            app.status === 'interview_scheduled' ? 'Entrevista Agendada' :
-                                                                                'Invitado'}
+                                                                {app.hiredStatus === 'hired' ? '✅ Ingresó' :
+                                                                    app.hiredStatus === 'not_hired' ? '❌ No Ingresó' :
+                                                                        app.status === 'approved' ? 'Aprobado' :
+                                                                            app.status === 'rejected' ? 'Rechazado' :
+                                                                                'Finalizado'}
                                                             </span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
+
                                     </div>
 
                                     {/* Actions */}

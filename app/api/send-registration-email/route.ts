@@ -45,7 +45,7 @@ export async function POST(request: Request) {
                         <h3 style="color: #7c3aed; margin-top: 0;">📋 ¿Qué sigue?</h3>
                         <ol style="color: #333; line-height: 1.8;">
                             <li>Revisaremos tu perfil y documentos</li>
-                            <li>Te notificaremos si eres seleccionado para entrevista</li>
+                            <li>Te notificaremos si has sido seleccionado/a para la posición</li>
                             <li>Recibirás un mensaje de WhatsApp o correo con los detalles</li>
                         </ol>
                     </div>
