@@ -14,8 +14,12 @@ interface InviteCandidateModalProps {
     storeName: string;
     marcaId: string;
     marcaNombre: string;
-    initialRQId?: string; // NEW
-    userRole?: string; // NEW
+    initialRQId?: string;
+    userRole?: string;
+    // NEW: Branding props
+    holdingName?: string;
+    holdingLogo?: string;
+    marcaLogo?: string;
 }
 
 export default function InviteCandidateModal({
@@ -26,9 +30,18 @@ export default function InviteCandidateModal({
     marcaId,
     marcaNombre,
     initialRQId,
-    userRole
+    userRole,
+    holdingName,
+    holdingLogo,
+    marcaLogo
 }: InviteCandidateModalProps) {
-    const { user } = useAuth();
+
+    const { user, claims } = useAuth();
+    // Extract branding from props or claims
+    const effectiveHoldingName = holdingName || (claims as any)?.holding_name || 'la empresa';
+    const effectiveHoldingLogo = holdingLogo || (claims as any)?.holding_logo;
+    const effectiveMarcaLogo = marcaLogo;
+
     const [email, setEmail] = useState('');
     const [selectedRQ, setSelectedRQ] = useState<string>('');
     const [approvedRQs, setApprovedRQs] = useState<RQ[]>([]);
@@ -132,7 +145,11 @@ export default function InviteCandidateModal({
                         marcaId: marcaId,
                         marcaNombre: marcaNombre,
                         modalidad: rq.modalidad,
-                        turno: rq.turno
+                        turno: rq.turno,
+                        // NEW: Branding
+                        holdingName: effectiveHoldingName,
+                        holdingLogo: effectiveHoldingLogo,
+                        marcaLogo: effectiveMarcaLogo
                     })
                 });
             } catch (emailError) {

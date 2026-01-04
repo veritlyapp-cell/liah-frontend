@@ -5,17 +5,28 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
     try {
-        const { candidateEmail, candidateName, holdingName, applicationLink } = await request.json();
+        const {
+            candidateEmail,
+            candidateName,
+            applicationLink,
+            // NEW: Dynamic branding fields
+            holdingName,
+            holdingLogo,
+            marcaLogo,
+            marcaNombre
+        } = await request.json();
 
         if (!candidateEmail) {
             return NextResponse.json({ error: 'Missing email' }, { status: 400 });
         }
 
+        const companyName = holdingName || 'la empresa';
+
         // Check if Resend is configured
         if (!process.env.RESEND_API_KEY) {
             console.log('📧 [MOCK - Registration Email] ---------------------------------------------------');
             console.log(`To: ${candidateName} <${candidateEmail}>`);
-            console.log(`Subject: ¡Registro Exitoso en ${holdingName || 'LIAH'}!`);
+            console.log(`Subject: ¡Registro Exitoso en ${companyName}!`);
             console.log(`Link: ${applicationLink || 'N/A'}`);
             console.log('-------------------------------------------------------------------------');
 
@@ -26,13 +37,23 @@ export async function POST(request: Request) {
             });
         }
 
+        // Build logo header section
+        const logoSection = (holdingLogo || marcaLogo) ? `
+            <div style="text-align: center; margin-bottom: 20px;">
+                ${holdingLogo ? `<img src="${holdingLogo}" alt="${companyName}" style="max-height: 50px; margin-right: 15px;" />` : ''}
+                ${marcaLogo ? `<img src="${marcaLogo}" alt="${marcaNombre || ''}" style="max-height: 50px;" />` : ''}
+            </div>
+        ` : '';
+
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
             from: 'LIAH <noreply@notifications.getliah.com>',
             to: candidateEmail,
-            subject: `¡Registro Exitoso en ${holdingName || 'NGR'}!`,
+            subject: `¡Registro Exitoso en ${companyName}!`,
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    ${logoSection}
+                    
                     <div style="text-align: center; margin-bottom: 30px;">
                         <h1 style="color: #7c3aed; margin: 0;">¡Bienvenido/a, ${candidateName || 'Candidato'}! 🎉</h1>
                     </div>
@@ -73,8 +94,8 @@ export async function POST(request: Request) {
                     
                     <div style="text-align: center;">
                         <p style="color: #999; font-size: 12px; margin: 0;">
-                            Este correo fue enviado por LIAH - Asistente de Reclutamiento<br/>
-                            ${holdingName || 'NGR'} • Parte de Grupo Intercorp
+                            Este correo fue enviado por LIAH - Asistente de Reclutamiento Inteligente<br/>
+                            © ${new Date().getFullYear()} ${companyName}
                         </p>
                     </div>
                 </div>

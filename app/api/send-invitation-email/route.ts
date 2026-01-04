@@ -11,15 +11,20 @@ export async function POST(request: Request) {
             invitationLink,
             posicion,
             tiendaNombre,
-            marcaId,
             marcaNombre,
             modalidad,
-            turno
+            turno,
+            // NEW: Dynamic branding fields
+            holdingName,
+            holdingLogo,
+            marcaLogo
         } = await request.json();
 
         if (!candidateEmail) {
             return NextResponse.json({ error: 'Missing email' }, { status: 400 });
         }
+
+        const companyName = holdingName || 'la empresa';
 
         // Check if Resend is configured
         if (!process.env.RESEND_API_KEY) {
@@ -27,6 +32,7 @@ export async function POST(request: Request) {
             console.log(`To: ${candidateEmail}`);
             console.log(`Subject: Invitación para postular a ${posicion} en ${tiendaNombre}`);
             console.log(`Link: ${invitationLink}`);
+            console.log(`Company: ${companyName}`);
             console.log('-------------------------------------------------------------------------');
 
             return NextResponse.json({
@@ -36,6 +42,14 @@ export async function POST(request: Request) {
             });
         }
 
+        // Build logo header section
+        const logoSection = (holdingLogo || marcaLogo) ? `
+            <div style="text-align: center; margin-bottom: 20px;">
+                ${holdingLogo ? `<img src="${holdingLogo}" alt="${companyName}" style="max-height: 50px; margin-right: 15px;" />` : ''}
+                ${marcaLogo ? `<img src="${marcaLogo}" alt="${marcaNombre}" style="max-height: 50px;" />` : ''}
+            </div>
+        ` : '';
+
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
             from: 'LIAH <noreply@notifications.getliah.com>',
@@ -43,6 +57,8 @@ export async function POST(request: Request) {
             subject: `Invitación para postular a ${posicion} en ${marcaNombre}`,
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+                    ${logoSection}
+                    
                     <div style="text-align: center; margin-bottom: 30px;">
                         <h1 style="color: #7c3aed; margin: 0;">¡Hola! 👋</h1>
                         <p style="font-size: 18px; color: #4B5563; margin-top: 10px;">
@@ -89,7 +105,7 @@ export async function POST(request: Request) {
                     <div style="text-align: center;">
                         <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
                             Este correo fue enviado por LIAH - Asistente de Reclutamiento Inteligente<br/>
-                            © ${new Date().getFullYear()} NGR • Parte de Grupo Intercorp
+                            © ${new Date().getFullYear()} ${companyName}
                         </p>
                     </div>
                 </div>
