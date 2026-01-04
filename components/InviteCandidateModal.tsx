@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createInvitation } from '@/lib/firestore/invitations';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranding } from '@/lib/hooks/useBranding';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { RQ } from '@/lib/firestore/rqs';
@@ -16,7 +17,7 @@ interface InviteCandidateModalProps {
     marcaNombre: string;
     initialRQId?: string;
     userRole?: string;
-    // NEW: Branding props
+    // Optional: Branding props (auto-fetched if not provided)
     holdingName?: string;
     holdingLogo?: string;
     marcaLogo?: string;
@@ -37,10 +38,16 @@ export default function InviteCandidateModal({
 }: InviteCandidateModalProps) {
 
     const { user, claims } = useAuth();
-    // Extract branding from props or claims
-    const effectiveHoldingName = holdingName || (claims as any)?.holding_name || 'la empresa';
-    const effectiveHoldingLogo = holdingLogo || (claims as any)?.holding_logo;
-    const effectiveMarcaLogo = marcaLogo;
+    const holdingId = (claims as any)?.tenant_id;
+
+    // Auto-load branding if not provided via props
+    const { branding } = useBranding(holdingId, marcaId);
+
+    // Combine props with auto-loaded data (props take priority)
+    const effectiveHoldingName = holdingName || branding.holdingName || (claims as any)?.holding_name || 'la empresa';
+    const effectiveHoldingLogo = holdingLogo || branding.holdingLogo;
+    const effectiveMarcaLogo = marcaLogo || branding.marcaLogo;
+
 
     const [email, setEmail] = useState('');
     const [selectedRQ, setSelectedRQ] = useState<string>('');
