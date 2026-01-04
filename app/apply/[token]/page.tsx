@@ -187,7 +187,12 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             setSubmitting(true);
 
             // 1. Subir archivos dinámicos
-            const uploadedDocs = { ...(formData.documents || {}) };
+            // Initialize with existing documents to avoid losing previous ones
+            const uploadedDocs = {
+                ...(existingCandidate?.documents || {}),
+                ...(formData.documents || {})
+            };
+
             for (const [docId, file] of Object.entries(files)) {
                 if (file && file.size > 0) {
                     console.log(`Uploading document: ${docId}`, file.name);
@@ -208,7 +213,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 documents: uploadedDocs,
                 source: formData.origenConvocatoria, // [NEW] Sync with source field for Analytics
                 // Mantener CUL en campo raíz para compatibilidad si existe un docId 'cul'
-                certificadoUnicoLaboral: uploadedDocs['cul'] || formData.certificadoUnicoLaboral,
+                certificadoUnicoLaboral: uploadedDocs['cul'] || formData.certificadoUnicoLaboral || (existingCandidate?.certificadoUnicoLaboral || ''),
                 culUploadedAt: uploadedDocs['cul'] ? new Date() : (existingCandidate?.culUploadedAt || null) // Update timestamp if new CUL uploaded
             };
 

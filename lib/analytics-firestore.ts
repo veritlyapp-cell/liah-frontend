@@ -421,57 +421,64 @@ export function calculateDropoffs(candidates: DocumentData[]): DropoffMetric[] {
         .sort((a, b) => b.count - a.count);
 }
 
-// Calculate sources from real data
+// Calculate sources from real data with stage-aware metrics
 export function calculateSources(candidates: DocumentData[]): SourceMetric[] {
     const sourceLabels: Record<string, string> = {
-        whatsapp: 'WhatsApp Directo',
-        link: 'Link de Postulación',
-        referral: 'Referido',
-        facebook: 'Facebook',
-        instagram: 'Instagram',
-        tiktok: 'TikTok',
-        linkedin: 'LinkedIn',
-        computrabajo: 'CompuTrabajo',
-        bumeran: 'Bumerán',
-        indeed: 'Indeed',
-        volante: 'Volante/Poster',
-        radio: 'Radio/Audio',
-        evento: 'Evento',
-        other: 'Otros'
+        'whatsapp': 'WhatsApp Bot',
+        'Bolsa de Trabajo': 'Bolsa de Trabajo',
+        'Referido': 'Referido',
+        'Anuncio en Tienda': 'Anuncio en Tienda',
+        'Redes Sociales': 'Redes Sociales',
+        'Otros': 'Otros',
+        'email_invitation': 'Invitación Directa',
+        'Reasignado por Recruiter': 'Reasignado'
     };
 
-    const counts: Record<string, { total: number; hired: number }> = {};
+    // metrics: { sourceName: { applied: 0, approved: 0, selected: 0, hired: 0 } }
+    const metrics: Record<string, { applied: number; approved: number; selected: number; hired: number }> = {};
 
     candidates.forEach(c => {
-        // Use origenConvocatoria if source is missing
-        let sourceValue = c.source || c.origenConvocatoria || 'whatsapp';
+        // A candidate can have multiple applications with different sources (theoretically)
+        // or a global source/origenConvocatoria
+        const globalSource = c.source || c.origenConvocatoria || 'Otros';
 
-        // Normalize sources
-        if (sourceValue === 'Bolsa de Trabajo') sourceValue = 'link';
-        if (sourceValue === 'Redes Sociales') sourceValue = 'facebook';
-        if (sourceValue === 'Referido') sourceValue = 'referral';
-        if (sourceValue === 'Anuncio en Tienda') sourceValue = 'volante';
-        if (sourceValue === 'Computrabajo' || sourceValue === 'LinkedIn') sourceValue = 'link';
-        if (sourceValue === 'Instagram' || sourceValue === 'TikTok') sourceValue = 'facebook'; // RRSS general
-
-        const source = sourceValue.toLowerCase();
-        if (!counts[source]) counts[source] = { total: 0, hired: 0 };
-        counts[source].total++;
-
-        if (c.applications?.some((app: any) => app.hiredStatus === 'hired')) {
-            counts[source].hired++;
+        // If candidate has no applications, count only global source in 'applied'
+        if (!c.applications || c.applications.length === 0) {
+            const src = globalSource;
+            if (!metrics[src]) metrics[src] = { applied: 0, approved: 0, selected: 0, hired: 0 };
+            metrics[src].applied++;
+            return;
         }
+
+        // Count per application to get stage-aware metrics
+        c.applications.forEach((app: any) => {
+            const appSource = app.source || app.origenConvocatoria || globalSource;
+            if (!metrics[appSource]) metrics[appSource] = { applied: 0, approved: 0, selected: 0, hired: 0 };
+
+            metrics[appSource].applied++;
+
+            if (app.status === 'approved') metrics[appSource].approved++;
+            if (app.status === 'selected') metrics[appSource].selected++;
+            if (app.hiredStatus === 'hired') metrics[appSource].hired++;
+        });
     });
 
-    const total = candidates.length;
+    const totalApplied = Object.values(metrics).reduce((sum, m) => sum + m.applied, 0);
 
-    return Object.entries(counts)
-        .map(([source, data]) => ({
-            source: source as CandidateSource,
+    return Object.entries(metrics)
+        .map(([source, m]) => ({
+            source: source as any,
             label: sourceLabels[source] || source,
-            count: data.total,
-            percentage: total > 0 ? (data.total / total) * 100 : 0,
-            hireRate: data.total > 0 ? (data.hired / data.total) * 100 : 0
+            count: m.applied, // Total applied for this source
+            percentage: totalApplied > 0 ? (m.applied / totalApplied) * 100 : 0,
+
+            // NEW: Stage-specific counts
+            approvedCount: m.approved,
+            selectedCount: m.selected,
+            hiredCount: m.hired,
+
+            // Conversion rate based on hired/applied
+            hireRate: m.applied > 0 ? (m.hired / m.applied) * 100 : 0
         }))
         .sort((a, b) => b.count - a.count);
 }

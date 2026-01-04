@@ -50,14 +50,13 @@ export default function SourceChart({ data, title }: SourceChartProps) {
                 <h3 className="text-lg font-bold text-gray-900 mb-6">{title}</h3>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-6">
                 {data.map((item) => {
-                    const colors = sourceColors[item.source] || sourceColors.other;
                     const icon = sourceIcons[item.source] || '📋';
                     const widthPercent = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
 
                     return (
-                        <div key={item.source} className="space-y-2">
+                        <div key={item.source} className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <span className="text-xl">{icon}</span>
@@ -65,7 +64,7 @@ export default function SourceChart({ data, title }: SourceChartProps) {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <span className="text-sm font-semibold text-gray-900">
-                                        {item.count}
+                                        {item.count} <span className="text-xs font-normal text-gray-500">Postulantes</span>
                                     </span>
                                     <span className="text-xs text-gray-500">
                                         ({item.percentage.toFixed(1)}%)
@@ -73,30 +72,49 @@ export default function SourceChart({ data, title }: SourceChartProps) {
                                 </div>
                             </div>
 
+                            {/* Main Bar (Flow-based) */}
                             <div className="relative">
-                                <div className="h-8 bg-gray-100 rounded-lg overflow-hidden">
+                                <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full ${colors.bg} rounded-lg transition-all duration-500 flex items-center justify-end pr-3`}
+                                        className="h-full bg-indigo-500 rounded-full transition-all duration-500"
                                         style={{ width: `${widthPercent}%` }}
-                                    >
-                                        <span className="text-white text-xs font-medium">
-                                            {item.hireRate.toFixed(0)}% contratados
-                                        </span>
-                                    </div>
+                                    />
                                 </div>
+                            </div>
+
+                            {/* Stats Breakdown */}
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                                    <p className="text-[10px] text-emerald-600 font-bold uppercase">Aptos</p>
+                                    <p className="text-sm font-bold text-emerald-700">{item.approvedCount || 0}</p>
+                                </div>
+                                <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
+                                    <p className="text-[10px] text-blue-600 font-bold uppercase">Seleccionados</p>
+                                    <p className="text-sm font-bold text-blue-700">{item.selectedCount || 0}</p>
+                                </div>
+                                <div className="bg-violet-50 p-2 rounded-lg border border-violet-100">
+                                    <p className="text-[10px] text-violet-600 font-bold uppercase">Ingresados</p>
+                                    <p className="text-sm font-bold text-violet-700">{item.hiredCount || 0}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pr-1">
+                                <p className="text-[11px] text-gray-500 font-medium italic">
+                                    Tasa de éxito (Ingresos): {item.hireRate.toFixed(1)}%
+                                </p>
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {/* Best performing source */}
+            {/* Global Insight */}
             {data.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-gray-100">
+                <div className="mt-8 pt-4 border-t border-gray-100">
                     <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Mejor tasa de conversión:</span>
-                        <span className="font-bold text-green-600">
-                            {data.sort((a, b) => b.hireRate - a.hireRate)[0]?.label} ({data[0]?.hireRate.toFixed(1)}%)
+                        <span className="text-gray-500">Canal con mayor éxito (Ingresos):</span>
+                        <span className="font-bold text-indigo-600">
+                            {data.sort((a, b) => (b.hireRate || 0) - (a.hireRate || 0))[0]?.label}
                         </span>
                     </div>
                 </div>

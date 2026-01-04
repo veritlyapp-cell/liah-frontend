@@ -399,7 +399,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     )}
                                 </div>
                             </div>
-                            {candidate.certificadoUnicoLaboral && (
+                            {candidate.certificadoUnicoLaboral ? (
                                 <a
                                     href={candidate.certificadoUnicoLaboral}
                                     target="_blank"
@@ -408,6 +408,10 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 >
                                     <span>📄</span> Ver PDF del CUL
                                 </a>
+                            ) : (
+                                <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-full text-sm font-medium border border-gray-200 flex items-center gap-2 italic">
+                                    <span>🚫</span> CUL no cargado
+                                </div>
                             )}
                         </div>
 

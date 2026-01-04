@@ -136,6 +136,9 @@ export interface SourceMetric {
     label: string;
     count: number;
     percentage: number;
+    approvedCount?: number;   // NEW: Count in 'approved' stage
+    selectedCount?: number;   // NEW: Count in 'selected' stage
+    hiredCount?: number;      // NEW: Count in 'hired' stage
     hireRate: number; // % de contratación por fuente
 }
 
