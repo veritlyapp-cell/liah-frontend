@@ -153,7 +153,7 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                     Exportar Lista (Excel)
                 </button>
 
-                {/* Special button for exporting only APTOS - NGR Format */}
+                {/* Special button for exporting only SELECCIONADOS - NGR Format */}
                 <button
                     onClick={async () => {
                         const { exportAptosExcel } = await import('@/lib/utils/export-excel');
@@ -168,7 +168,7 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Exportar APTOS (Excel)
+                    Exportar SELECCIONADOS (Excel)
                 </button>
 
                 <div className="text-sm text-gray-600">

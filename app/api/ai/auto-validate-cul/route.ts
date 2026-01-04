@@ -6,10 +6,9 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 
 // Model priority list (2026 models)
 const VISION_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash',
-    'gemini-2.5-pro'
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash-exp'
 ];
 
 // CUL validation prompt based on real document format
@@ -169,25 +168,27 @@ export async function POST(req: NextRequest) {
         // If we have candidate ID, update the candidate record
         if (candidateId) {
             try {
-                await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/candidates/update-validation`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        candidateId,
-                        updateType: 'cul_validation',
-                        data: {
-                            status: validationStatus,
-                            aiObservation: validationMessage,
-                            denunciasEncontradas: analysisResult.antecedentes ?
-                                Object.entries(analysisResult.antecedentes)
-                                    .filter(([_, v]: any) => v.estado === 'con_registros')
-                                    .map(([key, v]: any) => `${key}: ${v.detalle}`) : [],
-                            confidence: analysisResult.confidence,
-                            extractedData: analysisResult.datosPersonales
-                        }
-                    })
-                });
-                console.log(`[AUTO-VALIDATE] Candidate ${candidateId} updated with status: ${validationStatus}`);
+                const { getAdminFirestore } = await import('@/lib/firebase-admin');
+                const { Timestamp } = await import('firebase-admin/firestore');
+                const dbAdmin = await getAdminFirestore();
+
+                const updateData = {
+                    updatedAt: Timestamp.now(),
+                    culStatus: validationStatus === 'approved_ai' ? 'apto' :
+                        validationStatus === 'rejected_ai' || validationStatus === 'rejected_invalid_doc' ? 'no_apto' :
+                            validationStatus === 'pending_review' ? 'manual_review' : 'pending',
+                    culValidationStatus: validationStatus,
+                    culAiObservation: validationMessage,
+                    culDenunciasEncontradas: analysisResult.antecedentes ?
+                        Object.entries(analysisResult.antecedentes)
+                            .filter(([_, v]: any) => v.estado === 'con_registros')
+                            .map(([key, v]: any) => `${key}: ${v.detalle}`) : [],
+                    culConfidence: analysisResult.confidence || 0,
+                    culValidatedAt: Timestamp.now()
+                };
+
+                await dbAdmin.collection('candidates').doc(candidateId).update(updateData);
+                console.log(`[AUTO-VALIDATE] Candidate ${candidateId} updated directly with status: ${validationStatus}`);
             } catch (updateError) {
                 console.error(`[AUTO-VALIDATE] Failed to update candidate:`, updateError);
             }

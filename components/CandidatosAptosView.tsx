@@ -141,12 +141,13 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
             {/* Pending Candidates (Always Visible) */}
             {pending.length > 0 && (
                 <div>
-                    <h3 className="text-lg font-semibold mb-3">⏳ Candidatos Aptos - Pendientes de Ingreso</h3>
+                    <h3 className="text-lg font-semibold mb-3">⏳ Candidatos Seleccionados - Pendientes de Ingreso</h3>
                     <div className="space-y-3">
                         {pending.map(candidate => {
-                            const aptoApp = candidate.applications?.find(app => app.status === 'approved');
+                            const aptoApp = candidate.applications?.find(app => (app.tiendaId === storeId || app.marcaId === marcaId) && app.status === 'approved');
                             if (!aptoApp) return null;
 
+                            const isSelectedByRecruiter = candidate.selectionStatus === 'selected' && candidate.selectedForRQ === aptoApp.rqId;
                             const fullName = `${candidate.nombre} ${candidate.apellidoPaterno} ${candidate.apellidoMaterno}`;
 
                             return (
@@ -162,6 +163,15 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                         ⭐ Principal
                                                     </span>
                                                 )}
+                                                {isSelectedByRecruiter ? (
+                                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                                        <span>🎯</span> SELECCIONADO
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1">
+                                                        <span>⌛</span> Esperando selección de Recruiter
+                                                    </span>
+                                                )}
                                             </div>
 
                                             <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-gray-600">
@@ -172,10 +182,17 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                 <div><span className="font-medium">Modalidad:</span> {aptoApp.modalidad || 'Full Time'}</div>
                                                 {aptoApp.turno && <div><span className="font-medium">Turno:</span> {aptoApp.turno}</div>}
                                             </div>
+
+                                            {!isSelectedByRecruiter && (
+                                                <p className="mt-2 text-xs text-amber-600 font-medium">
+                                                    📌 Los botones se habilitarán una vez que el Recruiter confirme la selección final.
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="flex flex-col gap-2 ml-4">
                                             <button
+                                                disabled={!isSelectedByRecruiter}
                                                 onClick={() => {
                                                     setSelectedCandidate({
                                                         id: candidate.id,
@@ -184,13 +201,20 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                     });
                                                     setShowDatePicker(true);
                                                 }}
-                                                className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 transition-colors text-sm"
+                                                className={`px-4 py-2 rounded font-medium transition-colors text-sm ${isSelectedByRecruiter
+                                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                    }`}
                                             >
                                                 ✅ Confirmar Ingreso
                                             </button>
                                             <button
+                                                disabled={!isSelectedByRecruiter}
                                                 onClick={() => handleMarkNotHired(candidate.id, aptoApp.id)}
-                                                className="px-4 py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700 transition-colors text-sm"
+                                                className={`px-4 py-2 rounded font-medium transition-colors text-sm ${isSelectedByRecruiter
+                                                    ? 'bg-gray-600 text-white hover:bg-gray-700'
+                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                    }`}
                                             >
                                                 ❌ No Ingresó
                                             </button>

@@ -87,6 +87,8 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
     };
 
 
+    const [listFilter, setListFilter] = useState<'process' | 'selected' | 'rejected'>('process');
+
     const filteredCandidates = candidates.filter(candidate => {
         // Obtenemos la aplicación para esta tienda, lista de tiendas o marca
         const relevantStoreIds = storeIds || (storeId ? [storeId] : []);
@@ -96,24 +98,40 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
         }) || [];
         const latestApp = storeApplications[storeApplications.length - 1];
 
-        // [NEW] If specific filter is requested, strictly enforce it
-        if (filterStatus) {
-            if (latestApp?.status !== filterStatus) return false;
-        } else {
-            // Default behavior: HIDE processed ones (approved/rejected)
-            // But show 'completed' or 'interview_scheduled' or 'invited' if no specific filter
-            if (latestApp?.status === 'approved' || latestApp?.status === 'rejected') {
-                return false;
-            }
-        }
-
+        // Search filter first
         const search = searchTerm.toLowerCase();
-        return (
+        const matchesSearch = (
             candidate.nombre?.toLowerCase().includes(search) ||
             candidate.apellidoPaterno?.toLowerCase().includes(search) ||
             candidate.dni?.includes(search) ||
             candidate.candidateCode?.toLowerCase().includes(search)
         );
+
+        if (!matchesSearch) return false;
+
+        // Status Categorization
+        if (filterStatus) {
+            // If strictly filtered (e.g. from a specific dashboard tab), enforce it
+            return latestApp?.status === filterStatus;
+        }
+
+        // Default behavior: Categorize by listFilter
+        if (listFilter === 'process') {
+            // En Proceso: No están aprobados ni rechazados final
+            if (latestApp?.status === 'approved' || latestApp?.status === 'rejected' || candidate.selectionStatus === 'selected') {
+                return false;
+            }
+        } else if (listFilter === 'selected') {
+            // Seleccionados: marcados como 'selected' por recruiter o aprobados por SM si no hay check de recruiter
+            // Pero priorizamos selectionStatus === 'selected'
+            const isSelected = candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId);
+            const isApprovedBySM = latestApp?.status === 'approved';
+            if (!isSelected && !isApprovedBySM) return false;
+        } else if (listFilter === 'rejected') {
+            if (latestApp?.status !== 'rejected') return false;
+        }
+
+        return true;
     });
 
     const getCULStatusColor = (status: string) => {
@@ -159,6 +177,39 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
 
     return (
         <div className="space-y-4">
+            {/* Status Tabs */}
+            {!filterStatus && (
+                <div className="flex border-b border-gray-200">
+                    <button
+                        onClick={() => setListFilter('process')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${listFilter === 'process'
+                            ? 'border-violet-600 text-violet-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        🔄 En Proceso
+                    </button>
+                    <button
+                        onClick={() => setListFilter('selected')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${listFilter === 'selected'
+                            ? 'border-violet-600 text-violet-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        🎯 Seleccionados
+                    </button>
+                    <button
+                        onClick={() => setListFilter('rejected')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${listFilter === 'rejected'
+                            ? 'border-violet-600 text-violet-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        🚫 Rechazados
+                    </button>
+                </div>
+            )}
+
             {/* Search */}
             <div className="flex items-center gap-3">
                 <div className="flex-1 relative">
@@ -176,7 +227,7 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                 <button
                     onClick={async () => {
                         const { exportCandidates } = await import('@/lib/utils/export-csv');
-                        exportCandidates(filteredCandidates, `candidatos_tienda_${new Date().toISOString().split('T')[0]}.csv`);
+                        exportCandidates(filteredCandidates, `candidatos_${listFilter}_${new Date().toISOString().split('T')[0]}.csv`);
                     }}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
                 >
