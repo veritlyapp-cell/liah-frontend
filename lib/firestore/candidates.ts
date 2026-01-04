@@ -76,6 +76,7 @@ export interface Candidate {
 
     // Datos personales
     dni: string;
+    documentType?: 'DNI' | 'CE'; // [NEW]
     nombre: string;
     apellidoPaterno: string;
     apellidoMaterno: string;
@@ -239,6 +240,7 @@ export async function validateDNI(dni: string, marcaId?: string): Promise<{
  */
 export async function createCandidate(data: {
     dni: string;
+    documentType?: 'DNI' | 'CE';
     nombre: string;
     apellidoPaterno: string;
     apellidoMaterno: string;
@@ -259,6 +261,7 @@ export async function createCandidate(data: {
 
     const {
         dni,
+        documentType,
         nombre,
         apellidoPaterno,
         apellidoMaterno,
@@ -277,6 +280,7 @@ export async function createCandidate(data: {
         apellidoPaterno,
         apellidoMaterno,
         dni,
+        documentType: documentType || 'DNI',
         email,
         telefono,
         departamento,

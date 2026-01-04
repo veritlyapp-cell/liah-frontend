@@ -339,7 +339,12 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             </div>
                             <div>
                                 <label className="text-sm text-gray-500 flex items-center gap-2">
-                                    DNI
+                                    {(candidate as any).documentType || 'DNI'}
+                                    {(candidate as any).documentType === 'CE' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs rounded-full font-bold border border-amber-300 animate-pulse">
+                                            🛂 EXTRANJERO
+                                        </span>
+                                    )}
                                     {(candidate as any).dniVerified && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
                                             ✅ Verificado por IA

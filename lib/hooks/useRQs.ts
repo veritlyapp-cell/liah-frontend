@@ -38,8 +38,14 @@ export function useRQs(options: UseRQsOptions) {
 
         if (options.scope === 'store' && options.storeId) {
             unsubscribe = subscribeToRQsByStore(options.storeId, (newRQs) => {
-                // Include cancelled but rejected RQs
-                setRQs(newRQs.filter(rq => rq.status !== 'cancelled' || rq.approvalStatus === 'rejected'));
+                // Filter out gerencial RQs for Store Managers
+                let filteredRQs = newRQs.filter(rq => rq.status !== 'cancelled' || rq.approvalStatus === 'rejected');
+
+                if (userRole === 'store_manager') {
+                    filteredRQs = filteredRQs.filter(rq => !rq.categoria || rq.categoria === 'operativo');
+                }
+
+                setRQs(filteredRQs);
                 setLoading(false);
             });
         } else if (options.scope === 'marca' && options.marcaId) {

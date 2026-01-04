@@ -308,6 +308,12 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 {candidate.nombre} {candidate.apellidoPaterno} {candidate.apellidoMaterno}
                                             </h3>
 
+                                            {(candidate as any).documentType === 'CE' && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-400 shadow-sm animate-pulse flex items-center gap-1">
+                                                    <span>🛂</span> EXTRANJERO (CE)
+                                                </span>
+                                            )}
+
                                             {candidate.source === 'bot_whatsapp' && (
                                                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100 flex items-center gap-1">
                                                     <span>🤖</span> Bot
@@ -344,7 +350,7 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 <span className="font-mono font-semibold text-violet-700">{candidate.candidateCode}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-gray-500">DNI:</span>
+                                                <span className="text-gray-500">{(candidate as any).documentType || 'DNI'}:</span>
                                                 <span className="font-medium">{candidate.dni}</span>
                                             </div>
                                             <div className="flex items-center gap-2">

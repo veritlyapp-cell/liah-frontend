@@ -28,6 +28,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
     const [formData, setFormData] = useState({
         dni: '',
+        documentType: 'DNI' as 'DNI' | 'CE', // [NEW]
         nombre: '',
         apellidoPaterno: '',
         apellidoMaterno: '',
@@ -111,6 +112,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 // Pre-llenar formulario
                 setFormData({
                     dni: existing.dni || '',
+                    documentType: (existing as any).documentType || 'DNI',
                     nombre: existing.nombre || '',
                     apellidoPaterno: existing.apellidoPaterno || '',
                     apellidoMaterno: existing.apellidoMaterno || '',
@@ -121,7 +123,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     distrito: existing.distrito || '',
                     direccion: existing.direccion || '',
                     certificadoUnicoLaboral: existing.certificadoUnicoLaboral || '',
-                    origenConvocatoria: existing.origenConvocatoria || '', // [NEW]
+                    origenConvocatoria: existing.origenConvocatoria || '',
                     documents: existing.documents || {}
                 });
             } else {
@@ -163,8 +165,12 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         if (!invitation) return;
 
         // Validaciones
-        if (formData.dni.length !== 8) {
+        if (formData.documentType === 'DNI' && formData.dni.length !== 8) {
             alert('El DNI debe tener 8 dígitos');
+            return;
+        }
+        if (formData.documentType === 'CE' && formData.dni.length < 8) {
+            alert('El Carnet de Extranjería debe tener al menos 8 caracteres');
             return;
         }
 
@@ -435,20 +441,43 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Similar al formulario de registro pero con campos pre-llenados */}
-                    {/* DNI */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            DNI <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            maxLength={8}
-                            value={formData.dni}
-                            onChange={(e) => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '') })}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                            required
-                            disabled={!!existingCandidate}
-                        />
+                    {/* Document Type & Number */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Tipo Documento <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={formData.documentType}
+                                onChange={(e) => setFormData({ ...formData, documentType: e.target.value as 'DNI' | 'CE', dni: '' })}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                required
+                                disabled={!!existingCandidate}
+                            >
+                                <option value="DNI">DNI</option>
+                                <option value="CE">CE (Extranjería)</option>
+                            </select>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {formData.documentType === 'DNI' ? 'DNI' : 'Número de CE'} <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                maxLength={formData.documentType === 'DNI' ? 8 : 15}
+                                value={formData.dni}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    dni: formData.documentType === 'DNI'
+                                        ? e.target.value.replace(/\D/g, '')
+                                        : e.target.value.toUpperCase()
+                                })}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                required
+                                placeholder={formData.documentType === 'DNI' ? '8 dígitos' : 'Número de carnet'}
+                                disabled={!!existingCandidate}
+                            />
+                        </div>
                     </div>
 
                     {/* Nombre */}

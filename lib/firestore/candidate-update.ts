@@ -7,6 +7,11 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 export async function updateCandidate(
     candidateId: string,
     updates: {
+        dni?: string;
+        documentType?: 'DNI' | 'CE';
+        nombre?: string;
+        apellidoPaterno?: string;
+        apellidoMaterno?: string;
         departamento?: string;
         provincia?: string;
         distrito?: string;
@@ -14,6 +19,8 @@ export async function updateCandidate(
         certificadoUnicoLaboral?: string;
         telefono?: string;
         culStatus?: 'pending' | 'apto' | 'no_apto' | 'manual_review';
+        source?: string;
+        documents?: Record<string, string>;
     }
 ): Promise<void> {
     const candidateRef = doc(db, 'candidates', candidateId);
