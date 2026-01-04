@@ -64,24 +64,8 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
         try {
             await approveCandidate(candidate.id, appId, 'store-manager-user', priority);
 
-            // Send Email Notification
-            try {
-                const appLink = `${window.location.origin}/apply/${candidate.id}`;
-                await fetch('/api/send-application-email', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        candidateEmail: candidate.email,
-                        candidateName: candidate.nombre,
-                        applicationLink: appLink
-                    })
-                });
-                alert(`✅ Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'} y correo enviado.`);
-            } catch (emailErr) {
-                console.error('Email error:', emailErr);
-                alert(`Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'}, pero falló el envío del correo.`);
-            }
-
+            // NOTE: Email removed - Recruiter sends email when marking CUL as 'Apto'
+            alert(`✅ Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'}`);
             loadCandidates();
         } catch (error) {
             console.error('Error approving:', error);
@@ -90,6 +74,7 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
             setCandidateToApprove(null);
         }
     };
+
 
     const filteredCandidates = candidates.filter(candidate => {
         // Obtenemos la aplicación para esta tienda

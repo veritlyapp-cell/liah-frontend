@@ -63,7 +63,32 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         setProcessing(true);
         try {
             await updateCULStatus(candidate.id, status, user.uid, notes);
-            alert('Estado del CUL actualizado');
+
+            // Send selection email when Recruiter marks as 'Apto'
+            if (status === 'apto' && candidate.email) {
+                try {
+                    // Get position from latest application
+                    const latestApp = candidate.applications?.[candidate.applications.length - 1];
+
+                    await fetch('/api/send-selection-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            candidateEmail: candidate.email,
+                            candidateName: candidate.nombre,
+                            posicion: latestApp?.posicion,
+                            marcaNombre: latestApp?.marcaNombre
+                        })
+                    });
+                    alert('✅ CUL marcado como Apto y correo de selección enviado al candidato');
+                } catch (emailErr) {
+                    console.error('Email error:', emailErr);
+                    alert('✅ CUL marcado como Apto (pero falló el envío del correo)');
+                }
+            } else {
+                alert('Estado del CUL actualizado');
+            }
+
             onRefresh();
         } catch (error) {
             console.error('Error updating CUL status:', error);
@@ -72,6 +97,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             setProcessing(false);
         }
     }
+
 
     async function handleAnalyzeCUL() {
         if (!candidate.certificadoUnicoLaboral) {
