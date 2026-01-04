@@ -65,8 +65,16 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
     };
 
     const handleCreate = async () => {
-        if (!selectedProfileData || !user || !selectedTurno || !selectedModalidad || !motivo) {
+        // Base validation
+        if (!selectedProfileData || !user || !selectedModalidad) {
             alert('Complete todos los campos requeridos');
+            return;
+        }
+
+        // Turno is only required for operativo positions
+        const isGerencial = selectedProfileData.categoria === 'gerencial';
+        if (!isGerencial && !selectedTurno) {
+            alert('Complete el campo de turno');
             return;
         }
 
