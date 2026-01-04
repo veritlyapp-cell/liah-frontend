@@ -104,7 +104,7 @@ export default function RQListView({
             {/* Alertas destacadas */}
             {(pendingCount > 0 || unfilledCount > 0) && (
                 <div className="space-y-2">
-                    {pendingCount > 0 && (
+                    {pendingCount > 0 && (userRole === 'supervisor' || userRole === 'jefe_marca' || userRole === 'client_admin' || userRole === 'super_admin') && (
                         <div className="glass-card rounded-xl p-4 bg-amber-50 border-l-4 border-amber-500">
                             <div className="flex items-center gap-3">
                                 <div className="text-3xl">⚠️</div>
