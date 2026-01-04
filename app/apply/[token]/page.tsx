@@ -666,11 +666,40 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                         </select>
                     </div>
 
-                    {/* Documentos Dinámicos */}
-                    {holdingConfig?.requiredDocuments?.filter((d: any) => d.active).length > 0 && (
+                    {/* Certificado Único Laboral - Siempre visible */}
+                    <div className="border-t pt-6 space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Certificado Único Laboral (CUL)</h3>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Subir CUL (PDF o Imagen) {!(existingCandidate?.certificadoUnicoLaboral || existingCandidate?.documents?.cul) && <span className="text-red-500">*</span>}
+                            </label>
+                            <input
+                                type="file"
+                                accept=".pdf,image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setFiles(prev => ({ ...prev, cul: file }));
+                                    }
+                                }}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                                required={!(existingCandidate?.certificadoUnicoLaboral || existingCandidate?.documents?.cul)}
+                            />
+                            {(existingCandidate?.certificadoUnicoLaboral || existingCandidate?.documents?.cul) && (
+                                <p className="text-xs text-green-600 mt-1">
+                                    {needsNewCUL
+                                        ? '⚠️ CUL detectado pero tiene más de 3 meses. Por favor sube uno actualizado.'
+                                        : '✓ Ya has subido tu CUL. Puedes subir uno nuevo para actualizarlo.'}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Otros Documentos Dinámicos (excluyendo CUL que ya tiene su sección) */}
+                    {holdingConfig?.requiredDocuments?.filter((d: any) => d.active && d.id !== 'cul').length > 0 && (
                         <div className="border-t pt-6 space-y-6">
-                            <h3 className="text-lg font-semibold text-gray-900">Documentos Requeridos</h3>
-                            {holdingConfig.requiredDocuments.filter((d: any) => d.active).map((doc: any) => (
+                            <h3 className="text-lg font-semibold text-gray-900">Otros Documentos Requeridos</h3>
+                            {holdingConfig.requiredDocuments.filter((d: any) => d.active && d.id !== 'cul').map((doc: any) => (
                                 <div key={doc.id}>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         {doc.name} {(!existingCandidate?.documents?.[doc.id]) && <span className="text-red-500">*</span>}
@@ -689,23 +718,14 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                     />
                                     {existingCandidate?.documents?.[doc.id] && (
                                         <p className="text-xs text-green-600 mt-1">
-                                            {doc.id === 'cul' && needsNewCUL
-                                                ? '⚠️ CUL detectado pero está desactualizado (>3 meses). Por favor sube uno nuevo.'
-                                                : '✓ Ya has subido este documento. Puedes subir uno nuevo para actualizarlo.'}
-                                        </p>
-                                    )}
-                                    {/* Fallback check for CUL if it's in the root field but not in documents map */}
-                                    {doc.id === 'cul' && !existingCandidate?.documents?.[doc.id] && existingCandidate?.certificadoUnicoLaboral && (
-                                        <p className="text-xs text-green-600 mt-1">
-                                            {needsNewCUL
-                                                ? '⚠️ CUL detectado pero está desactualizado (>3 meses). Por favor sube uno nuevo.'
-                                                : '✓ Ya has subido tu CUL anteriormente. Puedes subir uno nuevo para actualizarlo.'}
+                                            ✓ Ya has subido este documento. Puedes subir uno nuevo para actualizarlo.
                                         </p>
                                     )}
                                 </div>
                             ))}
                         </div>
                     )}
+
 
                     {/* Consent Checkbox */}
                     <div className="border-t pt-4">
