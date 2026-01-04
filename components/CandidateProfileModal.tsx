@@ -40,11 +40,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 const rqs = await getRQsByMarca(brandId);
                 // Filter RQs:
                 // 1. Must be active (not closed/filled/cancelled)
-                // 2. Must be pending or approved
+                // 2. Must be APPROVED (user requested to remove pending)
                 // 3. Exclude RQs where the candidate already has an application
                 const activeRQs = rqs.filter(r => {
                     const isAvailable = (r.status === 'active' || !r.status) &&
-                        (r.approvalStatus === 'approved' || r.approvalStatus === 'pending');
+                        r.approvalStatus === 'approved';
 
                     const alreadyApplied = candidate.applications?.some(app => app.rqId === r.id);
 
@@ -197,7 +197,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 marcaNombre: selectedRQ.marcaNombre,
                 tiendaId: selectedRQ.tiendaId || '',
                 tiendaNombre: selectedRQ.tiendaNombre || '',
-                origenConvocatoria: 'Reasignado por Recruiter'
+                origenConvocatoria: 'Reasignado por Recruiter',
+                categoria: selectedRQ.categoria // [NEW] Pass category
             });
 
             alert(`✅ Candidato postulado exitosamente a ${selectedRQ.rqNumber} en ${selectedRQ.tiendaNombre}`);

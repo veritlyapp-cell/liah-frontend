@@ -246,7 +246,8 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     tiendaNombre: invitation.tiendaNombre,
                     invitationId: invitation.id,
                     sentBy: invitation.sentBy,
-                    origenConvocatoria: formData.origenConvocatoria // [NEW] Save origin in application
+                    origenConvocatoria: formData.origenConvocatoria, // [NEW] Save origin in application
+                    categoria: invitation.categoria // [NEW] Save category in application
                 });
             }
 

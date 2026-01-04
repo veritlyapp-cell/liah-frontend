@@ -25,6 +25,7 @@ export interface Invitation {
     rqNumber?: string;  // Opcional: Puede no existir en RQs antiguos
     posicion?: string;  // Nombre de la posición (ej: "Pizzero")
     modalidad?: 'Full Time' | 'Part Time';  // Modalidad de trabajo
+    categoria?: 'operativo' | 'gerencial'; // [NEW] Categoría para analítica
 
     // Token único
     token: string;

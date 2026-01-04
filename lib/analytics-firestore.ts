@@ -154,12 +154,20 @@ export async function getCandidatesForAnalytics(filters: AnalyticsFilters) {
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            // Apply additional filters
+            // Apply brand filter
             if (filters.brandIds?.length) {
                 const hasMatchingApp = data.applications?.some((app: any) =>
                     filters.brandIds!.includes(app.marcaId)
                 );
                 if (!hasMatchingApp) return;
+            }
+
+            // NEW: Apply category filter for candidates
+            if (filters.category && filters.category !== 'all') {
+                const hasMatchingCategory = data.applications?.some((app: any) =>
+                    app.categoria === filters.category
+                );
+                if (!hasMatchingCategory) return;
             }
 
             candidates.push({ id: doc.id, ...data });
@@ -443,6 +451,8 @@ export function calculateSources(candidates: DocumentData[]): SourceMetric[] {
         if (sourceValue === 'Redes Sociales') sourceValue = 'facebook';
         if (sourceValue === 'Referido') sourceValue = 'referral';
         if (sourceValue === 'Anuncio en Tienda') sourceValue = 'volante';
+        if (sourceValue === 'Computrabajo' || sourceValue === 'LinkedIn') sourceValue = 'link';
+        if (sourceValue === 'Instagram' || sourceValue === 'TikTok') sourceValue = 'facebook'; // RRSS general
 
         const source = sourceValue.toLowerCase();
         if (!counts[source]) counts[source] = { total: 0, hired: 0 };

@@ -43,6 +43,7 @@ export interface Application {
     hiredBy?: string;
     notHiredReason?: string;
     startDate?: any;  // Fecha efectiva de ingreso
+    categoria?: 'operativo' | 'gerencial'; // [NEW] Categoría del puesto para analítica
 }
 
 export interface Employment {

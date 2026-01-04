@@ -20,6 +20,7 @@ export async function createApplication(
         invitationId?: string;
         sentBy?: string;
         origenConvocatoria?: string; // [NEW]
+        categoria?: 'operativo' | 'gerencial'; // [NEW]
     }
 ): Promise<string> {
     if (!data.rqId || !data.rqNumber) {
@@ -42,7 +43,8 @@ export async function createApplication(
         status: 'completed',  // El candidato ya completó el formulario
         invitationId: data.invitationId,
         invitedBy: data.sentBy,
-        origenConvocatoria: data.origenConvocatoria // [NEW]
+        origenConvocatoria: data.origenConvocatoria, // [NEW]
+        categoria: data.categoria // [NEW]
     };
 
     // Agregar application al candidato

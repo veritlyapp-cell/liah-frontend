@@ -148,7 +148,12 @@ export async function POST(req: NextRequest) {
         const prompt = documentType === 'dni' ? DNI_PROMPT : CUL_PROMPT;
         const analysisResult = await analyzeWithVision(documentUrl, prompt);
 
-        console.log(`[DOCUMENT AI] Analysis complete:`, analysisResult);
+        console.log(`[DOCUMENT AI] ✅ Analysis result for candidate ${candidateId}:`, {
+            type: documentType,
+            confidence: analysisResult.confidence,
+            extracted: documentType === 'dni' ? analysisResult.dni : analysisResult.nombreTitular,
+            recommendation: analysisResult.recomendacion
+        });
 
         // Determine validation status for CUL
         let validationStatus = null;
