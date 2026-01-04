@@ -63,36 +63,60 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         setProcessing(true);
         try {
             await updateCULStatus(candidate.id, status, user.uid, notes);
-
-            // Send selection email when Recruiter marks as 'Apto'
-            if (status === 'apto' && candidate.email) {
-                try {
-                    // Get position from latest application
-                    const latestApp = candidate.applications?.[candidate.applications.length - 1];
-
-                    await fetch('/api/send-selection-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            candidateEmail: candidate.email,
-                            candidateName: candidate.nombre,
-                            posicion: latestApp?.posicion,
-                            marcaNombre: latestApp?.marcaNombre
-                        })
-                    });
-                    alert('✅ CUL marcado como Apto y correo de selección enviado al candidato');
-                } catch (emailErr) {
-                    console.error('Email error:', emailErr);
-                    alert('✅ CUL marcado como Apto (pero falló el envío del correo)');
-                }
-            } else {
-                alert('Estado del CUL actualizado');
-            }
-
+            alert(`✅ CUL marcado como ${status === 'apto' ? 'Apto ✓' : status === 'no_apto' ? 'No Apto ✗' : 'Requiere Revisión ⚠️'}`);
             onRefresh();
         } catch (error) {
             console.error('Error updating CUL status:', error);
             alert('Error al actualizar CUL');
+        } finally {
+            setProcessing(false);
+        }
+    }
+
+    // NEW: Select candidate for the position (sends email notification)
+    async function handleSelectCandidate() {
+        if (!user || !candidate.email) {
+            alert('Este candidato no tiene email registrado');
+            return;
+        }
+
+        // Verify CUL is approved first
+        if (candidate.culStatus !== 'apto') {
+            const proceed = window.confirm('⚠️ El CUL de este candidato no está marcado como Apto.\n\n¿Deseas seleccionarlo de todas formas?');
+            if (!proceed) return;
+        }
+
+        setProcessing(true);
+        try {
+            const latestApp = candidate.applications?.[candidate.applications.length - 1];
+
+            // Send selection email
+            await fetch('/api/send-selection-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidateEmail: candidate.email,
+                    candidateName: candidate.nombre,
+                    posicion: latestApp?.posicion,
+                    marcaNombre: latestApp?.marcaNombre
+                })
+            });
+
+            // Update candidate status to 'selected'
+            const { updateDoc, doc } = await import('firebase/firestore');
+            const { db } = await import('@/lib/firebase');
+            await updateDoc(doc(db, 'candidates', candidate.id), {
+                selectionStatus: 'selected',
+                selectedAt: new Date(),
+                selectedBy: user.uid,
+                selectedForRQ: latestApp?.rqId
+            });
+
+            alert('🎉 Candidato SELECCIONADO. Se ha enviado el correo de notificación.');
+            onRefresh();
+        } catch (error) {
+            console.error('Error selecting candidate:', error);
+            alert('Error al seleccionar candidato');
         } finally {
             setProcessing(false);
         }
@@ -372,6 +396,20 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-medium hover:bg-amber-600 disabled:opacity-50 shadow-sm flex items-center gap-2"
                             >
                                 <span>⚠</span> Requiere Revisión
+                            </button>
+                        </div>
+
+                        {/* Selection Action - Final decision by Recruiter */}
+                        <div className="mt-4 pt-4 border-t border-dashed">
+                            <p className="text-sm text-gray-600 mb-2">
+                                Selecciona al candidato para la posición (envía notificación por correo):
+                            </p>
+                            <button
+                                onClick={handleSelectCandidate}
+                                disabled={processing}
+                                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 shadow-lg flex items-center gap-3 transition-all hover:scale-105"
+                            >
+                                <span className="text-xl">🎯</span> Seleccionar Candidato para la Posición
                             </button>
                         </div>
                     </div>
