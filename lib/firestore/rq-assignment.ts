@@ -24,10 +24,11 @@ export async function assignRQToApprovers(
     let currentLevel;
 
     if (creatorRole === 'supervisor') {
-        // SHORT FLOW: Supervisor creates -> Jefe de Marca approves
+        // SHORT FLOW (CONSISTENT LEVELS): Supervisor creates -> Jefe de Marca approves
+        // Level 2 is Supervisor (Creator), Level 3 is Jefe de Marca
         approvalChain = [
             {
-                level: 1,
+                level: 2,
                 role: 'supervisor' as const,
                 status: 'approved' as const, // Already approved by creator
                 approvedBy: creatorId,
@@ -35,12 +36,12 @@ export async function assignRQToApprovers(
                 approvedAt: Timestamp.now()
             },
             {
-                level: 2,
+                level: 3,
                 role: 'jefe_marca' as const,
                 status: 'pending' as const
             }
         ];
-        currentLevel = 2; // Pending jefe_marca
+        currentLevel = 3; // Pending jefe_marca
     } else {
         // STANDARD FLOW: Store Manager creates -> Supervisor approves -> Jefe de Marca approves
         approvalChain = [
