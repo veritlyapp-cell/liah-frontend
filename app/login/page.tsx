@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -16,7 +17,40 @@ export default function LoginPage() {
     const [resetSending, setResetSending] = useState(false);
     const [resetSuccess, setResetSuccess] = useState(false);
 
-    const { signIn } = useAuth();
+    const { signIn, user, claims, loading: authLoading } = useAuth();
+    const router = useRouter();
+
+    // Auto-redirect if already logged in
+    useEffect(() => {
+        if (!authLoading && user && claims?.role) {
+            console.log('🔄 User already logged in, redirecting to dashboard...');
+            switch (claims.role) {
+                case 'super_admin':
+                    router.push('/super-admin');
+                    break;
+                case 'client_admin':
+                case 'admin':
+                case 'gerente':
+                    router.push('/admin');
+                    break;
+                case 'jefe_marca':
+                    router.push('/jefe-marca');
+                    break;
+                case 'supervisor':
+                    router.push('/supervisor');
+                    break;
+                case 'brand_recruiter':
+                case 'recruiter':
+                    router.push('/recruiter');
+                    break;
+                case 'store_manager':
+                    router.push('/store-manager');
+                    break;
+                default:
+                    router.push('/');
+            }
+        }
+    }, [user, claims, authLoading, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

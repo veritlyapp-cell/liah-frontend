@@ -5,6 +5,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { RQ } from '@/lib/firestore/rqs';
 import RQCard from '@/components/RQCard';
+import InviteCandidateModal from '@/components/InviteCandidateModal';
 
 interface ApprovedRQsViewProps {
     storeIds: string[];
@@ -15,6 +16,7 @@ export default function ApprovedRQsView({ storeIds, storeNames }: ApprovedRQsVie
     const [rqs, setRQs] = useState<RQ[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedStore, setSelectedStore] = useState<string>('all');
+    const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
 
     useEffect(() => {
         loadApprovedRQs();
@@ -108,9 +110,24 @@ export default function ApprovedRQsView({ storeIds, storeNames }: ApprovedRQsVie
                             key={rq.id}
                             rq={rq}
                             userRole="supervisor"
+                            onInvite={(rq) => setSelectedRQForInvite(rq)}
                         />
                     ))}
                 </div>
+            )}
+
+            {/* Invite Modal */}
+            {selectedRQForInvite && (
+                <InviteCandidateModal
+                    isOpen={true}
+                    onClose={() => setSelectedRQForInvite(null)}
+                    storeId={selectedRQForInvite.tiendaId || ''}
+                    storeName={selectedRQForInvite.tiendaNombre || ''}
+                    marcaId={selectedRQForInvite.marcaId}
+                    marcaNombre={selectedRQForInvite.marcaNombre}
+                    initialRQId={selectedRQForInvite.id}
+                    userRole="supervisor"
+                />
             )}
         </div>
     );

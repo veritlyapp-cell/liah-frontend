@@ -26,7 +26,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
     );
 
     const [marcas, setMarcas] = useState<{ id: string, nombre: string }[]>([]);
-    const [availableStores, setAvailableStores] = useState<{ id: string, nombre: string, marcaId: string }[]>([]);
+    const [availableStores, setAvailableStores] = useState<{ id: string, nombre: string, marcaId: string, isClaimedBySupervisor?: boolean, isClaimedByManager?: boolean }[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Load marcas and stores
@@ -64,7 +64,33 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                 marcaId: doc.data().marcaId
             }));
 
-            setAvailableStores(loadedStores);
+            // Fetch all user assignments to identify claimed stores by OTHERS
+            const assignmentsRef = collection(db, 'userAssignments');
+            const assignmentsSnap = await getDocs(assignmentsRef);
+
+            const claimedBySupervisorOther = new Set<string>();
+            const claimedByManagerOther = new Set<string>();
+
+            assignmentsSnap.docs.forEach(doc => {
+                const data = doc.data();
+                // Skip the current user we are editing
+                if (data.userId === user.userId) return;
+
+                if (data.active !== false && data.isActive !== false) {
+                    if (data.role === 'supervisor' && data.assignedStores) {
+                        data.assignedStores.forEach((s: any) => claimedBySupervisorOther.add(s.tiendaId));
+                    }
+                    if (data.role === 'store_manager' && (data.tiendaId || data.assignedStore?.tiendaId)) {
+                        claimedByManagerOther.add(data.tiendaId || data.assignedStore.tiendaId);
+                    }
+                }
+            });
+
+            setAvailableStores(loadedStores.map(s => ({
+                ...s,
+                isClaimedBySupervisor: claimedBySupervisorOther.has(s.id),
+                isClaimedByManager: claimedByManagerOther.has(s.id)
+            })));
         } catch (error) {
             console.error('Error loading stores:', error);
         }
@@ -177,10 +203,15 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
         return labels[role] || role;
     };
 
-    // Filter stores by marca for supervisor
+    const storesForRole = user.role === 'supervisor'
+        ? availableStores.filter(s => !s.isClaimedBySupervisor)
+        : user.role === 'store_manager'
+            ? availableStores.filter(s => !s.isClaimedByManager)
+            : availableStores;
+
     const filteredStores = marcaId
-        ? availableStores.filter(s => s.marcaId === marcaId)
-        : availableStores;
+        ? storesForRole.filter(s => s.marcaId === marcaId)
+        : storesForRole;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -328,7 +359,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
                             >
                                 <option value="">Selecciona una tienda</option>
-                                {availableStores.map(store => (
+                                {filteredStores.map(store => (
                                     <option key={store.id} value={store.id}>
                                         {store.nombre} ({marcas.find(m => m.id === store.marcaId)?.nombre || 'Sin marca'})
                                     </option>

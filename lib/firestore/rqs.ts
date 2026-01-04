@@ -136,6 +136,7 @@ export interface RQ {
     creadorEmail: string;
     createdByRole?: 'store_manager' | 'supervisor'; // Who created the RQ
     approvalFlow?: 'standard' | 'short'; // standard = SM->Sup->JM, short = Sup->JM (when Supervisor creates)
+    categoria?: 'operativo' | 'gerencial'; // NEW: for filtering and analytics
     createdAt: any;
     updatedAt: any;
 }
@@ -248,6 +249,7 @@ export async function createRQInstances(
             creadorEmail,
             createdByRole: creatorRole,
             approvalFlow: creatorRole === 'supervisor' ? 'short' : 'standard',
+            categoria: jobProfile.categoria as any || 'operativo',
             createdAt: now,
             updatedAt: now
         };

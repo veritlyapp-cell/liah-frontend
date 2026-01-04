@@ -36,6 +36,7 @@ interface AnalyticsFilters {
     storeIds?: string[];
     districtIds?: string[];
     holdingId?: string;
+    category?: 'operativo' | 'gerencial' | 'all'; // NEW
 }
 
 // Get RQs from Firestore with filters
@@ -114,6 +115,12 @@ export async function getRQsForAnalytics(filters: AnalyticsFilters) {
             if (filters.brandIds?.length && !filters.brandIds.includes(data.marcaId)) {
                 brandFiltered++;
                 return;
+            }
+
+            // NEW: Apply category filter
+            if (filters.category && filters.category !== 'all') {
+                if (filters.category === 'operativo' && data.categoria === 'gerencial') return;
+                if (filters.category === 'gerencial' && data.categoria !== 'gerencial') return;
             }
 
             rqs.push({ id: doc.id, ...data });

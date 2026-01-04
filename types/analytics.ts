@@ -13,6 +13,7 @@ export interface AnalyticsFilters {
     storeIds: string[];
     districtIds: string[];
     rqStatus: ('open' | 'in_progress' | 'filled' | 'cancelled')[];
+    category?: 'operativo' | 'gerencial' | 'all'; // NEW
 }
 
 // Candidate source tracking

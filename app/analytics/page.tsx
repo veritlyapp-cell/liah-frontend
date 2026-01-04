@@ -65,7 +65,8 @@ export default function AnalyticsPage() {
         brandIds: [],
         positionIds: [],
         storeIds: [],
-        districtIds: []
+        districtIds: [],
+        category: 'all'
     });
 
     const [filterOptions, setFilterOptions] = useState({
@@ -162,8 +163,9 @@ export default function AnalyticsPage() {
                     holdingId,
                     brandIds: brandIdsToUse,
                     positionIds: currentFilters.positionIds,
-                    storeIds: currentFilters.storeIds,
-                    districtIds: currentFilters.districtIds
+                    storeIds: currentFilters.storeIds || [],
+                    districtIds: currentFilters.districtIds || [],
+                    category: currentFilters.category as any
                 });
 
                 console.log('Real data result:', {

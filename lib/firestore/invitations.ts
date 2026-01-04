@@ -92,7 +92,8 @@ export async function createInvitation(data: {
     const docRef = await addDoc(invitationsRef, cleanedInvitation);
 
     // Generar link (ajustar según tu dominio)
-    const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/apply/${token}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    const link = `${baseUrl}/apply/${token}`;
 
     return {
         invitationId: docRef.id,

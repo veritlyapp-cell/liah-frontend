@@ -13,7 +13,7 @@ export default function HomePage() {
 
     // If user is logged in, the login page will handle the role-based redirect
     // If not logged in, show the public landing page
-    router.replace(user ? '/login' : '/landing');
+    router.replace('/landing');
   }, [user, loading, router]);
 
   // Loading spinner while checking auth status

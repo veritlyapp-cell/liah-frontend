@@ -14,9 +14,11 @@ interface RQListViewProps {
     onStartRecruitment?: (rqId: string) => void;
     onFinalize?: (rqId: string) => void;
     initialFilter?: FilterType;
+    showCategoryFilter?: boolean; // NEW
 }
 
 type FilterType = 'todos' | 'pendientes' | 'aprobados' | 'en_reclutamiento' | 'finalizados' | 'rechazados';
+type CategoryFilterType = 'todos' | 'operativo' | 'gerencial'; // NEW
 
 export default function RQListView({
     rqs,
@@ -29,9 +31,11 @@ export default function RQListView({
     onRequestDeletion,
     onStartRecruitment,
     onFinalize,
-    initialFilter = 'todos'
+    initialFilter = 'todos',
+    showCategoryFilter = true
 }: RQListViewProps) {
     const [filterType, setFilterType] = useState<FilterType>(initialFilter);
+    const [categoryFilter, setCategoryFilter] = useState<CategoryFilterType>('todos');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTienda, setSelectedTienda] = useState('');
 
@@ -56,11 +60,17 @@ export default function RQListView({
             }
 
             // Store filter
-            if (selectedTienda && rq.tiendaNombre !== selectedTienda) return false; // Keep using tiendaNombre as per existing select
+            if (selectedTienda && rq.tiendaNombre !== selectedTienda) return false;
+
+            // Category filter
+            if (categoryFilter !== 'todos') {
+                if (categoryFilter === 'operativo' && rq.categoria === 'gerencial') return false;
+                if (categoryFilter === 'gerencial' && rq.categoria !== 'gerencial') return false;
+            }
 
             return true;
         });
-    }, [rqs, searchTerm, selectedTienda]);
+    }, [rqs, searchTerm, selectedTienda, categoryFilter]);
 
     // 2. Filtrado por tipo (Pestaña activa) - Este es el que se muestra
     const filteredRQs = useMemo(() => {
@@ -163,6 +173,19 @@ export default function RQListView({
                             <option key={tienda} value={tienda}>{tienda}</option>
                         ))}
                     </select>
+
+                    {/* Filtro por categoría */}
+                    {showCategoryFilter && (
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value as CategoryFilterType)}
+                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent font-medium"
+                        >
+                            <option value="todos">Categoría: Todos</option>
+                            <option value="operativo">👷 Operativos</option>
+                            <option value="gerencial">👔 Gerenciales</option>
+                        </select>
+                    )}
                 </div>
 
                 {/* Filtros de estado */}

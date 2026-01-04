@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { RQ } from '@/lib/firestore/rqs';
 import { rejectRQ } from '@/lib/firestore/rqs';
 import { useAuth } from '@/contexts/AuthContext';
+import InviteCandidateModal from '@/components/InviteCandidateModal';
 
 interface RQTrackingViewProps {
     holdingId: string;
@@ -19,7 +20,9 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [marcaFilter, setMarcaFilter] = useState<string>('all');
+    const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [rejecting, setRejecting] = useState<string | null>(null);
+    const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
 
     useEffect(() => {
         loadRQs();
@@ -86,11 +89,16 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
         // Marca filter
         if (marcaFilter !== 'all' && rq.marcaId !== marcaFilter) return false;
 
+        // Category filter
+        if (categoryFilter !== 'all') {
+            if (categoryFilter === 'operativo' && rq.categoria === 'gerencial') return false;
+            if (categoryFilter === 'gerencial' && rq.categoria !== 'gerencial') return false;
+        }
+
         return true;
     });
 
     function getStatusBadge(rq: RQ) {
-        // Check if closed (candidate hired) or filled
         if (rq.status === 'closed' || rq.status === 'filled') {
             return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">✅ Cerrado</span>;
         }
@@ -101,7 +109,6 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
             return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">❌ Rechazado</span>;
         }
 
-        // Pending - show current level
         const levels = ['', 'Tienda', 'Supervisor', 'Jefe Marca'];
         const currentLevel = rq.currentApprovalLevel || 1;
         return (
@@ -128,7 +135,6 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
         setRejecting(rqId);
         try {
             await rejectRQ(rqId, user.uid, user.email || '', reason);
-            // Reload RQs after rejection
             await loadRQs();
         } catch (error) {
             console.error('Error rejecting RQ:', error);
@@ -138,7 +144,6 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
         }
     }
 
-    // Recruiters and Client Admins can reject approved RQs
     const canRejectRQs = claims?.role === 'recruiter' || claims?.role === 'client_admin';
 
     if (loading) {
@@ -162,12 +167,12 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
             <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Search */}
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-1">
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="🔍 Buscar por posición, tienda, marca o ID..."
+                            placeholder="🔍 Buscar..."
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
                         />
                     </div>
@@ -182,7 +187,7 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                             <option value="all">Todos los estados</option>
                             <option value="pending">⏳ Pendientes</option>
                             <option value="approved">✅ Aprobados</option>
-                            <option value="closed">🔒 Cerrados (Ingreso confirmado)</option>
+                            <option value="closed">🔒 Cerrados</option>
                             <option value="rejected">❌ Rechazados</option>
                         </select>
                     </div>
@@ -198,6 +203,19 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                             {marcas.map(m => (
                                 <option key={m.id} value={m.id}>{m.nombre}</option>
                             ))}
+                        </select>
+                    </div>
+
+                    {/* Category Filter */}
+                    <div>
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                        >
+                            <option value="all">Todas las categorías</option>
+                            <option value="operativo">👷 Operativos</option>
+                            <option value="gerencial">👔 Gerenciales</option>
                         </select>
                     </div>
                 </div>
@@ -222,52 +240,43 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                     <p className="text-sm text-blue-600">Cerrados</p>
                 </div>
                 <div className="bg-red-50 rounded-lg border border-red-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-red-700">{rqs.filter(r => r.approvalStatus === 'rejected' && r.status !== 'cancelled').length}</p>
+                    <p className="text-2xl font-bold text-red-700">{rqs.filter(r => r.approvalStatus === 'rejected').length}</p>
                     <p className="text-sm text-red-600">Rechazados</p>
                 </div>
             </div>
 
-            {/* RQs Table */}
+            {/* Table */}
             {filteredRQs.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500 text-lg">📋 No hay RQs que mostrar</p>
-                    <p className="text-gray-400 text-sm mt-2">
-                        {searchTerm || statusFilter !== 'all' || marcaFilter !== 'all'
-                            ? 'Intenta ajustar los filtros de búsqueda'
-                            : 'Los Store Managers crearán RQs desde sus dashboards'}
-                    </p>
+                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <p className="text-gray-500">No se encontraron RQs</p>
                 </div>
             ) : (
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RQ #</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tienda</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posición</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Vacantes</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                                {canRejectRQs && (
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
-                                )}
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">RQ #</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tienda</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posición</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vacantes</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredRQs.map(rq => (
                                 <tr key={rq.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-violet-700">
-                                        {rq.rqNumber || `#${String(rq.instanceNumber || 1).padStart(3, '0')}`}
+                                        {rq.rqNumber || `#${rq.id.slice(-6)}`}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{rq.tiendaNombre}</div>
-                                        <div className="text-xs text-gray-500">{rq.marcaNombre}</div>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {rq.tiendaNombre}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{rq.posicion}</div>
-                                        <div className="text-xs text-gray-400">ID: {rq.id.slice(-6)}</div>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                        {rq.posicion}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                                         {rq.vacantes}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -277,18 +286,25 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                                         {formatDate(rq.createdAt)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {/* Can reject if approved and NOT closed/filled/cancelled */}
-                                        {rq.approvalStatus === 'approved' && rq.status !== 'closed' && rq.status !== 'filled' && rq.status !== 'cancelled' ? (
-                                            <button
-                                                onClick={() => handleReject(rq.id)}
-                                                disabled={rejecting === rq.id}
-                                                className="px-3 py-1 bg-orange-600 text-white rounded text-xs font-medium hover:bg-orange-700 transition-colors disabled:opacity-50"
-                                            >
-                                                {rejecting === rq.id ? 'Procesando...' : '↩ Rechazar'}
-                                            </button>
-                                        ) : (
-                                            <span className="text-xs text-gray-400">-</span>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+                                                <button
+                                                    onClick={() => setSelectedRQForInvite(rq)}
+                                                    className="px-3 py-1 bg-violet-600 text-white rounded text-xs font-medium hover:bg-violet-700"
+                                                >
+                                                    ➕ Invitar
+                                                </button>
+                                            )}
+                                            {canRejectRQs && rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+                                                <button
+                                                    onClick={() => handleReject(rq.id)}
+                                                    disabled={rejecting === rq.id}
+                                                    className="px-3 py-1 bg-white border border-orange-600 text-orange-600 rounded text-xs font-medium hover:bg-orange-50 disabled:opacity-50"
+                                                >
+                                                    {rejecting === rq.id ? '...' : '↩ Rechazar'}
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -297,7 +313,19 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                 </div>
             )}
 
-            {/* Result Count */}
+            {/* Invite Modal */}
+            {selectedRQForInvite && (
+                <InviteCandidateModal
+                    isOpen={true}
+                    onClose={() => setSelectedRQForInvite(null)}
+                    storeId={selectedRQForInvite.tiendaId || ''}
+                    storeName={selectedRQForInvite.tiendaNombre || ''}
+                    marcaId={selectedRQForInvite.marcaId}
+                    marcaNombre={selectedRQForInvite.marcaNombre}
+                    initialRQId={selectedRQForInvite.id} // Added initialRQId
+                />
+            )}
+
             <p className="text-sm text-gray-500 mt-4">
                 Mostrando {filteredRQs.length} de {rqs.length} RQs
             </p>

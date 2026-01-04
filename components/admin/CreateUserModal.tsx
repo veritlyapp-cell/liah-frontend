@@ -25,7 +25,7 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
     const [marcas, setMarcas] = useState<{ id: string, nombre: string }[]>([]);
     const [selectedStores, setSelectedStores] = useState<string[]>([]);
     const [selectedMarcas, setSelectedMarcas] = useState<string[]>([]); // For recruiters
-    const [availableStores, setAvailableStores] = useState<{ id: string, nombre: string, marcaId: string }[]>([]);
+    const [availableStores, setAvailableStores] = useState<{ id: string, nombre: string, marcaId: string, isClaimedBySupervisor?: boolean, isClaimedByManager?: boolean }[]>([]);
 
     const [loading, setLoading] = useState(false);
 
@@ -64,7 +64,30 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                 marcaId: doc.data().marcaId
             }));
 
-            setAvailableStores(loadedStores);
+            // Fetch all user assignments to identify claimed stores
+            const assignmentsRef = collection(db, 'userAssignments');
+            const assignmentsSnap = await getDocs(assignmentsRef);
+
+            const claimedBySupervisor = new Set<string>();
+            const claimedByManager = new Set<string>();
+
+            assignmentsSnap.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.active !== false && data.isActive !== false) {
+                    if (data.role === 'supervisor' && data.assignedStores) {
+                        data.assignedStores.forEach((s: any) => claimedBySupervisor.add(s.tiendaId));
+                    }
+                    if (data.role === 'store_manager' && (data.tiendaId || data.assignedStore?.tiendaId)) {
+                        claimedByManager.add(data.tiendaId || data.assignedStore.tiendaId);
+                    }
+                }
+            });
+
+            setAvailableStores(loadedStores.map(s => ({
+                ...s,
+                isClaimedBySupervisor: claimedBySupervisor.has(s.id),
+                isClaimedByManager: claimedByManager.has(s.id)
+            })));
         } catch (error) {
             console.error('Error loading stores:', error);
         }
@@ -187,9 +210,15 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
         }
     }
 
-    const storesForMarca = role === 'supervisor' && marcaId
-        ? availableStores.filter(s => s.marcaId === marcaId)
-        : availableStores;
+    const storesForRole = role === 'supervisor'
+        ? availableStores.filter(s => !s.isClaimedBySupervisor)
+        : role === 'store_manager'
+            ? availableStores.filter(s => !s.isClaimedByManager)
+            : availableStores;
+
+    const filteredStores = marcaId
+        ? storesForRole.filter(s => s.marcaId === marcaId)
+        : storesForRole;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -306,14 +335,14 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Selecciona tiendas ({selectedStores.length} seleccionadas)
                                             </label>
-                                            {storesForMarca.length === 0 ? (
+                                            {filteredStores.length === 0 ? (
                                                 <div className="p-4 bg-gray-50 rounded-lg text-center">
                                                     <p className="text-gray-500 text-sm">No hay tiendas para esta marca</p>
                                                     <p className="text-gray-400 text-xs mt-1">Primero crea tiendas en la pestaña "Tiendas"</p>
                                                 </div>
                                             ) : (
                                                 <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-2">
-                                                    {storesForMarca.map(store => (
+                                                    {filteredStores.map((store: any) => (
                                                         <label key={store.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
                                                             <input
                                                                 type="checkbox"

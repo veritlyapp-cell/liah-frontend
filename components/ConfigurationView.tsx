@@ -36,11 +36,21 @@ export default function ConfigurationView() {
                 setVacationMode(ua.vacationMode || false);
                 setBackupUserId(ua.backupUserId || '');
 
-                // If user is supervisor or jefe_marca, load other users of same role for backup
+                // Load supervisors and jefes de marca from the SAME BRAND as potential backups
                 if (ua.role === 'supervisor' || ua.role === 'jefe_marca') {
-                    const backups = await getAssignmentsByRole(ua.role);
-                    // Filter out self and same holding if necessary (usually backups should be in same holding)
-                    setPotentialBackups(backups.filter(b => b.userId !== user.uid && b.holdingId === ua.holdingId));
+                    const [supervisors, jefes] = await Promise.all([
+                        getAssignmentsByRole('supervisor'),
+                        getAssignmentsByRole('jefe_marca')
+                    ]);
+
+                    const allBackups = [...supervisors, ...jefes];
+                    const userMarcaId = ua.marcaId;
+
+                    setPotentialBackups(allBackups.filter(b =>
+                        b.userId !== user.uid &&
+                        b.marcaId === userMarcaId &&
+                        userMarcaId !== undefined
+                    ));
                 }
             }
         } catch (error) {
@@ -174,8 +184,8 @@ export default function ConfigurationView() {
                             onClick={handleToggleVacation}
                             disabled={vacationLoading || (!vacationMode && !backupUserId)}
                             className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${vacationMode
-                                    ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                                    : 'bg-orange-600 text-white hover:bg-orange-700'
+                                ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                : 'bg-orange-600 text-white hover:bg-orange-700'
                                 } disabled:opacity-50`}
                         >
                             {vacationLoading ? (

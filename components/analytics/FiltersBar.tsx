@@ -21,6 +21,7 @@ export interface FilterValues {
     positionIds: string[];
     storeIds: string[];
     districtIds: string[];
+    category?: 'operativo' | 'gerencial' | 'all'; // NEW
 }
 
 export default function FiltersBar({
@@ -39,7 +40,8 @@ export default function FiltersBar({
         brandIds: [],
         positionIds: [],
         storeIds: [],
-        districtIds: []
+        districtIds: [],
+        category: 'all' // NEW
     });
 
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -158,6 +160,20 @@ export default function FiltersBar({
                     </select>
                 </div>
 
+                {/* Category Filter */}
+                <div className="flex items-center gap-3">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Categoría</label>
+                    <select
+                        value={filters.category || 'all'}
+                        onChange={(e) => handleChange('category', e.target.value)}
+                        className="px-4 py-2 bg-gray-50 border-none rounded-xl text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-violet-500 cursor-pointer"
+                    >
+                        <option value="all">Todas</option>
+                        <option value="operativo">👷 Operativa</option>
+                        <option value="gerencial">👔 Gerencial</option>
+                    </select>
+                </div>
+
                 {/* Toggle Advanced */}
                 <button
                     onClick={() => setShowAdvanced(!showAdvanced)}
@@ -177,7 +193,8 @@ export default function FiltersBar({
                             brandIds: isRecruiter && userBrandIds.length === 1 ? userBrandIds : [],
                             positionIds: [],
                             storeIds: [],
-                            districtIds: []
+                            districtIds: [],
+                            category: 'all'
                         };
                         setFilters(newFilters);
                         setShowCustomDate(false);

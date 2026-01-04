@@ -14,6 +14,8 @@ interface InviteCandidateModalProps {
     storeName: string;
     marcaId: string;
     marcaNombre: string;
+    initialRQId?: string; // NEW
+    userRole?: string; // NEW
 }
 
 export default function InviteCandidateModal({
@@ -22,7 +24,9 @@ export default function InviteCandidateModal({
     storeId,
     storeName,
     marcaId,
-    marcaNombre
+    marcaNombre,
+    initialRQId,
+    userRole
 }: InviteCandidateModalProps) {
     const { user } = useAuth();
     const [email, setEmail] = useState('');
@@ -38,6 +42,12 @@ export default function InviteCandidateModal({
             loadApprovedRQs();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (initialRQId) {
+            setSelectedRQ(initialRQId);
+        }
+    }, [initialRQId, approvedRQs]);
 
     async function loadApprovedRQs() {
         setLoadingRQs(true);
@@ -56,7 +66,12 @@ export default function InviteCandidateModal({
             } as RQ));
 
             // Additional client-side filter for active RQs only
-            const activeApprovedRQs = rqs.filter(rq => rq.status === 'active');
+            let activeApprovedRQs = rqs.filter(rq => rq.status === 'active');
+
+            // NEW: Filter by category for Store Managers
+            if (userRole === 'store_manager') {
+                activeApprovedRQs = activeApprovedRQs.filter(rq => rq.categoria !== 'gerencial');
+            }
 
             setApprovedRQs(activeApprovedRQs);
         } catch (error) {
@@ -103,6 +118,27 @@ export default function InviteCandidateModal({
             });
 
             setGeneratedLink(link);
+
+            // Enviar email automáticamente
+            try {
+                await fetch('/api/send-invitation-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        candidateEmail: email,
+                        invitationLink: link,
+                        posicion: rq.posicion,
+                        tiendaNombre: storeName,
+                        marcaId: marcaId,
+                        marcaNombre: marcaNombre,
+                        modalidad: rq.modalidad,
+                        turno: rq.turno
+                    })
+                });
+            } catch (emailError) {
+                console.error('Error auto-sending email:', emailError);
+                // No bloqueamos el flujo si falla el email, ya que el link se generó
+            }
 
         } catch (error) {
             console.error('Error creating invitation:', error);
