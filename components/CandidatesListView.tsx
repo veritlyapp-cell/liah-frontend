@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getCandidatesByStore } from '@/lib/firestore/candidate-queries';
 import type { Candidate } from '@/lib/firestore/candidates';
 import CandidateProfileModal from '@/components/CandidateProfileModal';
+import PriorityModal from '@/components/PriorityModal';
 
 interface CandidatesListViewProps {
     storeId: string;
@@ -22,6 +23,8 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
     const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
+    // State for PriorityModal
+    const [candidateToApprove, setCandidateToApprove] = useState<{ candidate: Candidate; appId: string } | null>(null);
 
     const toggleHistory = (candidateId: string) => {
         setExpandedHistory(prev => {
@@ -50,6 +53,43 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
             setLoading(false);
         }
     }
+
+    // Handle approval with new PriorityModal
+    const handleApproveWithPriority = async (priority: 'principal' | 'backup') => {
+        if (!candidateToApprove) return;
+
+        const { candidate, appId } = candidateToApprove;
+        const { approveCandidate } = await import('@/lib/firestore/candidate-actions');
+
+        try {
+            await approveCandidate(candidate.id, appId, 'store-manager-user', priority);
+
+            // Send Email Notification
+            try {
+                const appLink = `${window.location.origin}/apply/${candidate.id}`;
+                await fetch('/api/send-application-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        candidateEmail: candidate.email,
+                        candidateName: candidate.nombre,
+                        applicationLink: appLink
+                    })
+                });
+                alert(`✅ Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'} y correo enviado.`);
+            } catch (emailErr) {
+                console.error('Email error:', emailErr);
+                alert(`Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'}, pero falló el envío del correo.`);
+            }
+
+            loadCandidates();
+        } catch (error) {
+            console.error('Error approving:', error);
+            alert('Error al aprobar');
+        } finally {
+            setCandidateToApprove(null);
+        }
+    };
 
     const filteredCandidates = candidates.filter(candidate => {
         // Obtenemos la aplicación para esta tienda
@@ -391,48 +431,12 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
                                         {latestApp && latestApp.status === 'completed' && (
                                             <>
                                                 <button
-                                                    onClick={async () => {
-                                                        const priorityChoice = window.confirm(
-                                                            '¿Este candidato es PRINCIPAL para el puesto?\n\n' +
-                                                            '✅ OK = Principal (prioridad para recruiter)\n' +
-                                                            '❌ Cancelar = Backup'
-                                                        );
-
-                                                        const priority: 'principal' | 'backup' = priorityChoice ? 'principal' : 'backup';
-
-                                                        const { approveCandidate } = await import('@/lib/firestore/candidate-actions');
-                                                        try {
-                                                            await approveCandidate(candidate.id, latestApp.id, 'store-manager-user', priority);
-                                                            // REMOVED: updateCULStatus - Recruiter should do this evaluation
-
-                                                            // [NEW] Send Email Notification
-                                                            try {
-                                                                const appLink = `${window.location.origin}/apply/${candidate.id}`; // Assuming simple ID-based link for now or generate token
-                                                                await fetch('/api/send-application-email', {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({
-                                                                        candidateEmail: candidate.email,
-                                                                        candidateName: candidate.nombre,
-                                                                        applicationLink: appLink
-                                                                    })
-                                                                });
-                                                                alert(`Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : 'BACKUP'} y correo enviado.`);
-                                                            } catch (emailErr) {
-                                                                console.error('Email error:', emailErr);
-                                                                alert(`Candidato aprobado, pero falló el envío del correo.`);
-                                                            }
-
-                                                            loadCandidates();
-                                                        } catch (error) {
-                                                            console.error('Error approving:', error);
-                                                            alert('Error al aprobar');
-                                                        }
-                                                    }}
+                                                    onClick={() => setCandidateToApprove({ candidate, appId: latestApp.id })}
                                                     className="px-4 py-2 text-sm bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
                                                 >
                                                     <span>✓</span> Aprobar
                                                 </button>
+
                                                 <button
                                                     onClick={async () => {
                                                         const reason = prompt('Razón del rechazo:');
@@ -479,6 +483,14 @@ export default function CandidatesListView({ storeId, filterStatus }: Candidates
                     onRefresh={loadCandidates}
                 />
             )}
+
+            {/* Priority Selection Modal */}
+            <PriorityModal
+                isOpen={!!candidateToApprove}
+                candidateName={candidateToApprove?.candidate.nombre || ''}
+                onSelect={handleApproveWithPriority}
+                onClose={() => setCandidateToApprove(null)}
+            />
         </div>
     );
 }

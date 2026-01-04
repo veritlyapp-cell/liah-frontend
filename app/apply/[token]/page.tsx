@@ -342,6 +342,12 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-violet-50 to-cyan-50">
             <div className="max-w-2xl w-full glass-card rounded-2xl p-8">
                 <div className="text-center mb-8">
+                    {/* LIAH Logo */}
+                    <div className="flex justify-center mb-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl font-bold text-white">L</span>
+                        </div>
+                    </div>
                     <h1 className="text-3xl font-bold gradient-primary mb-2">
                         Postulación {invitation?.marcaNombre}
                     </h1>
@@ -352,6 +358,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                         <p className="text-sm text-violet-600 font-mono mt-2">{invitation.rqNumber}</p>
                     )}
                 </div>
+
 
                 {existingCandidate && (
                     <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
