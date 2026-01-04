@@ -308,9 +308,9 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         return (
             <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
                 <div className="text-center animate-pulse">
-                    <div className="inline-block p-4 bg-violet-50 rounded-3xl mb-6 shadow-xl shadow-violet-100/50">
-                        <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center">
-                            <span className="text-4xl font-bold text-white">L</span>
+                    <div className="inline-block p-6 bg-white rounded-3xl mb-6 shadow-xl shadow-violet-100/40 border border-violet-50">
+                        <div className="w-24 h-24 flex items-center justify-center">
+                            <img src="/logo-loading.png" alt="LIAH Logo" className="w-full h-full object-contain" />
                         </div>
                     </div>
                     <div className="flex flex-col items-center gap-2">
