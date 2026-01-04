@@ -129,11 +129,15 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
             } else if (user.role === 'store_manager') {
                 if (storeId) {
                     const store = availableStores.find(s => s.id === storeId);
+                    const marca = marcas.find(m => m.id === store?.marcaId);
                     updateData.assignedStore = {
                         tiendaId: storeId,
                         tiendaNombre: store?.nombre || storeId,
                         marcaId: store?.marcaId || ''
                     };
+                    // Ensure root fields are also updated
+                    updateData.tiendaId = storeId;
+                    updateData.marcaId = store?.marcaId;
                 }
             }
 

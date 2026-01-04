@@ -24,6 +24,8 @@ export interface UserAssignment {
     assignedMarca?: { marcaId: string; marcaNombre: string };
     assignedMarcas?: { marcaId: string; marcaNombre: string }[]; // For recruiters with multiple brands
     assignedStore?: { tiendaId: string; tiendaNombre: string; marcaId: string };
+    tiendaId?: string;
+    marcaId?: string;
 }
 
 /**

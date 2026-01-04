@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { getAllUserAssignments } from '@/lib/firestore/user-assignment-actions';
 import type { UserAssignment } from '@/lib/firestore/user-assignments';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
 import BulkImportUsersModal from './BulkImportUsersModal';
@@ -13,6 +15,7 @@ interface UserManagementViewProps {
 
 export default function UserManagementView({ holdingId = 'ngr' }: UserManagementViewProps) {
     const [assignments, setAssignments] = useState<UserAssignment[]>([]);
+    const [marcas, setMarcas] = useState<{ id: string, nombre: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showBulkImportModal, setShowBulkImportModal] = useState(false);
@@ -20,8 +23,33 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
     const [filterRole, setFilterRole] = useState<string>('all');
 
     useEffect(() => {
-        loadAssignments();
+        loadData();
     }, []);
+
+    async function loadData() {
+        setLoading(true);
+        await Promise.all([
+            loadAssignments(),
+            loadMarcas()
+        ]);
+        setLoading(false);
+    }
+
+    async function loadMarcas() {
+        try {
+            const marcasRef = collection(db, 'marcas');
+            // In a real scenario we'd filter by holdingId, but for now we fetch all relevant to this admin
+            const q = query(marcasRef, where('holdingId', '==', holdingId));
+            const snapshot = await getDocs(q);
+            const loadedMarcas = snapshot.docs.map(doc => ({
+                id: doc.id,
+                nombre: doc.data().nombre
+            }));
+            setMarcas(loadedMarcas);
+        } catch (error) {
+            console.error('Error loading marcas:', error);
+        }
+    }
 
     async function loadAssignments() {
         try {
@@ -213,8 +241,13 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
 
                                 {/* Assigned Store (Store Manager) */}
                                 {assignment.role === 'store_manager' && assignment.assignedStore && (
-                                    <div className="text-sm text-gray-600">
+                                    <div className="text-sm text-gray-600 space-y-1">
                                         <p>🏪 Tienda: <span className="font-medium">{assignment.assignedStore.tiendaNombre}</span></p>
+                                        {assignment.assignedStore.marcaId && (
+                                            <p>🏢 Marca: <span className="font-medium">
+                                                {marcas.find(m => m.id === assignment.assignedStore?.marcaId)?.nombre || assignment.assignedStore.marcaId}
+                                            </span></p>
+                                        )}
                                     </div>
                                 )}
                             </div>

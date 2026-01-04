@@ -5,7 +5,11 @@ import { Timestamp } from 'firebase-admin/firestore';
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { email, password, displayName, role, holdingId, approvalLevel, marcaId, tiendaId } = body;
+        const {
+            email, password, displayName, role, holdingId,
+            approvalLevel, marcaId, marcaNombre, tiendaId, tiendaNombre,
+            assignedStores, assignedMarcas
+        } = body;
 
         // Validaciones
         if (!email || !displayName || !role || !holdingId) {
@@ -18,7 +22,7 @@ export async function POST(req: NextRequest) {
         // Password por defecto si no se proporciona
         const userPassword = password || 'Liah2026!';
 
-        console.log(`[CREATE USER] Creating user: ${email}`);
+        console.log(`[CREATE USER] Creating user: ${email} with role: ${role}`);
 
         // 1. Crear usuario en Firebase Auth
         const auth = await getAdminAuth();
@@ -42,9 +46,9 @@ export async function POST(req: NextRequest) {
 
         console.log(`[CREATE USER] Custom claims set for: ${userRecord.uid}`);
 
-        // 3. Crear documento en userAssignments
+        // 3. Construir el objeto userAssignment según el rol
         const db = await getAdminFirestore();
-        const userAssignment = {
+        const userAssignment: any = {
             userId: userRecord.uid,
             email,
             displayName,
@@ -58,6 +62,24 @@ export async function POST(req: NextRequest) {
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
         };
+
+        // Agregar objetos de asignación complejos para el frontend
+        if (role === 'store_manager' && tiendaId) {
+            userAssignment.assignedStore = {
+                tiendaId: tiendaId,
+                tiendaNombre: tiendaNombre || 'Tienda sin nombre',
+                marcaId: marcaId || ''
+            };
+        } else if (role === 'supervisor' && assignedStores) {
+            userAssignment.assignedStores = assignedStores;
+        } else if (role === 'jefe_marca' && marcaId) {
+            userAssignment.assignedMarca = {
+                marcaId: marcaId,
+                marcaNombre: marcaNombre || 'Marca sin nombre'
+            };
+        } else if (role === 'recruiter' && assignedMarcas) {
+            userAssignment.assignedMarcas = assignedMarcas;
+        }
 
         await db.collection('userAssignments').doc(userRecord.uid).set(userAssignment);
 
