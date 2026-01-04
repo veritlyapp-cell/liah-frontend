@@ -343,10 +343,16 @@ export function calculateFunnel(candidates: DocumentData[]): FunnelStage[] {
         )
     ).length;
 
-    // Approved = marked as apt
+    // Approved = marked as apt (Pre-selection by Recruiter)
     const approved = candidates.filter(c =>
         c.culStatus === 'apto' ||
         c.applications?.some((app: any) => app.status === 'approved')
+    ).length;
+
+    // Selected = Final selection for the position
+    const selected = candidates.filter(c =>
+        c.selectionStatus === 'selected' ||
+        c.applications?.some((app: any) => app.status === 'selected')
     ).length;
 
     // Hired = started working
@@ -359,7 +365,8 @@ export function calculateFunnel(candidates: DocumentData[]): FunnelStage[] {
         { stage: 'screened', label: 'Filtro IA', count: screened, percentage: total > 0 ? (screened / total) * 100 : 0, conversionFromPrevious: total > 0 ? (screened / total) * 100 : 0 },
         { stage: 'interviewed', label: 'Entrevistados', count: interviewed, percentage: total > 0 ? (interviewed / total) * 100 : 0, conversionFromPrevious: screened > 0 ? (interviewed / screened) * 100 : 0 },
         { stage: 'approved', label: 'Aptos', count: approved, percentage: total > 0 ? (approved / total) * 100 : 0, conversionFromPrevious: interviewed > 0 ? (approved / interviewed) * 100 : 0 },
-        { stage: 'hired', label: 'Ingresados', count: hired, percentage: total > 0 ? (hired / total) * 100 : 0, conversionFromPrevious: approved > 0 ? (hired / approved) * 100 : 0 }
+        { stage: 'selected', label: 'Seleccionados', count: selected, percentage: total > 0 ? (selected / total) * 100 : 0, conversionFromPrevious: approved > 0 ? (selected / approved) * 100 : 0 },
+        { stage: 'hired', label: 'Ingresados', count: hired, percentage: total > 0 ? (hired / total) * 100 : 0, conversionFromPrevious: selected > 0 ? (hired / selected) * 100 : 0 }
     ];
 }
 
@@ -428,7 +435,16 @@ export function calculateSources(candidates: DocumentData[]): SourceMetric[] {
     const counts: Record<string, { total: number; hired: number }> = {};
 
     candidates.forEach(c => {
-        const source = c.source || 'whatsapp'; // Default to whatsapp
+        // Use origenConvocatoria if source is missing
+        let sourceValue = c.source || c.origenConvocatoria || 'whatsapp';
+
+        // Normalize sources
+        if (sourceValue === 'Bolsa de Trabajo') sourceValue = 'link';
+        if (sourceValue === 'Redes Sociales') sourceValue = 'facebook';
+        if (sourceValue === 'Referido') sourceValue = 'referral';
+        if (sourceValue === 'Anuncio en Tienda') sourceValue = 'volante';
+
+        const source = sourceValue.toLowerCase();
         if (!counts[source]) counts[source] = { total: 0, hired: 0 };
         counts[source].total++;
 

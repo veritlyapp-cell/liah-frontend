@@ -206,8 +206,10 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             const candidateData = {
                 ...formData,
                 documents: uploadedDocs,
+                source: formData.origenConvocatoria, // [NEW] Sync with source field for Analytics
                 // Mantener CUL en campo raíz para compatibilidad si existe un docId 'cul'
-                certificadoUnicoLaboral: uploadedDocs['cul'] || formData.certificadoUnicoLaboral
+                certificadoUnicoLaboral: uploadedDocs['cul'] || formData.certificadoUnicoLaboral,
+                culUploadedAt: uploadedDocs['cul'] ? new Date() : (existingCandidate?.culUploadedAt || null) // Update timestamp if new CUL uploaded
             };
 
             let candidateId = '';
@@ -646,7 +648,17 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                     />
                                     {existingCandidate?.documents?.[doc.id] && (
                                         <p className="text-xs text-green-600 mt-1">
-                                            ✓ Ya has subido este documento. Puedes subir uno nuevo para actualizarlo.
+                                            {doc.id === 'cul' && needsNewCUL
+                                                ? '⚠️ CUL detectado pero está desactualizado (>3 meses). Por favor sube uno nuevo.'
+                                                : '✓ Ya has subido este documento. Puedes subir uno nuevo para actualizarlo.'}
+                                        </p>
+                                    )}
+                                    {/* Fallback check for CUL if it's in the root field but not in documents map */}
+                                    {doc.id === 'cul' && !existingCandidate?.documents?.[doc.id] && existingCandidate?.certificadoUnicoLaboral && (
+                                        <p className="text-xs text-green-600 mt-1">
+                                            {needsNewCUL
+                                                ? '⚠️ CUL detectado pero está desactualizado (>3 meses). Por favor sube uno nuevo.'
+                                                : '✓ Ya has subido tu CUL anteriormente. Puedes subir uno nuevo para actualizarlo.'}
                                         </p>
                                     )}
                                 </div>

@@ -62,7 +62,7 @@ export interface CandidateAnalytics {
     startedWorkAt?: Date;
 
     // Status
-    status: 'applied' | 'screening' | 'interviewed' | 'approved' | 'hired' | 'rejected';
+    status: 'applied' | 'screening' | 'interviewed' | 'approved' | 'selected' | 'hired' | 'rejected';
 
     // Drop-off tracking
     rejectionCategory?: RejectionCategory;
@@ -117,7 +117,7 @@ export interface EfficiencyMetrics {
 }
 
 export interface FunnelStage {
-    stage: 'applied' | 'screened' | 'interviewed' | 'approved' | 'hired';
+    stage: 'applied' | 'screened' | 'interviewed' | 'approved' | 'selected' | 'hired';
     label: string;
     count: number;
     percentage: number;

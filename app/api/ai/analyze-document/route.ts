@@ -4,11 +4,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Initialize Gemini with fallback models
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 
-// Model priority list (Stable models for vision/document analysis)
+// Model priority list (Latest Gemini 2.0 models)
 const VISION_MODELS = [
-    'gemini-1.5-flash',
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash',
     'gemini-1.5-pro',
-    'gemini-2.0-flash-exp'
+    'gemini-1.5-flash'
 ];
 
 // Prompts for document analysis
@@ -67,7 +68,7 @@ function getMimeType(url: string): string {
 }
 
 async function analyzeWithVision(documentUrl: string, prompt: string): Promise<any> {
-    console.log(`[DOCUMENT AI] Starting analysis for URL: ${documentUrl.substring(0, 100)}...`);
+    console.log(`[DOCUMENT IA] 🚀 Starting analysis for URL: ${documentUrl.substring(0, 80)}...`);
 
     // Fetch document and convert to base64
     const response = await fetch(documentUrl);
@@ -79,12 +80,13 @@ async function analyzeWithVision(documentUrl: string, prompt: string): Promise<a
     const base64Data = Buffer.from(buffer).toString('base64');
     const mimeType = getMimeType(documentUrl);
 
-    console.log(`[DOCUMENT AI] Document fetched. Size: ${buffer.byteLength} bytes, Type: ${mimeType}`);
+    console.log(`[DOCUMENT IA] 📄 Document fetched. Size: ${buffer.byteLength} bytes, Type: ${mimeType}`);
 
     // Try models in order until one works
+    let lastError: any = null;
     for (const modelName of VISION_MODELS) {
         try {
-            console.log(`[DOCUMENT AI] Trying model: ${modelName}`);
+            console.log(`[DOCUMENT IA] 🤖 Attempting with model: ${modelName}`);
             const model = genAI.getGenerativeModel({ model: modelName });
 
             const result = await model.generateContent([
@@ -98,7 +100,7 @@ async function analyzeWithVision(documentUrl: string, prompt: string): Promise<a
             ]);
 
             const responseText = result.response.text();
-            console.log(`[DOCUMENT AI] Raw response:`, responseText.substring(0, 500));
+            console.log(`[DOCUMENT IA] ✅ Model ${modelName} success! Raw Response:`, responseText.substring(0, 200));
 
             // Parse JSON from response
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -108,12 +110,17 @@ async function analyzeWithVision(documentUrl: string, prompt: string): Promise<a
 
             throw new Error('No JSON found in response');
         } catch (error: any) {
-            console.error(`[DOCUMENT AI] Model ${modelName} failed:`, error.message);
+            console.warn(`[DOCUMENT IA] ❌ Model ${modelName} failed. Error: ${error.message}`);
+            lastError = error;
+            // Check for quota error
+            if (error.message?.includes('429') || error.message?.toLowerCase().includes('quota')) {
+                console.warn(`[DOCUMENT IA] ⚠️ Model ${modelName} Quota Exceeded. Moving to fallback...`);
+            }
             continue;
         }
     }
 
-    throw new Error('All vision models failed');
+    throw new Error(`All vision models failed. Last error: ${lastError?.message || 'Unknown'}`);
 }
 
 
