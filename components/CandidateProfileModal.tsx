@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Candidate } from '@/lib/firestore/candidates';
 import { approveCandidate, rejectCandidate, updateCULStatus } from '@/lib/firestore/candidate-actions';
+import { getRQsByMarca, RQ } from '@/lib/firestore/rqs';
+import { createApplication } from '@/lib/firestore/applications';
+import { Timestamp } from 'firebase/firestore';
 
 interface CandidateProfileModalProps {
     candidate: Candidate;
@@ -19,6 +22,33 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
     const [analyzingCUL, setAnalyzingCUL] = useState(false);
     const [analyzingDNI, setAnalyzingDNI] = useState(false);
     const [aiResult, setAiResult] = useState<any>(null);
+
+    // [RQ Assignment]
+    const [availableRQs, setAvailableRQs] = useState<RQ[]>([]);
+    const [selectedRQId, setSelectedRQId] = useState('');
+    const [loadingRQs, setLoadingRQs] = useState(false);
+
+    // Fetch active RQs for the candidate's brand
+    useEffect(() => {
+        async function fetchRQs() {
+            if (!candidate.applications || candidate.applications.length === 0) return;
+
+            setLoadingRQs(true);
+            try {
+                // Use brand from latest application
+                const brandId = candidate.applications[candidate.applications.length - 1].marcaId;
+                const rqs = await getRQsByMarca(brandId);
+                // Filter only active and approved RQs
+                const activeRQs = rqs.filter(r => r.status === 'active' && r.approvalStatus === 'approved');
+                setAvailableRQs(activeRQs);
+            } catch (error) {
+                console.error('Error fetching RQs:', error);
+            } finally {
+                setLoadingRQs(false);
+            }
+        }
+        fetchRQs();
+    }, [candidate]);
 
     async function handleApprove(applicationId: string) {
         if (!user) return;
@@ -126,6 +156,45 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         } catch (error) {
             console.error('Error selecting candidate:', error);
             alert('Error al seleccionar candidato');
+        } finally {
+            setProcessing(false);
+        }
+    }
+
+    // NEW: Add candidate to another RQ
+    async function handleAddToAnotherRQ() {
+        if (!user || !selectedRQId) return;
+
+        const selectedRQ = availableRQs.find(r => r.id === selectedRQId);
+        if (!selectedRQ) return;
+
+        // Check if candidate already applied to this exact RQ
+        const alreadyApplied = candidate.applications?.some(app => app.rqId === selectedRQ.id);
+        if (alreadyApplied) {
+            alert('El candidato ya tiene una postulación a este RQ');
+            return;
+        }
+
+        setProcessing(true);
+        try {
+            await createApplication(candidate.id, {
+                rqId: selectedRQ.id,
+                rqNumber: selectedRQ.rqNumber,
+                posicion: selectedRQ.posicion,
+                modalidad: selectedRQ.modalidad,
+                marcaId: selectedRQ.marcaId,
+                marcaNombre: selectedRQ.marcaNombre,
+                tiendaId: selectedRQ.tiendaId || '',
+                tiendaNombre: selectedRQ.tiendaNombre || '',
+                origenConvocatoria: 'Reasignado por Recruiter'
+            });
+
+            alert(`✅ Candidato postulado exitosamente a ${selectedRQ.rqNumber} en ${selectedRQ.tiendaNombre}`);
+            setSelectedRQId('');
+            onRefresh();
+        } catch (error) {
+            console.error('Error adding to another RQ:', error);
+            alert('Error al postular a otra posición');
         } finally {
             setProcessing(false);
         }
@@ -484,6 +553,39 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* NEW: Reassignment Section */}
+                    <div className="border-t pt-4 bg-violet-50/30 rounded-lg p-4 mt-4">
+                        <h3 className="text-sm font-bold text-violet-900 mb-3 flex items-center gap-2">
+                            <span>🔄</span> Mover a otra Vacante / RQ de la Marca
+                        </h3>
+                        <p className="text-xs text-violet-700 mb-3">
+                            Si el candidato es apto pero su RQ original se cubrió, puedes postularlo a otra vacante activa sin que tenga que volver a subir documentos.
+                        </p>
+
+                        <div className="flex gap-2">
+                            <select
+                                value={selectedRQId}
+                                onChange={(e) => setSelectedRQId(e.target.value)}
+                                disabled={loadingRQs || processing || availableRQs.length === 0}
+                                className="flex-1 px-3 py-2 border border-violet-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-violet-500 font-medium"
+                            >
+                                <option value="">{loadingRQs ? 'Cargando requerimientos...' : availableRQs.length === 0 ? 'No hay RQs activos' : 'Seleccionar RQ activo...'}</option>
+                                {availableRQs.map(rq => (
+                                    <option key={rq.id} value={rq.id}>
+                                        {rq.rqNumber} - {rq.posicion} ({rq.tiendaNombre})
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={handleAddToAnotherRQ}
+                                disabled={!selectedRQId || processing}
+                                className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm"
+                            >
+                                {processing ? 'Procesando...' : 'Postular a esta Vacante'}
+                            </button>
                         </div>
                     </div>
                 </div>

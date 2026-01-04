@@ -14,22 +14,23 @@ export function exportToExcel(data: any[], headers: string[], filename: string) 
 }
 
 /**
- * Export APTOS with NGR Holding specific format to Excel (.xlsx)
+ * Export SELECCIONADOS with NGR Holding specific format to Excel (.xlsx)
  * Includes Celular and Correo
  */
 export function exportAptosExcel(candidates: Candidate[], filename?: string) {
-    // Filter only APTOS (Main status)
-    const aptos = candidates.filter(c => c.culStatus === 'apto');
+    // Filter only SELECCIONADOS (Final status)
+    const selected = candidates.filter(c => c.selectionStatus === 'selected');
 
     // Create rows
-    const rows = aptos.flatMap(candidate => {
+    const rows = selected.flatMap(candidate => {
         if (!candidate.applications || candidate.applications.length === 0) {
             return [];
         }
 
-        // Only approved applications that haven't hired yet
+        // Only selected applications that haven't hired yet
+        // If candidate is selected, we usually look for the app with status 'selected'
         return candidate.applications
-            .filter(app => app.status === 'approved' && app.hiredStatus !== 'hired')
+            .filter(app => app.status === 'selected' && app.hiredStatus !== 'hired')
             .map(app => ({
                 'Marca': app.marcaNombre || '',
                 'RQ': app.rqNumber || '',
@@ -47,14 +48,14 @@ export function exportAptosExcel(candidates: Candidate[], filename?: string) {
     });
 
     if (rows.length === 0) {
-        throw new Error('No hay candidatos APTOS pendientes para exportar');
+        throw new Error('No hay candidatos SELECCIONADOS pendientes para exportar');
     }
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Aptos para Ingreso');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Seleccionados para Ingreso');
 
-    const defaultFilename = `APTOS_PARA_INGRESO_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const defaultFilename = `SELECCIONADOS_PARA_INGRESO_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, filename || defaultFilename);
 }
 
