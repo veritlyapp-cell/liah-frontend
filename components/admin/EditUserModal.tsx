@@ -97,13 +97,21 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
             if (user.role === 'supervisor') {
                 const assignedStores = selectedStores.map(sid => {
                     const store = availableStores.find(s => s.id === sid);
+                    const marca = marcas.find(m => m.id === store?.marcaId);
                     return {
                         tiendaId: sid,
                         tiendaNombre: store?.nombre || sid,
-                        marcaId: store?.marcaId || ''
+                        marcaId: store?.marcaId || '',
+                        marcaNombre: marca?.nombre || ''
                     };
                 });
                 updateData.assignedStores = assignedStores;
+                // Update primary brand if first store exists
+                if (assignedStores.length > 0) {
+                    updateData.marcaId = assignedStores[0].marcaId;
+                    // Adding this for future consistency
+                    (updateData as any).marcaNombre = assignedStores[0].marcaNombre;
+                }
             } else if (user.role === 'jefe_marca') {
                 if (marcaId) {
                     const marca = marcas.find(m => m.id === marcaId);
@@ -111,6 +119,8 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                         marcaId,
                         marcaNombre: marca?.nombre || marcaId
                     };
+                    updateData.marcaId = marcaId;
+                    (updateData as any).marcaNombre = marca?.nombre;
                 }
             } else if (user.role === 'recruiter') {
                 // Recruiters can have multiple marcas
@@ -125,6 +135,8 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                 // Also set first marca as primary for backwards compatibility
                 if (assignedMarcas.length > 0) {
                     updateData.assignedMarca = assignedMarcas[0];
+                    updateData.marcaId = assignedMarcas[0].marcaId;
+                    (updateData as any).marcaNombre = assignedMarcas[0].marcaNombre;
                 }
             } else if (user.role === 'store_manager') {
                 if (storeId) {
@@ -133,11 +145,13 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     updateData.assignedStore = {
                         tiendaId: storeId,
                         tiendaNombre: store?.nombre || storeId,
-                        marcaId: store?.marcaId || ''
+                        marcaId: store?.marcaId || '',
+                        marcaNombre: marca?.nombre || ''
                     };
                     // Ensure root fields are also updated
                     updateData.tiendaId = storeId;
                     updateData.marcaId = store?.marcaId;
+                    (updateData as any).marcaNombre = marca?.nombre;
                 }
             }
 

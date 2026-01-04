@@ -20,10 +20,10 @@ export interface UserAssignment {
     createdBy: string;
     createdAt: Timestamp;
     updatedAt: Timestamp;
-    assignedStores?: { tiendaId: string; tiendaNombre: string; marcaId: string }[];
+    assignedStores?: { tiendaId: string; tiendaNombre: string; marcaId: string; marcaNombre?: string }[];
     assignedMarca?: { marcaId: string; marcaNombre: string };
     assignedMarcas?: { marcaId: string; marcaNombre: string }[]; // For recruiters with multiple brands
-    assignedStore?: { tiendaId: string; tiendaNombre: string; marcaId: string };
+    assignedStore?: { tiendaId: string; tiendaNombre: string; marcaId: string; marcaNombre?: string };
     tiendaId?: string;
     marcaId?: string;
     vacationMode?: boolean;

@@ -102,7 +102,7 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                 vacantes,
                 tenantId,
                 marcaId,
-                marcaNombre,
+                selectedProfileData.marcaNombre || marcaNombre, // Use brand name from profile as fail-safe
                 user.uid,
                 user.email || '',
                 creatorRole

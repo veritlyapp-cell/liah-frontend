@@ -111,14 +111,17 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                 }
                 payload.assignedStores = selectedStores.map(sid => {
                     const store = availableStores.find(s => s.id === sid);
+                    const marca = marcas.find(m => m.id === store?.marcaId);
                     return {
                         tiendaId: sid,
                         tiendaNombre: store?.nombre || sid,
-                        marcaId: store?.marcaId || ''
+                        marcaId: store?.marcaId || '',
+                        marcaNombre: marca?.nombre || ''
                     };
                 });
                 // Legacy primary identifier
                 payload.marcaId = payload.assignedStores[0].marcaId;
+                payload.marcaNombre = payload.assignedStores[0].marcaNombre;
             } else if (role === 'jefe_marca') {
                 if (!marcaId) {
                     alert('Selecciona una marca');
@@ -147,10 +150,17 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                     return;
                 }
                 const store = availableStores.find(s => s.id === storeId);
+                const marca = marcas.find(m => m.id === store?.marcaId);
                 payload.tiendaId = storeId;
                 payload.tiendaNombre = store?.nombre;
                 payload.marcaId = store?.marcaId;
-                payload.marcaNombre = marcas.find(m => m.id === store?.marcaId)?.nombre;
+                payload.marcaNombre = marca?.nombre;
+                payload.assignedStore = {
+                    tiendaId: storeId,
+                    tiendaNombre: store?.nombre || storeId,
+                    marcaId: store?.marcaId || '',
+                    marcaNombre: marca?.nombre || ''
+                };
             }
 
             // Call the API route
