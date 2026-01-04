@@ -123,7 +123,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     distrito: existing.distrito || '',
                     direccion: existing.direccion || '',
                     certificadoUnicoLaboral: existing.certificadoUnicoLaboral || '',
-                    origenConvocatoria: existing.origenConvocatoria || '',
+                    origenConvocatoria: existing.origenConvocatoria || (existing.applications && existing.applications.length > 0 ? existing.applications[existing.applications.length - 1]?.origenConvocatoria : '') || '',
                     documents: existing.documents || {}
                 });
             } else {

@@ -19,7 +19,9 @@ export async function updateCandidate(
         certificadoUnicoLaboral?: string;
         telefono?: string;
         culStatus?: 'pending' | 'apto' | 'no_apto' | 'manual_review';
+        culUploadedAt?: Date | null;
         source?: string;
+        origenConvocatoria?: string;
         documents?: Record<string, string>;
     }
 ): Promise<void> {
