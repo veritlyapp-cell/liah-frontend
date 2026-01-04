@@ -4,12 +4,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Initialize Gemini with fallback models
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 
-// Model priority list (2026 models)
+// Model priority list (Stable models for vision/document analysis)
 const VISION_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash',
-    'gemini-2.5-pro'
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash-exp'
 ];
 
 // Prompts for document analysis

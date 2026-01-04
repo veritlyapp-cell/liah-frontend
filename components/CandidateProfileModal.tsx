@@ -330,27 +330,6 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             )}
                         </div>
 
-                        {/* AI Analysis Button */}
-                        {candidate.certificadoUnicoLaboral && !candidate.culStatus && (
-                            <div className="mb-4">
-                                <button
-                                    onClick={handleAnalyzeCUL}
-                                    disabled={analyzingCUL || processing}
-                                    className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2"
-                                >
-                                    {analyzingCUL ? (
-                                        <>
-                                            <span className="animate-spin">⏳</span> Analizando con IA...
-                                        </>
-                                    ) : (
-                                        <>🤖 Analizar CUL con IA</>
-                                    )}
-                                </button>
-                                <p className="text-xs text-gray-500 text-center mt-2">
-                                    La IA detectará denuncias y antecedentes automáticamente
-                                </p>
-                            </div>
-                        )}
 
                         {/* AI Result Display */}
                         {aiResult && aiResult.documentType === 'cul' && (
@@ -376,33 +355,40 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             </div>
                         )}
 
-                        {/* CUL Manual Actions */}
-                        <div className="flex gap-2 flex-wrap">
+                        {/* CUL Actions Bar */}
+                        <div className="flex gap-2 flex-wrap items-center">
                             <button
                                 onClick={handleAnalyzeCUL}
                                 disabled={analyzingCUL || processing || !candidate.certificadoUnicoLaboral}
-                                className="px-4 py-2 bg-violet-600 text-white rounded-full text-sm font-medium hover:bg-violet-700 disabled:opacity-50 shadow-sm flex items-center gap-2"
+                                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white rounded-full text-sm font-medium hover:opacity-90 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
-                                <span>🤖</span> Analizar con IA
+                                {analyzingCUL ? (
+                                    <><span className="animate-spin">⌛</span> Analizando...</>
+                                ) : (
+                                    <><span className="text-lg">🤖</span> Analizar con IA</>
+                                )}
                             </button>
+
+                            <div className="h-6 w-px bg-gray-200 mx-1" />
+
                             <button
                                 onClick={() => handleUpdateCUL('apto')}
                                 disabled={processing}
-                                className="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 disabled:opacity-50 shadow-sm flex items-center gap-2"
+                                className="px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
                                 <span>✓</span> Marcar como Apto
                             </button>
                             <button
-                                onClick={() => handleUpdateCUL('no_apto', 'Revisión manual - denuncias encontradas')}
+                                onClick={() => handleUpdateCUL('no_apto', 'Revisión manual - observaciones encontradas')}
                                 disabled={processing}
-                                className="px-4 py-2 bg-red-600 text-white rounded-full text-sm font-medium hover:bg-red-700 disabled:opacity-50 shadow-sm flex items-center gap-2"
+                                className="px-4 py-2 bg-rose-600 text-white rounded-full text-sm font-medium hover:bg-rose-700 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
                                 <span>✕</span> Marcar como No Apto
                             </button>
                             <button
                                 onClick={() => handleUpdateCUL('manual_review')}
                                 disabled={processing}
-                                className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-medium hover:bg-amber-600 disabled:opacity-50 shadow-sm flex items-center gap-2"
+                                className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-medium hover:bg-amber-600 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
                                 <span>⚠</span> Requiere Revisión
                             </button>
