@@ -295,17 +295,17 @@ export default function RecruiterDashboard() {
                         </div>
                     </div>
 
-                    {/* Hiring Stats Row */}
+                    {/* Hiring Stats Row - Reordenado: Pendiente → Ingreso → No Ingreso */}
                     <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-4">
-                            <p className="text-sm text-green-700 font-medium">✅ Ingresaron</p>
-                            <p className="text-3xl font-bold text-green-900">{stats.hired}</p>
-                            <p className="text-xs text-green-600 mt-1">Confirmado por SM</p>
-                        </div>
                         <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 p-4">
                             <p className="text-sm text-yellow-700 font-medium">⏳ Pendientes Ingreso</p>
                             <p className="text-3xl font-bold text-yellow-900">{stats.pendingHire}</p>
                             <p className="text-xs text-yellow-600 mt-1">Aptos esperando confirmación</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-4">
+                            <p className="text-sm text-green-700 font-medium">✅ Ingresaron</p>
+                            <p className="text-3xl font-bold text-green-900">{stats.hired}</p>
+                            <p className="text-xs text-green-600 mt-1">Confirmado por SM</p>
                         </div>
                         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 p-4">
                             <p className="text-sm text-gray-700 font-medium">❌ No Ingresaron</p>
@@ -313,6 +313,7 @@ export default function RecruiterDashboard() {
                             <p className="text-xs text-gray-600 mt-1">Desistieron o rechazados</p>
                         </div>
                     </div>
+
 
                     {/* Main Content */}
                     <div className="flex gap-6">

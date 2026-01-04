@@ -365,7 +365,18 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 <span className="text-gray-500">Ubicación:</span>
                                                 <span className="text-gray-700">{candidate.distrito}</span>
                                             </div>
+                                            {/* Tienda y Posición - siempre visible */}
                                             {latestApp && (
+                                                <div className="flex items-center gap-2 col-span-2 mt-1 pt-1 border-t border-gray-100">
+                                                    <span className="text-gray-500">🏪 Tienda:</span>
+                                                    <span className="font-medium text-violet-700">{latestApp.tiendaNombre}</span>
+                                                    <span className="mx-2 text-gray-300">|</span>
+                                                    <span className="text-gray-500">Posición:</span>
+                                                    <span className="font-medium text-violet-700">{latestApp.posicion || 'No especificada'}</span>
+                                                </div>
+                                            )}
+                                            {latestApp && (
+
                                                 <>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-gray-500">Posición:</span>

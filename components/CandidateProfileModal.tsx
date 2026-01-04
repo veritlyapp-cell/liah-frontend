@@ -122,6 +122,30 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             return;
         }
 
+        const latestApp = candidate.applications?.[candidate.applications.length - 1];
+
+        // Check if candidate is already selected for another RQ
+        if (candidate.selectionStatus === 'selected') {
+            const selectedForApp = candidate.applications?.find(app => app.rqId === candidate.selectedForRQ);
+
+            // Check if selected in the same brand
+            if (selectedForApp?.marcaId === latestApp?.marcaId) {
+                alert(`❌ Este candidato ya fue SELECCIONADO para:\n\n🏪 Tienda: ${selectedForApp?.tiendaNombre}\n📋 Posición: ${selectedForApp?.posicion}\n\nNo es posible seleccionarlo para otra posición en la misma marca.`);
+                return;
+            } else {
+                // Selected in different brand - show warning
+                const proceed = window.confirm(
+                    `⚠️ ATENCIÓN: Este candidato ya está SELECCIONADO en otra marca:\n\n` +
+                    `🏢 Marca: ${selectedForApp?.marcaNombre || 'Otra marca'}\n` +
+                    `🏪 Tienda: ${selectedForApp?.tiendaNombre}\n` +
+                    `📋 Posición: ${selectedForApp?.posicion}\n\n` +
+                    `Para seleccionarlo en esta marca, primero debe ser RECHAZADO en la otra.\n\n` +
+                    `¿Deseas continuar de todas formas? (No recomendado)`
+                );
+                if (!proceed) return;
+            }
+        }
+
         // Verify CUL is approved first
         if (candidate.culStatus !== 'apto') {
             const proceed = window.confirm('⚠️ El CUL de este candidato no está marcado como Apto.\n\n¿Deseas seleccionarlo de todas formas?');
@@ -180,10 +204,18 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         const selectedRQ = availableRQs.find(r => r.id === selectedRQId);
         if (!selectedRQ) return;
 
+        // Block if candidate is already selected
+        if (candidate.selectionStatus === 'selected') {
+            const selectedForApp = candidate.applications?.find(app => app.rqId === candidate.selectedForRQ);
+            alert(`❌ No es posible mover a este candidato.\n\nYa fue SELECCIONADO para:\n🏪 ${selectedForApp?.tiendaNombre}\n📋 ${selectedForApp?.posicion}\n\nDebe ser rechazado primero para reasignarlo.`);
+            return;
+        }
+
         // Check if candidate already applied to this exact RQ
         const alreadyApplied = candidate.applications?.some(app => app.rqId === selectedRQ.id);
         if (alreadyApplied) {
             alert('El candidato ya tiene una postulación a este RQ');
+
             return;
         }
 
