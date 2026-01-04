@@ -214,6 +214,9 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             }
 
             // 2. Crear/Actualizar candidato
+            console.log('[ApplyPage] uploadedDocs:', uploadedDocs);
+            console.log('[ApplyPage] uploadedDocs.cul:', uploadedDocs['cul']);
+
             const candidateData = {
                 ...formData,
                 documents: uploadedDocs,
@@ -222,6 +225,9 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 certificadoUnicoLaboral: uploadedDocs['cul'] || formData.certificadoUnicoLaboral || (existingCandidate?.certificadoUnicoLaboral || ''),
                 culUploadedAt: uploadedDocs['cul'] ? new Date() : (existingCandidate?.culUploadedAt || null) // Update timestamp if new CUL uploaded
             };
+
+            console.log('[ApplyPage] candidateData.certificadoUnicoLaboral:', candidateData.certificadoUnicoLaboral);
+            console.log('[ApplyPage] candidateData.documents:', candidateData.documents);
 
             let candidateId = '';
 

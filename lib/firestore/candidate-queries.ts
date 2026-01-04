@@ -39,6 +39,11 @@ export async function getCandidatesByMarca(marcaId: string): Promise<Candidate[]
             candidate.applications?.some(app => app.marcaId === marcaId)
         );
 
+    console.log('[getCandidatesByMarca] marcaId:', marcaId, 'found:', candidates.length);
+    if (candidates.length === 0 && snapshot.docs.length > 0) {
+        console.log('[getCandidatesByMarca] All candidates apps:', snapshot.docs.map(d => d.data().applications?.map((a: any) => a.marcaId)));
+    }
+
     return candidates;
 }
 
@@ -60,6 +65,11 @@ export async function getCandidatesByMultipleStores(storeIds: string[]): Promise
         .filter(candidate =>
             candidate.applications?.some(app => storeIds.includes(app.tiendaId))
         );
+
+    console.log('[getCandidatesByMultipleStores] storeIds:', storeIds, 'found:', candidates.length);
+    if (candidates.length === 0 && snapshot.docs.length > 0) {
+        console.log('[getCandidatesByMultipleStores] All candidates apps tiendaIds:', snapshot.docs.map(d => d.data().applications?.map((a: any) => a.tiendaId)));
+    }
 
     return candidates;
 }

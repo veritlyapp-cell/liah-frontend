@@ -545,7 +545,8 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                             </>
                                         )}
 
-                                        {!isStoreManager && (
+                                        {/* Ver Perfil - Solo para Recruiters y Admins */}
+                                        {(isRecruiter || isAdmin) && (
                                             <button
                                                 onClick={() => setSelectedCandidate(candidate)}
                                                 className="px-4 py-2 text-sm border border-gray-300 rounded-full hover:bg-gray-50 transition-colors shadow-sm text-center"
@@ -553,6 +554,7 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 Ver Perfil
                                             </button>
                                         )}
+
                                     </div>
                                 </div>
                             </div>
