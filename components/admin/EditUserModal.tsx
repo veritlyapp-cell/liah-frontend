@@ -15,7 +15,15 @@ interface EditUserModalProps {
 
 export default function EditUserModal({ user, holdingId, onClose, onSuccess }: EditUserModalProps) {
     const [displayName, setDisplayName] = useState(user.displayName);
-    const [marcaId, setMarcaId] = useState(user.assignedMarca?.marcaId || '');
+
+    // Get user's current marcaId from their assignment
+    const userMarcaId = user.marcaId ||
+        user.assignedMarca?.marcaId ||
+        user.assignedStore?.marcaId ||
+        user.assignedStores?.[0]?.marcaId ||
+        '';
+
+    const [marcaId, setMarcaId] = useState(userMarcaId);
     const [storeId, setStoreId] = useState(user.assignedStore?.tiendaId || '');
     const [selectedStores, setSelectedStores] = useState<string[]>(
         user.assignedStores?.map(s => s.tiendaId) || []
@@ -35,10 +43,11 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
         loadStores();
     }, []);
 
+
     async function loadMarcas() {
         try {
             const marcasRef = collection(db, 'marcas');
-            const q = query(marcasRef, where('holdingId', '==', holdingId));
+            const q = query(marcasRef, where('holdingId', 'in', [holdingId, 'ngr']));
             const snapshot = await getDocs(q);
 
             const loadedMarcas = snapshot.docs.map(doc => ({
@@ -55,7 +64,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
     async function loadStores() {
         try {
             const storesRef = collection(db, 'tiendas');
-            const q = query(storesRef, where('holdingId', '==', holdingId));
+            const q = query(storesRef, where('holdingId', 'in', [holdingId, 'ngr']));
             const snapshot = await getDocs(q);
 
             const loadedStores = snapshot.docs.map(doc => ({
@@ -209,9 +218,16 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
             ? availableStores.filter(s => !s.isClaimedByManager)
             : availableStores;
 
-    const filteredStores = marcaId
-        ? storesForRole.filter(s => s.marcaId === marcaId)
+    // For Store Manager and Supervisor: Always filter by their assigned brand
+    // For other roles: Allow filtering by selected marcaId
+    const brandToFilter = (user.role === 'store_manager' || user.role === 'supervisor')
+        ? userMarcaId  // Lock to user's brand
+        : marcaId;     // Allow free selection
+
+    const filteredStores = brandToFilter
+        ? storesForRole.filter(s => s.marcaId === brandToFilter)
         : storesForRole;
+
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -249,19 +265,12 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                                 Tiendas Asignadas
                             </label>
 
-                            {/* Optional: Filter by Marca */}
-                            <select
-                                value={marcaId}
-                                onChange={e => setMarcaId(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-3 focus:ring-violet-500 focus:border-violet-500"
-                            >
-                                <option value="">Todas las marcas</option>
-                                {marcas.map(marca => (
-                                    <option key={marca.id} value={marca.id}>
-                                        {marca.nombre}
-                                    </option>
-                                ))}
-                            </select>
+                            {/* Show assigned brand (read-only for supervisors) */}
+                            <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg mb-3 text-gray-700">
+                                🏢 Marca: <strong>{marcas.find(m => m.id === userMarcaId)?.nombre || 'Sin marca asignada'}</strong>
+                                <span className="text-xs text-gray-500 ml-2">(Solo tiendas de esta marca)</span>
+                            </div>
+
 
                             <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
                                 {filteredStores.length === 0 ? (
@@ -353,6 +362,12 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Tienda Asignada
                             </label>
+
+                            {/* Show assigned brand (read-only for store managers) */}
+                            <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg mb-3 text-gray-700">
+                                🏢 Marca: <strong>{marcas.find(m => m.id === userMarcaId)?.nombre || 'Sin marca asignada'}</strong>
+                            </div>
+
                             <select
                                 value={storeId}
                                 onChange={e => setStoreId(e.target.value)}
@@ -361,7 +376,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                                 <option value="">Selecciona una tienda</option>
                                 {filteredStores.map(store => (
                                     <option key={store.id} value={store.id}>
-                                        {store.nombre} ({marcas.find(m => m.id === store.marcaId)?.nombre || 'Sin marca'})
+                                        {store.nombre}
                                     </option>
                                 ))}
                             </select>
