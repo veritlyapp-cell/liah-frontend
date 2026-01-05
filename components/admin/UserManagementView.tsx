@@ -21,6 +21,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
     const [showBulkImportModal, setShowBulkImportModal] = useState(false);
     const [editingUser, setEditingUser] = useState<UserAssignment | null>(null);
     const [filterRole, setFilterRole] = useState<string>('all');
+    const [filterMarca, setFilterMarca] = useState<string>('all');
 
     useEffect(() => {
         loadData();
@@ -39,7 +40,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
         try {
             const marcasRef = collection(db, 'marcas');
             // In a real scenario we'd filter by holdingId, but for now we fetch all relevant to this admin
-            const q = query(marcasRef, where('holdingId', '==', holdingId));
+            const q = query(marcasRef, where('holdingId', 'in', [holdingId, 'ngr']));
             const snapshot = await getDocs(q);
             const loadedMarcas = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -110,9 +111,22 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
         }
     }
 
-    const filteredAssignments = filterRole === 'all'
-        ? assignments
-        : assignments.filter(a => a.role === filterRole);
+    // Get user's marca ID from their assignment
+    const getUserMarcaId = (user: UserAssignment): string | null => {
+        if (user.marcaId) return user.marcaId;
+        if (user.assignedMarca?.marcaId) return user.assignedMarca.marcaId;
+        if (user.assignedStore?.marcaId) return user.assignedStore.marcaId;
+        if (user.assignedStores?.[0]?.marcaId) return user.assignedStores[0].marcaId;
+        if (user.assignedMarcas?.[0]?.marcaId) return user.assignedMarcas[0].marcaId;
+        return null;
+    };
+
+    // Apply both role and marca filters
+    const filteredAssignments = assignments.filter(a => {
+        const roleMatch = filterRole === 'all' || a.role === filterRole;
+        const marcaMatch = filterMarca === 'all' || getUserMarcaId(a) === filterMarca;
+        return roleMatch && marcaMatch;
+    });
 
     const getRoleLabel = (role: string) => {
         const labels: Record<string, string> = {
@@ -153,7 +167,20 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                         <option value="recruiter">Recruiters</option>
                         <option value="store_manager">Store Managers</option>
                     </select>
+
+                    {/* Marca Filter */}
+                    <select
+                        value={filterMarca}
+                        onChange={(e) => setFilterMarca(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-violet-500 focus:border-violet-500"
+                    >
+                        <option value="all">Todas las marcas</option>
+                        {marcas.map(m => (
+                            <option key={m.id} value={m.id}>{m.nombre}</option>
+                        ))}
+                    </select>
                 </div>
+
 
                 <div className="flex gap-3">
                     <button

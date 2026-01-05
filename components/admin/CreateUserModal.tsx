@@ -54,8 +54,11 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
 
     async function loadStores() {
         try {
+            console.log('[CreateUserModal] Loading stores for holdingId:', holdingId);
+
             const storesRef = collection(db, 'tiendas');
-            const q = query(storesRef, where('holdingId', '==', holdingId));
+            // Query by holdingId - also try 'ngr' as fallback for legacy data
+            const q = query(storesRef, where('holdingId', 'in', [holdingId, 'ngr']));
             const snapshot = await getDocs(q);
 
             const loadedStores = snapshot.docs.map(doc => ({
@@ -63,6 +66,7 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                 nombre: doc.data().nombre,
                 marcaId: doc.data().marcaId
             }));
+
 
             // Fetch all user assignments to identify claimed stores
             const assignmentsRef = collection(db, 'userAssignments');
@@ -88,10 +92,14 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                 isClaimedBySupervisor: claimedBySupervisor.has(s.id),
                 isClaimedByManager: claimedByManager.has(s.id)
             })));
+
+            console.log('[CreateUserModal] Loaded stores:', loadedStores.length, loadedStores.map(s => ({ id: s.id, nombre: s.nombre, marcaId: s.marcaId })));
+            console.log('[CreateUserModal] Claimed by supervisor:', Array.from(claimedBySupervisor));
         } catch (error) {
             console.error('Error loading stores:', error);
         }
     }
+
 
     function toggleStore(storeId: string) {
         setSelectedStores(prev =>
@@ -219,6 +227,12 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
     const filteredStores = marcaId
         ? storesForRole.filter(s => s.marcaId === marcaId)
         : storesForRole;
+
+    // Debug logging
+    console.log('[CreateUserModal] Role:', role, '| MarcaId selected:', marcaId);
+    console.log('[CreateUserModal] storesForRole:', storesForRole.length, 'stores');
+    console.log('[CreateUserModal] filteredStores:', filteredStores.length, filteredStores.map(s => s.nombre));
+
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
