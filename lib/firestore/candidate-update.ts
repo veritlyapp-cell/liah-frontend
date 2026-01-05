@@ -18,12 +18,15 @@ export async function updateCandidate(
         direccion?: string;
         certificadoUnicoLaboral?: string;
         telefono?: string;
+        fechaNacimiento?: string;
+        edad?: number;
         culStatus?: 'pending' | 'apto' | 'no_apto' | 'manual_review';
         culUploadedAt?: Date | null;
         source?: string;
         origenConvocatoria?: string;
         documents?: Record<string, string>;
     }
+
 ): Promise<void> {
     const candidateRef = doc(db, 'candidates', candidateId);
 
@@ -43,10 +46,13 @@ export async function updateCandidate(
     if (updates.distrito !== undefined) updateData.distrito = updates.distrito;
     if (updates.direccion !== undefined) updateData.direccion = updates.direccion;
     if (updates.telefono !== undefined) updateData.telefono = updates.telefono;
+    if (updates.fechaNacimiento !== undefined) updateData.fechaNacimiento = updates.fechaNacimiento;
+    if (updates.edad !== undefined) updateData.edad = updates.edad;
     if (updates.source !== undefined) updateData.source = updates.source;
     if (updates.origenConvocatoria !== undefined) updateData.origenConvocatoria = updates.origenConvocatoria;
     if (updates.documents !== undefined) updateData.documents = updates.documents;
     if (updates.culStatus !== undefined) updateData.culStatus = updates.culStatus;
+
 
     // Handle CUL specially
     if (updates.certificadoUnicoLaboral) {

@@ -32,8 +32,8 @@ export function exportAptosExcel(candidates: Candidate[], filename?: string) {
         return candidate.applications
             .filter(app => app.status === 'selected' && app.hiredStatus !== 'hired')
             .map(app => ({
-                'Marca': app.marcaNombre || '',
                 'RQ': app.rqNumber || '',
+                'Marca': app.marcaNombre || '',
                 'Tienda': app.tiendaNombre || '',
                 'Puesto': app.posicion || '',
                 'Modalidad': app.modalidad || 'Full Time',

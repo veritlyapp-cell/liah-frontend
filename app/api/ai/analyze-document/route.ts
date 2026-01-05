@@ -157,8 +157,18 @@ export async function POST(req: NextRequest) {
 
         // Determine validation status for CUL
         let validationStatus = null;
+        let dniMismatch = false;
+
         if (documentType === 'cul') {
-            if (analysisResult.recomendacion === 'aprobar' && analysisResult.confidence >= 80) {
+            // Check if DNI from CUL matches candidate's DNI (if provided)
+            const candidateDni = body.candidateDni;
+            const culDni = analysisResult.dniTitular?.replace(/\D/g, ''); // Remove non-digits
+
+            if (candidateDni && culDni && candidateDni !== culDni) {
+                console.log(`[DOCUMENT AI] ⚠️ DNI MISMATCH: Candidate=${candidateDni}, CUL=${culDni}`);
+                validationStatus = 'dni_mismatch';
+                dniMismatch = true;
+            } else if (analysisResult.recomendacion === 'aprobar' && analysisResult.confidence >= 80) {
                 validationStatus = 'approved_ai';
             } else if (analysisResult.recomendacion === 'rechazar' && analysisResult.confidence >= 80) {
                 validationStatus = 'rejected_ai';
@@ -176,13 +186,20 @@ export async function POST(req: NextRequest) {
                 fechaNacimiento: analysisResult.fechaNacimiento,
                 direccion: analysisResult.direccion,
                 sexo: analysisResult.sexo
-            } : null,
+            } : {
+                nombreTitular: analysisResult.nombreTitular,
+                dniTitular: analysisResult.dniTitular
+            },
             validationStatus,
-            aiObservation: analysisResult.observacion,
+            dniMismatch,
+            aiObservation: dniMismatch
+                ? `⚠️ DNI NO COINCIDE: El CUL pertenece a DNI ${analysisResult.dniTitular || 'no legible'}. ${analysisResult.observacion || ''}`
+                : analysisResult.observacion,
             denunciasEncontradas: analysisResult.denunciasEncontradas || [],
             confidence: analysisResult.confidence,
             rawAnalysis: analysisResult
         });
+
 
     } catch (error: any) {
         console.error('[DOCUMENT AI] Error:', error);

@@ -261,8 +261,10 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 body: JSON.stringify({
                     documentType: 'cul',
                     documentUrl: culUrl,
-                    candidateId: candidate.id
+                    candidateId: candidate.id,
+                    candidateDni: candidate.dni // [NEW] For DNI verification
                 })
+
             });
 
 

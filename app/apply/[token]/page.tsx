@@ -34,6 +34,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         apellidoMaterno: '',
         email: '',
         telefono: '',
+        fechaNacimiento: '', // [NEW] DD/MM/YYYY format
         departamento: '',
         provincia: '',
         distrito: '',
@@ -42,6 +43,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         origenConvocatoria: '', // [NEW] Added field
         documents: {} as Record<string, string>
     });
+
 
     const [files, setFiles] = useState<Record<string, File>>({});
 
@@ -118,6 +120,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     apellidoMaterno: existing.apellidoMaterno || '',
                     email: existing.email || '',
                     telefono: existing.telefono || '',
+                    fechaNacimiento: existing.fechaNacimiento || '',
                     departamento: existing.departamento || '',
                     provincia: existing.provincia || '',
                     distrito: existing.distrito || '',
@@ -126,6 +129,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     origenConvocatoria: existing.origenConvocatoria || (existing.applications && existing.applications.length > 0 ? existing.applications[existing.applications.length - 1]?.origenConvocatoria : '') || '',
                     documents: existing.documents || {}
                 });
+
             } else {
                 // Nuevo candidato, pre-llenar email
                 setFormData(prev => ({ ...prev, email: inv.candidateEmail }));
@@ -217,14 +221,28 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             console.log('[ApplyPage] uploadedDocs:', uploadedDocs);
             console.log('[ApplyPage] uploadedDocs.cul:', uploadedDocs['cul']);
 
+            // Calculate age from fechaNacimiento
+            let edad: number | undefined;
+            if (formData.fechaNacimiento) {
+                const birthDate = new Date(formData.fechaNacimiento);
+                const today = new Date();
+                edad = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    edad--;
+                }
+            }
+
             const candidateData = {
                 ...formData,
+                edad, // Age calculated from fechaNacimiento
                 documents: uploadedDocs,
                 source: formData.origenConvocatoria, // [NEW] Sync with source field for Analytics
                 // Mantener CUL en campo raíz para compatibilidad si existe un docId 'cul'
                 certificadoUnicoLaboral: uploadedDocs['cul'] || formData.certificadoUnicoLaboral || (existingCandidate?.certificadoUnicoLaboral || ''),
                 culUploadedAt: uploadedDocs['cul'] ? new Date() : (existingCandidate?.culUploadedAt || null) // Update timestamp if new CUL uploaded
             };
+
 
             console.log('[ApplyPage] candidateData.certificadoUnicoLaboral:', candidateData.certificadoUnicoLaboral);
             console.log('[ApplyPage] candidateData.documents:', candidateData.documents);
@@ -559,7 +577,21 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                 disabled={!!existingCandidate}
                             />
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Fecha de Nacimiento <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={formData.fechaNacimiento}
+                                onChange={(e) => setFormData({ ...formData, fechaNacimiento: e.target.value })}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                required
+                                max={new Date().toISOString().split('T')[0]} // No future dates
+                            />
+                        </div>
                     </div>
+
 
                     {/* Ubicación Geográfica */}
                     <div className="border-t pt-4">
