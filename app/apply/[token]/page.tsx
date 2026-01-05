@@ -196,6 +196,16 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
         try {
             setSubmitting(true);
 
+            // Check if candidate is blacklisted
+            const { isBlacklisted } = await import('@/lib/firestore/blacklist');
+            const blacklistEntry = await isBlacklisted(formData.dni);
+            if (blacklistEntry) {
+                alert(`❌ No es posible continuar.\n\nEl DNI ${formData.dni} se encuentra en la lista negra.\n\nMotivo: ${blacklistEntry.motivo}`);
+                setSubmitting(false);
+                return;
+            }
+
+
             // 1. Subir archivos dinámicos
             // Initialize with existing documents to avoid losing previous ones
             const uploadedDocs = {

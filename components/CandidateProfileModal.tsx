@@ -6,6 +6,7 @@ import type { Candidate } from '@/lib/firestore/candidates';
 import { approveCandidate, rejectCandidate, updateCULStatus } from '@/lib/firestore/candidate-actions';
 import { getRQsByMarca, RQ } from '@/lib/firestore/rqs';
 import { createApplication } from '@/lib/firestore/applications';
+import { addToBlacklist, hasHireHistory } from '@/lib/firestore/blacklist';
 import { Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -24,10 +25,15 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
     const [analyzingDNI, setAnalyzingDNI] = useState(false);
     const [aiResult, setAiResult] = useState<any>(null);
 
+    // Blacklist state
+    const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+    const [blacklistReason, setBlacklistReason] = useState('');
+
     // [RQ Assignment]
     const [availableRQs, setAvailableRQs] = useState<RQ[]>([]);
     const [selectedRQId, setSelectedRQId] = useState('');
     const [loadingRQs, setLoadingRQs] = useState(false);
+
 
     // Fetch active RQs for the candidate's brand
     useEffect(() => {
@@ -114,6 +120,38 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             setProcessing(false);
         }
     }
+
+    // Add candidate to blacklist
+    async function handleBlacklist() {
+        if (!user || !blacklistReason.trim()) {
+            alert('Por favor ingresa el motivo para agregar a la lista negra');
+            return;
+        }
+
+        setProcessing(true);
+        try {
+            await addToBlacklist(
+                candidate.dni,
+                `${candidate.nombre} ${candidate.apellidoPaterno} ${candidate.apellidoMaterno}`,
+                blacklistReason,
+                user.uid
+            );
+            alert(`🚫 ${candidate.nombre} ha sido agregado a la Lista Negra.\n\nSu DNI (${candidate.dni}) quedará bloqueado para futuras postulaciones.`);
+            setShowBlacklistModal(false);
+            setBlacklistReason('');
+            onRefresh();
+            onClose();
+        } catch (error) {
+            console.error('Error adding to blacklist:', error);
+            alert('Error al agregar a lista negra');
+        } finally {
+            setProcessing(false);
+        }
+    }
+
+    // Check for re-entry status
+    const { isReentry, lastHire } = hasHireHistory(candidate.applications || []);
+
 
     // NEW: Select candidate for the position (sends email notification)
     async function handleSelectCandidate() {
@@ -344,9 +382,17 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                        Perfil de Candidato
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-bold text-gray-900">
+                            Perfil de Candidato
+                        </h2>
+                        {/* Re-entry Badge */}
+                        {isReentry && (
+                            <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-bold border border-amber-300 flex items-center gap-1">
+                                ⟳ REINGRESO
+                            </span>
+                        )}
+                    </div>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600"
@@ -356,6 +402,22 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                         </svg>
                     </button>
                 </div>
+
+                {/* Re-entry History Alert */}
+                {isReentry && lastHire && (
+                    <div className="mx-6 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-amber-800 font-semibold flex items-center gap-2">
+                            ⚠️ Este candidato ya trabajó anteriormente:
+                        </p>
+                        <div className="mt-2 text-sm text-amber-700 grid grid-cols-2 gap-2">
+                            <span>🏢 Marca: <strong>{lastHire.marcaNombre}</strong></span>
+                            <span>🏪 Tienda: <strong>{lastHire.tiendaNombre}</strong></span>
+                            <span>📋 Posición: <strong>{lastHire.posicion}</strong></span>
+                            <span>📅 Ingresó: <strong>{lastHire.hiredAt?.toDate?.().toLocaleDateString() || 'N/A'}</strong></span>
+                        </div>
+                    </div>
+                )}
+
 
                 {/* Content */}
                 <div className="p-6 space-y-6">
@@ -655,7 +717,15 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 </div>
 
                 {/* Footer */}
-                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t flex justify-end">
+                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
+                    {/* Blacklist Button - visible for rejected or any candidate */}
+                    <button
+                        onClick={() => setShowBlacklistModal(true)}
+                        className="px-4 py-2 bg-red-100 text-red-700 border border-red-300 rounded-full font-medium hover:bg-red-200 transition-colors shadow-sm flex items-center gap-2"
+                    >
+                        🚫 Agregar a Blacklist
+                    </button>
+
                     <button
                         onClick={onClose}
                         className="px-8 py-2 border border-gray-300 rounded-full font-medium hover:bg-gray-100 transition-colors shadow-sm"
@@ -664,6 +734,68 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                     </button>
                 </div>
             </div>
+
+            {/* Blacklist Modal */}
+            {showBlacklistModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60]">
+                    <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                        <h3 className="text-xl font-bold text-red-700 flex items-center gap-2 mb-4">
+                            🚫 Agregar a Lista Negra
+                        </h3>
+                        <p className="text-gray-600 mb-4">
+                            Estás por agregar a <strong>{candidate.nombre} {candidate.apellidoPaterno}</strong> (DNI: <strong>{candidate.dni}</strong>) a la lista negra.
+                        </p>
+                        <p className="text-sm text-red-600 mb-4">
+                            ⚠️ Esta acción bloqueará a esta persona de postular nuevamente a cualquier posición.
+                        </p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Motivo <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={blacklistReason}
+                                onChange={(e) => setBlacklistReason(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 mb-2"
+                            >
+                                <option value="">Selecciona un motivo</option>
+                                <option value="Robo o hurto">Robo o hurto</option>
+                                <option value="Abandono de trabajo">Abandono de trabajo</option>
+                                <option value="Falta grave">Falta grave</option>
+                                <option value="Falsificación de documentos">Falsificación de documentos</option>
+                                <option value="Comportamiento inapropiado">Comportamiento inapropiado</option>
+                                <option value="Otro">Otro (especificar)</option>
+                            </select>
+                            {blacklistReason === 'Otro' && (
+                                <input
+                                    type="text"
+                                    placeholder="Especifica el motivo..."
+                                    onChange={(e) => setBlacklistReason(`Otro: ${e.target.value}`)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                                />
+                            )}
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => {
+                                    setShowBlacklistModal(false);
+                                    setBlacklistReason('');
+                                }}
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleBlacklist}
+                                disabled={!blacklistReason || processing}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {processing ? 'Procesando...' : '🚫 Confirmar Blacklist'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+
