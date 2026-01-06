@@ -603,15 +603,43 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                     {/* Applications */}
                     <div className="border-t pt-4">
                         <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                            Postulaciones ({candidate.applications?.length || 0})
+                            Postulaciones ({(() => {
+                                // Deduplicate by rqId, keeping most recent per RQ
+                                const appsMap = new Map();
+                                candidate.applications?.forEach(app => {
+                                    const key = app.rqId || `${app.tiendaId}-${app.posicion}`;
+                                    const existing = appsMap.get(key);
+                                    if (!existing || (app.appliedAt?.toDate?.() || app.appliedAt) > (existing.appliedAt?.toDate?.() || existing.appliedAt)) {
+                                        appsMap.set(key, app);
+                                    }
+                                });
+                                return appsMap.size;
+                            })()})
                         </h3>
                         <div className="space-y-3">
-                            {candidate.applications?.map((app, idx) => (
+                            {(() => {
+                                // Deduplicate by rqId, keeping most recent per RQ
+                                const appsMap = new Map();
+                                candidate.applications?.forEach(app => {
+                                    const key = app.rqId || `${app.tiendaId}-${app.posicion}`;
+                                    const existing = appsMap.get(key);
+                                    if (!existing || (app.appliedAt?.toDate?.() || app.appliedAt) > (existing.appliedAt?.toDate?.() || existing.appliedAt)) {
+                                        appsMap.set(key, app);
+                                    }
+                                });
+                                return Array.from(appsMap.values());
+                            })().map((app, idx) => (
                                 <div key={idx} className="bg-gray-50 rounded-lg p-4">
                                     <div className="flex items-start justify-between mb-3">
                                         <div>
-                                            <p className="font-semibold text-gray-900">{app.posicion || 'Posición no especificada'}</p>
-                                            <p className="text-sm text-gray-600">{app.tiendaNombre}</p>
+                                            <p className="font-semibold text-gray-900">
+                                                {app.posicion || 'Posición no especificada'}
+                                                {app.rqNumber && <span className="text-purple-600 ml-1">({app.rqNumber})</span>}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                {app.marcaNombre && <span className="font-medium text-purple-700">{app.marcaNombre} • </span>}
+                                                {app.tiendaNombre}
+                                            </p>
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {new Date(app.appliedAt?.toDate ? app.appliedAt.toDate() : app.appliedAt).toLocaleDateString()}
                                             </p>
@@ -619,12 +647,14 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                         <span className={`px-2 py-1 rounded text-xs font-medium ${app.status === 'approved' ? 'bg-green-100 text-green-700' :
                                             app.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                                 app.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-gray-100 text-gray-700'
+                                                    app.status === 'selected' ? 'bg-purple-100 text-purple-700' :
+                                                        'bg-gray-100 text-gray-700'
                                             }`}>
                                             {app.status === 'approved' ? 'Aprobado' :
                                                 app.status === 'rejected' ? 'Rechazado' :
                                                     app.status === 'completed' ? 'Completado' :
-                                                        'Invitado'}
+                                                        app.status === 'selected' ? 'Seleccionado' :
+                                                            app.status === 'invited' ? 'Invitado' : 'Finalizado'}
                                         </span>
                                     </div>
 
