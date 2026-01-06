@@ -9,37 +9,40 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-async function checkJobProfiles() {
-    // Get Dunkin job profiles
-    const dunkinMarcaId = 'eZ6WZGL6rYSX63JlyH5X';
+async function checkMultiBrandProfiles() {
+    const DUNKIN_ID = 'eZ6WZGL6rYSX63JlyH5X';
 
-    console.log('=== JOB PROFILES FOR DUNKIN ===');
+    console.log('=== CHECKING FOR MULTI-BRAND PROFILES ===\n');
 
-    const profilesSnap = await db.collection('perfiles_puesto')
-        .where('marcaId', '==', dunkinMarcaId)
-        .get();
+    const snap = await db.collection('job_profiles').get();
 
-    console.log(`Found ${profilesSnap.size} profiles for Dunkin`);
-
-    profilesSnap.docs.forEach(doc => {
+    snap.docs.forEach(doc => {
         const data = doc.data();
-        console.log(`  - ${doc.id}: ${data.posicion} | ${data.modalidad} | ${data.turno}`);
+
+        // Check if marcaIds array exists
+        if (data.marcaIds && Array.isArray(data.marcaIds)) {
+            console.log(`  - ${doc.id}: "${data.posicion}"`);
+            console.log(`    marcaId (primary): "${data.marcaId}"`);
+            console.log(`    marcaIds (array): ${JSON.stringify(data.marcaIds)}`);
+
+            if (data.marcaIds.includes(DUNKIN_ID)) {
+                console.log(`    ✅ INCLUDES DUNKIN!`);
+            }
+        }
     });
 
-    // Also check Bembos for comparison
-    console.log('\n=== JOB PROFILES FOR BEMBOS ===');
-    const bembosMarcaId = '7MeW5A85sr9m2yxhedAI';
+    console.log('\n=== PROFILES WHERE marcaId = DUNKIN OR marcaIds INCLUDES DUNKIN ===');
 
-    const bembosProfilesSnap = await db.collection('perfiles_puesto')
-        .where('marcaId', '==', bembosMarcaId)
-        .get();
-
-    console.log(`Found ${bembosProfilesSnap.size} profiles for Bembos`);
-
-    bembosProfilesSnap.docs.forEach(doc => {
+    snap.docs.forEach(doc => {
         const data = doc.data();
-        console.log(`  - ${doc.id}: ${data.posicion} | ${data.modalidad} | ${data.turno}`);
+        const hasDunkin =
+            data.marcaId === DUNKIN_ID ||
+            (data.marcaIds && data.marcaIds.includes(DUNKIN_ID));
+
+        if (hasDunkin) {
+            console.log(`  ✅ ${doc.id}: "${data.posicion}"`);
+        }
     });
 }
 
-checkJobProfiles().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });
+checkMultiBrandProfiles().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });

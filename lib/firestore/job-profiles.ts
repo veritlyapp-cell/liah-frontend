@@ -221,6 +221,7 @@ export async function deleteJobProfile(profileId: string): Promise<void> {
 
 /**
  * Suscribirse a perfiles en tiempo real
+ * Busca tanto en marcaId (legacy) como en marcaIds (array para multi-marca)
  */
 export function subscribeToJobProfiles(
     marcaId: string,
@@ -229,31 +230,65 @@ export function subscribeToJobProfiles(
 ): () => void {
     const profilesRef = collection(db, 'job_profiles');
 
-    // TEMPORAL: Sin orderBy para evitar índice
-    let q = query(
+    // Query 1: Match by exact marcaId (legacy single-brand)
+    const q1 = query(
         profilesRef,
         where('marcaId', '==', marcaId)
-        // orderBy('posicion', 'asc') // Comentado temporalmente
     );
 
-    if (storeId) {
-        q = query(
-            profilesRef,
-            where('marcaId', '==', marcaId),
-            where('assignedStores', 'array-contains', storeId)
-            // orderBy('posicion', 'asc') // Comentado temporalmente
-        );
-    }
+    // Query 2: Match by marcaIds array (multi-brand profiles)
+    const q2 = query(
+        profilesRef,
+        where('marcaIds', 'array-contains', marcaId)
+    );
 
-    return onSnapshot(q, (snapshot) => {
-        const profiles = snapshot.docs.map(doc => ({
+    let profiles1: JobProfile[] = [];
+    let profiles2: JobProfile[] = [];
+
+    // Track active subscriptions
+    const unsubscribes: (() => void)[] = [];
+
+    const combineAndCallback = () => {
+        // Combine and deduplicate by id
+        const allProfiles = [...profiles1, ...profiles2];
+        const uniqueProfiles = allProfiles.filter((profile, index, self) =>
+            index === self.findIndex(p => p.id === profile.id)
+        );
+
+        // Filter by storeId if provided
+        let filtered = uniqueProfiles;
+        if (storeId) {
+            filtered = uniqueProfiles.filter(p =>
+                !p.assignedStores || p.assignedStores.length === 0 || p.assignedStores.includes(storeId)
+            );
+        }
+
+        // Sort by position
+        filtered.sort((a, b) => a.posicion.localeCompare(b.posicion));
+
+        callback(filtered);
+    };
+
+    // Subscribe to query 1 (marcaId)
+    unsubscribes.push(onSnapshot(q1, (snapshot) => {
+        profiles1 = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as JobProfile));
+        combineAndCallback();
+    }));
 
-        // Ordenar manualmente en el cliente
-        profiles.sort((a, b) => a.posicion.localeCompare(b.posicion));
+    // Subscribe to query 2 (marcaIds array)
+    unsubscribes.push(onSnapshot(q2, (snapshot) => {
+        profiles2 = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as JobProfile));
+        combineAndCallback();
+    }));
 
-        callback(profiles);
-    });
+    // Return unsubscribe function for all queries
+    return () => {
+        unsubscribes.forEach(unsub => unsub());
+    };
 }
