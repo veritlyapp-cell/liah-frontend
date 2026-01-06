@@ -34,8 +34,6 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
     const [numVacantes, setNumVacantes] = useState('1');
     const [motivo, setMotivo] = useState<'Reemplazo' | 'Necesidad de Venta' | ''>('');
 
-    if (!isOpen) return null;
-
     // Filter by categoria: store_manager can only see 'operativo', supervisor can see both
     const filteredProfiles = profiles.filter(p => {
         if (creatorRole === 'store_manager') {
@@ -51,6 +49,22 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
     const selectedProfileData = selectedPosicion ? filteredProfiles.find(p => p.posicion === selectedPosicion) : null;
 
     const tenantId = claims?.tenant_id || 'ngr_holding';
+
+    // Effect to handle auto-setting fields for Gerencial positions
+    // IMPORTANT: This must be before any early return to avoid hooks order violation
+    useEffect(() => {
+        if (selectedProfileData?.categoria === 'gerencial') {
+            if (selectedModalidad !== 'Full Time') {
+                setSelectedModalidad('Full Time');
+            }
+            if (selectedTurno !== 'Administrativo') {
+                setSelectedTurno('Administrativo');
+            }
+        }
+    }, [selectedProfileData, selectedModalidad, selectedTurno]);
+
+    // Early return AFTER all hooks
+    if (!isOpen) return null;
 
     const handleNext = () => {
         if (step === 1 && !selectedPosicion) {
@@ -264,17 +278,6 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
         </div>
     );
 
-    // Effect to handle auto-setting fields for Gerencial positions
-    useEffect(() => {
-        if (selectedProfileData?.categoria === 'gerencial') {
-            if (selectedModalidad !== 'Full Time') {
-                setSelectedModalidad('Full Time');
-            }
-            if (selectedTurno !== 'Administrativo') {
-                setSelectedTurno('Administrativo');
-            }
-        }
-    }, [selectedProfileData, selectedModalidad, selectedTurno]);
 
 
     return (

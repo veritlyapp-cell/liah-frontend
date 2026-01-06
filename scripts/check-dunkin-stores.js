@@ -9,50 +9,37 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-async function checkClaimed() {
-    const assignmentsSnap = await db.collection('userAssignments').get();
+async function checkJobProfiles() {
+    // Get Dunkin job profiles
+    const dunkinMarcaId = 'eZ6WZGL6rYSX63JlyH5X';
 
-    const claimedBySupervisor = new Set();
-    const claimedByManager = new Set();
+    console.log('=== JOB PROFILES FOR DUNKIN ===');
 
-    console.log('=== ALL ASSIGNMENTS ===');
-    assignmentsSnap.docs.forEach(doc => {
+    const profilesSnap = await db.collection('perfiles_puesto')
+        .where('marcaId', '==', dunkinMarcaId)
+        .get();
+
+    console.log(`Found ${profilesSnap.size} profiles for Dunkin`);
+
+    profilesSnap.docs.forEach(doc => {
         const data = doc.data();
-        const isActive = data.active !== false && data.isActive !== false;
-
-        console.log(`\n${doc.id}:`);
-        console.log(`  role: ${data.role}, active: ${isActive}`);
-
-        if (isActive) {
-            if (data.role === 'supervisor' && data.assignedStores) {
-                data.assignedStores.forEach(s => {
-                    console.log(`  -> Claiming store (supervisor): ${s.tiendaId}`);
-                    claimedBySupervisor.add(s.tiendaId);
-                });
-            }
-            if (data.role === 'store_manager') {
-                const storeId = data.tiendaId || data.assignedStore?.tiendaId;
-                if (storeId) {
-                    console.log(`  -> Claiming store (manager): ${storeId}`);
-                    claimedByManager.add(storeId);
-                }
-            }
-        }
+        console.log(`  - ${doc.id}: ${data.posicion} | ${data.modalidad} | ${data.turno}`);
     });
 
-    console.log('\n=== CLAIMED STORES ===');
-    console.log('By Supervisor:', Array.from(claimedBySupervisor));
-    console.log('By Manager:', Array.from(claimedByManager));
+    // Also check Bembos for comparison
+    console.log('\n=== JOB PROFILES FOR BEMBOS ===');
+    const bembosMarcaId = '7MeW5A85sr9m2yxhedAI';
 
-    // Check tiendas
-    console.log('\n=== TIENDAS STATUS ===');
-    const tiendasSnap = await db.collection('tiendas').get();
-    tiendasSnap.docs.forEach(doc => {
-        const d = doc.data();
-        const bySup = claimedBySupervisor.has(doc.id) ? '🔴 CLAIMED_SUP' : '✅ FREE_SUP';
-        const byMgr = claimedByManager.has(doc.id) ? '🔴 CLAIMED_MGR' : '✅ FREE_MGR';
-        console.log(`${doc.id}: "${d.nombre}" | ${bySup} | ${byMgr}`);
+    const bembosProfilesSnap = await db.collection('perfiles_puesto')
+        .where('marcaId', '==', bembosMarcaId)
+        .get();
+
+    console.log(`Found ${bembosProfilesSnap.size} profiles for Bembos`);
+
+    bembosProfilesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        console.log(`  - ${doc.id}: ${data.posicion} | ${data.modalidad} | ${data.turno}`);
     });
 }
 
-checkClaimed().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });
+checkJobProfiles().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });
