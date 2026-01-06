@@ -41,6 +41,7 @@ Busca cuidadosamente:
 3. ¿El documento parece auténtico? (sellos, formato oficial)
 4. Nombre del titular
 5. DNI del titular
+6. FECHA DE EMISIÓN del documento (muy importante - busca la fecha en que se generó el CUL)
 
 Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones:
 {
@@ -49,6 +50,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones:
   "documentoAutentico": true, false, o "no_claro",
   "nombreTitular": "string",
   "dniTitular": "string",
+  "fechaEmision": "DD/MM/AAAA" o null si no se encuentra,
   "denunciasEncontradas": ["lista de denuncias si las hay"],
   "observacion": "Descripción detallada de lo encontrado",
   "recomendacion": "aprobar" o "rechazar" o "revisar_manual",
@@ -164,10 +166,33 @@ export async function POST(req: NextRequest) {
             const candidateDni = body.candidateDni;
             const culDni = analysisResult.dniTitular?.replace(/\D/g, ''); // Remove non-digits
 
+            // Check CUL emission date (must be less than 6 months old)
+            let culExpired = false;
+            if (analysisResult.fechaEmision) {
+                try {
+                    // Parse DD/MM/AAAA format
+                    const [day, month, year] = analysisResult.fechaEmision.split('/');
+                    const emissionDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                    const sixMonthsAgo = new Date();
+                    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+                    if (emissionDate < sixMonthsAgo) {
+                        console.log(`[DOCUMENT AI] ⚠️ CUL EXPIRED: Emission date ${analysisResult.fechaEmision} is older than 6 months`);
+                        culExpired = true;
+                    }
+                } catch (e) {
+                    console.log(`[DOCUMENT AI] Could not parse CUL emission date: ${analysisResult.fechaEmision}`);
+                }
+            }
+
             if (candidateDni && culDni && candidateDni !== culDni) {
                 console.log(`[DOCUMENT AI] ⚠️ DNI MISMATCH: Candidate=${candidateDni}, CUL=${culDni}`);
                 validationStatus = 'dni_mismatch';
                 dniMismatch = true;
+            } else if (culExpired) {
+                // CUL older than 6 months - requires manual review
+                validationStatus = 'pending_review';
+                analysisResult.observacion = (analysisResult.observacion || '') + ' ⚠️ CUL tiene más de 6 meses de antigüedad, requiere actualización.';
             } else if (analysisResult.recomendacion === 'aprobar' && analysisResult.confidence >= 80) {
                 validationStatus = 'approved_ai';
             } else if (analysisResult.recomendacion === 'rechazar' && analysisResult.confidence >= 80) {

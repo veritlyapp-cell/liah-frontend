@@ -584,20 +584,6 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 <span>⚠</span> Requiere Revisión
                             </button>
                         </div>
-
-                        {/* Selection Action - Final decision by Recruiter */}
-                        <div className="mt-4 pt-4 border-t border-dashed">
-                            <p className="text-sm text-gray-600 mb-2">
-                                Selecciona al candidato para la posición (envía notificación por correo):
-                            </p>
-                            <button
-                                onClick={handleSelectCandidate}
-                                disabled={processing}
-                                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 shadow-lg flex items-center gap-3 transition-all hover:scale-105"
-                            >
-                                <span className="text-xl">🎯</span> Seleccionar Candidato para la Posición
-                            </button>
-                        </div>
                     </div>
 
                     {/* Applications */}
