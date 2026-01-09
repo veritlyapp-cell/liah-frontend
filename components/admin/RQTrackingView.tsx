@@ -7,6 +7,7 @@ import type { RQ } from '@/lib/firestore/rqs';
 import { rejectRQ } from '@/lib/firestore/rqs';
 import { useAuth } from '@/contexts/AuthContext';
 import InviteCandidateModal from '@/components/InviteCandidateModal';
+import { exportRQsExcel } from '@/lib/utils/export-excel';
 
 interface RQTrackingViewProps {
     holdingId: string;
@@ -99,8 +100,11 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
     });
 
     function getStatusBadge(rq: RQ) {
-        if (rq.status === 'closed' || rq.status === 'filled') {
-            return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">✅ Cerrado</span>;
+        if (rq.status === 'filled') {
+            return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">✅ Cubierto</span>;
+        }
+        if (rq.status === 'closed') {
+            return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">🔒 Cerrado</span>;
         }
         if (rq.approvalStatus === 'approved') {
             return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">✅ Aprobado</span>;
@@ -160,7 +164,15 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
             {/* Header */}
             <div className="mb-6">
                 <h2 className="text-xl font-bold text-gray-900">Seguimiento de Requerimientos</h2>
-                <p className="text-sm text-gray-500">Visualiza el estado de todos los RQs de tus marcas</p>
+                <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500">Visualiza el estado de todos los RQs de tus marcas</p>
+                    <button
+                        onClick={() => exportRQsExcel(filteredRQs)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                        <span>📊 Exportar a Excel</span>
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}

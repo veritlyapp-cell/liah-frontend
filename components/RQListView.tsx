@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { type RQ } from '@/lib/firestore/rqs';
+import { exportRQsExcel } from '@/lib/utils/export-excel';
 import RQCard from './RQCard';
 
 interface RQListViewProps {
@@ -17,7 +18,7 @@ interface RQListViewProps {
     showCategoryFilter?: boolean; // NEW
 }
 
-type FilterType = 'todos' | 'pendientes' | 'aprobados' | 'en_reclutamiento' | 'finalizados' | 'rechazados';
+type FilterType = 'todos' | 'pendientes' | 'aprobados' | 'finalizados' | 'rechazados';
 type CategoryFilterType = 'todos' | 'operativo' | 'gerencial'; // NEW
 
 export default function RQListView({
@@ -89,7 +90,6 @@ export default function RQListView({
             // Filtro por tipo
             if (filterType === 'pendientes') return rq.approvalStatus === 'pending';
             if (filterType === 'aprobados') return rq.approvalStatus === 'approved' && rq.status !== 'filled' && rq.status !== 'closed' && rq.status !== 'cancelled';
-            if (filterType === 'en_reclutamiento') return rq.status === 'active' && rq.approvalStatus === 'approved';
             if (filterType === 'finalizados') return rq.status === 'filled' || rq.status === 'closed';
             if (filterType === 'rechazados') return rq.approvalStatus === 'rejected';
 
@@ -103,7 +103,6 @@ export default function RQListView({
             total: baseFilteredRQs.length,
             pendientes: baseFilteredRQs.filter(rq => rq.approvalStatus === 'pending').length,
             aprobados: baseFilteredRQs.filter(rq => rq.approvalStatus === 'approved' && rq.status !== 'filled' && rq.status !== 'closed').length,
-            enReclutamiento: baseFilteredRQs.filter(rq => rq.status === 'active' && rq.approvalStatus === 'approved').length,
             finalizados: baseFilteredRQs.filter(rq => rq.status === 'filled' || rq.status === 'closed').length,
             rechazados: baseFilteredRQs.filter(rq => rq.approvalStatus === 'rejected').length,
         };
@@ -147,6 +146,16 @@ export default function RQListView({
                     )}
                 </div>
             )}
+
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">Mis Requerimientos</h3>
+                <button
+                    onClick={() => exportRQsExcel(filteredRQs)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                    📊 Exportar a Excel
+                </button>
+            </div>
 
             {/* Filtros y búsqueda */}
             <div className="glass-card rounded-xl p-4">
@@ -194,7 +203,6 @@ export default function RQListView({
                         { value: 'todos', label: 'Todos', count: kpis.total },
                         { value: 'pendientes', label: 'Pendientes', count: kpis.pendientes },
                         { value: 'aprobados', label: 'Aprobados', count: kpis.aprobados },
-                        { value: 'en_reclutamiento', label: 'En Reclutamiento', count: kpis.enReclutamiento },
                         { value: 'finalizados', label: 'Finalizados', count: kpis.finalizados },
                         { value: 'rechazados', label: 'Rechazados', count: rqs.filter(rq => rq.approvalStatus === 'rejected').length },
                     ].map(filter => (
@@ -231,11 +239,11 @@ export default function RQListView({
                     <div className="text-xs text-gray-600">Pendientes</div>
                 </div>
                 <div className="glass-card rounded-xl p-4">
-                    <div className="text-2xl font-bold text-blue-600">{kpis.enReclutamiento}</div>
-                    <div className="text-xs text-gray-600">En Reclutamiento</div>
+                    <div className="text-2xl font-bold text-green-600">{kpis.aprobados}</div>
+                    <div className="text-xs text-gray-600">Aprobados</div>
                 </div>
                 <div className="glass-card rounded-xl p-4">
-                    <div className="text-2xl font-bold text-green-600">{kpis.finalizados}</div>
+                    <div className="text-2xl font-bold text-blue-600">{kpis.finalizados}</div>
                     <div className="text-xs text-gray-600">Finalizados</div>
                 </div>
                 <div className="glass-card rounded-xl p-4">

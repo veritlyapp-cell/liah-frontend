@@ -273,6 +273,56 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                         )}
                     </div>
 
+                    {/* Motivo */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Motivo del Requerimiento <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setMotivo('Reemplazo')}
+                                className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${motivo === 'Reemplazo'
+                                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:border-violet-300'
+                                    }`}
+                            >
+                                Reemplazo
+                            </button>
+                            <button
+                                onClick={() => setMotivo('Necesidad de Venta')}
+                                className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${motivo === 'Necesidad de Venta'
+                                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:border-violet-300'
+                                    }`}
+                            >
+                                Nueva Vacante
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Número de Vacantes */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            ¿Cuántas vacantes necesitas cubrir? <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                min="1"
+                                max="20"
+                                value={numVacantes}
+                                onChange={(e) => setNumVacantes(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent pl-12 text-lg font-bold text-violet-700"
+                            />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl">
+                                👥
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Se generará un RQ individual por cada vacante solicitada. Máximo 20.
+                        </p>
+                    </div>
+
                 </>
             )}
         </div>
@@ -327,7 +377,7 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                     <button
                         onClick={step === 2 ? handleCreate : handleNext}
                         className="px-6 py-2 gradient-bg text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                        disabled={creating || (step === 1 && !selectedPosicion) || (step === 2 && (!selectedTurno || !selectedModalidad))}
+                        disabled={creating || (step === 1 && !selectedPosicion) || (step === 2 && (!selectedTurno && selectedProfileData?.categoria !== 'gerencial' || !selectedModalidad || !motivo || !numVacantes))}
                     >
                         {creating ? 'Creando...' : step === 2 ? 'Crear Requerimiento' : 'Siguiente →'}
                     </button>

@@ -454,8 +454,10 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                                 >
                                                     <option value="">Seleccionar tienda...</option>
-                                                    {availableStores.filter(s => s.marcaId === marcaId).map(s => (
-                                                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                                                    {filteredStores.map(s => (
+                                                        <option key={s.id} value={s.id}>
+                                                            {s.nombre} {s.isClaimedByManager ? '(Asignada)' : ''}
+                                                        </option>
                                                     ))}
                                                 </select>
                                             )}

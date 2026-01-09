@@ -117,6 +117,21 @@ export async function getRQsForAnalytics(filters: AnalyticsFilters) {
                 return;
             }
 
+            // Apply position filter
+            if (filters.positionIds?.length && !filters.positionIds.includes(data.posicionId) && !filters.positionIds.includes(data.posicion)) {
+                return;
+            }
+
+            // Apply store filter
+            if (filters.storeIds?.length && !filters.storeIds.includes(data.tiendaId)) {
+                return;
+            }
+
+            // Apply district filter
+            if (filters.districtIds?.length && !filters.districtIds.includes(data.distrito)) {
+                return;
+            }
+
             // NEW: Apply category filter
             if (filters.category && filters.category !== 'all') {
                 if (filters.category === 'operativo' && data.categoria === 'gerencial') return;
@@ -168,6 +183,30 @@ export async function getCandidatesForAnalytics(filters: AnalyticsFilters) {
                     app.categoria === filters.category
                 );
                 if (!hasMatchingCategory) return;
+            }
+
+            // Apply position filter for candidates
+            if (filters.positionIds?.length) {
+                const hasMatchingPosition = data.applications?.some((app: any) =>
+                    filters.positionIds!.includes(app.posicionId) || filters.positionIds!.includes(app.posicion)
+                );
+                if (!hasMatchingPosition) return;
+            }
+
+            // Apply store filter for candidates
+            if (filters.storeIds?.length) {
+                const hasMatchingStore = data.applications?.some((app: any) =>
+                    filters.storeIds!.includes(app.tiendaId)
+                );
+                if (!hasMatchingStore) return;
+            }
+
+            // Apply district filter for candidates
+            if (filters.districtIds?.length) {
+                const hasMatchingDistrict = data.applications?.some((app: any) =>
+                    filters.districtIds!.includes(app.distrito)
+                );
+                if (!hasMatchingDistrict) return;
             }
 
             candidates.push({ id: doc.id, ...data });

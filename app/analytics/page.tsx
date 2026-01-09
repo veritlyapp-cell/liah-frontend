@@ -274,6 +274,7 @@ export default function AnalyticsPage() {
                     stores={filterOptions.stores}
                     districts={filterOptions.districts}
                     onFilterChange={handleFilterChange}
+                    initialFilters={currentFilters}
                     userRole={claims?.role}
                     userBrandIds={claims?.marcaId ? [claims.marcaId] : []}
                 />

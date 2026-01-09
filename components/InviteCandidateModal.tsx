@@ -56,6 +56,8 @@ export default function InviteCandidateModal({
     const [loadingRQs, setLoadingRQs] = useState(false);
     const [generatedLink, setGeneratedLink] = useState('');
     const [copied, setCopied] = useState(false);
+    const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+    const [emailErrorMessage, setEmailErrorMessage] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -140,8 +142,9 @@ export default function InviteCandidateModal({
             setGeneratedLink(link);
 
             // Enviar email automáticamente
+            setEmailStatus('sending');
             try {
-                await fetch('/api/send-invitation-email', {
+                const response = await fetch('/api/send-invitation-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -159,9 +162,19 @@ export default function InviteCandidateModal({
                         marcaLogo: effectiveMarcaLogo
                     })
                 });
-            } catch (emailError) {
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Fallo al enviar el correo');
+                }
+
+                setEmailStatus('success');
+            } catch (emailError: any) {
                 console.error('Error auto-sending email:', emailError);
-                // No bloqueamos el flujo si falla el email, ya que el link se generó
+                setEmailStatus('error');
+                setEmailErrorMessage(emailError.message || 'El servidor de correo no respondió');
+                // No bloqueamos el flujo principal ya que el link se generó,
+                // pero informamos al usuario.
             }
 
         } catch (error) {
@@ -297,8 +310,44 @@ export default function InviteCandidateModal({
                                     ¡Invitación Creada!
                                 </h3>
                                 <p className="text-sm text-gray-600">
-                                    Enviada a: <strong>{email}</strong>
+                                    Invitación para postular a <strong>{selectedRQData?.posicion}</strong>.
                                 </p>
+                            </div>
+
+                            {/* Email Sending Status */}
+                            <div className={`mb-6 p-4 rounded-xl border ${emailStatus === 'success'
+                                ? 'bg-green-50 border-green-100'
+                                : emailStatus === 'error'
+                                    ? 'bg-red-50 border-red-100'
+                                    : 'bg-blue-50 border-blue-100'
+                                }`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-xl">
+                                        {emailStatus === 'sending' && <span className="animate-spin inline-block">🔄</span>}
+                                        {emailStatus === 'success' && '📧'}
+                                        {emailStatus === 'error' && '⚠️'}
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-bold ${emailStatus === 'success' ? 'text-green-800' : emailStatus === 'error' ? 'text-red-800' : 'text-blue-800'}`}>
+                                            {emailStatus === 'sending' && 'Enviando correo al candidato...'}
+                                            {emailStatus === 'success' && 'Correo enviado exitosamente'}
+                                            {emailStatus === 'error' && 'No se pudo enviar el correo'}
+                                        </p>
+                                        <p className="text-xs text-gray-600 font-medium">
+                                            Destinatario: {email}
+                                        </p>
+                                        {emailStatus === 'error' && (
+                                            <p className="text-xs text-red-600 mt-1 italic">
+                                                Motivo: {emailErrorMessage}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                {emailStatus === 'error' && (
+                                    <p className="mt-3 text-xs text-red-700 bg-white p-2 rounded border border-red-100">
+                                        💡 Por favor copia el link de abajo y envíaselo directamente por WhatsApp.
+                                    </p>
+                                )}
                             </div>
 
                             {selectedRQData && (

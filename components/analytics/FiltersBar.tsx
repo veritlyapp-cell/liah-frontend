@@ -8,6 +8,7 @@ interface FiltersBarProps {
     stores: { id: string; name: string }[];
     districts: { id: string; name: string }[];
     onFilterChange: (filters: FilterValues) => void;
+    initialFilters?: FilterValues;
     // For role-based filtering
     userRole?: string;
     userBrandIds?: string[];
@@ -30,10 +31,11 @@ export default function FiltersBar({
     stores,
     districts,
     onFilterChange,
+    initialFilters,
     userRole,
     userBrandIds = []
 }: FiltersBarProps) {
-    const [filters, setFilters] = useState<FilterValues>({
+    const [filters, setFilters] = useState<FilterValues>(initialFilters || {
         dateRange: 'month',
         customStartDate: '',
         customEndDate: '',
@@ -41,7 +43,7 @@ export default function FiltersBar({
         positionIds: [],
         storeIds: [],
         districtIds: [],
-        category: 'all' // NEW
+        category: 'all'
     });
 
     const [showAdvanced, setShowAdvanced] = useState(false);

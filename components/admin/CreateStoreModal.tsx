@@ -96,6 +96,25 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
         setSaving(true);
 
         try {
+            // Check store limit
+            const holdingRef = doc(db, 'holdings', holdingId);
+            const holdingSnap = await getDoc(holdingRef);
+
+            if (holdingSnap.exists()) {
+                const config = holdingSnap.data().config;
+                const maxStores = config?.maxStores || 5;
+
+                const tiendasRef = collection(db, 'tiendas');
+                const qLimit = query(tiendasRef, where('holdingId', '==', holdingId));
+                const tiendasSnap = await getDocs(qLimit);
+
+                if (tiendasSnap.size >= maxStores) {
+                    alert(`❌ Límite de tiendas alcanzado (${maxStores}). Contacta a soporte para aumentar tu plan.`);
+                    setSaving(false);
+                    return;
+                }
+            }
+
             const selectedMarca = marcas.find(m => m.id === marcaId);
 
             // Generar código de tienda automático

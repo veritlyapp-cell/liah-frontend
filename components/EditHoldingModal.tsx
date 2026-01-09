@@ -20,6 +20,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [limiteWhatsApp, setLimiteWhatsApp] = useState(1000);
     const [limiteGemini, setLimiteGemini] = useState(500);
     const [maxUsuarios, setMaxUsuarios] = useState(2);
+    const [maxBrands, setMaxBrands] = useState(1);
+    const [maxStores, setMaxStores] = useState(5);
     const [activo, setActivo] = useState(true);
     const [precioMensual, setPrecioMensual] = useState(99);
     const [tempPassword, setTempPassword] = useState('NGR2024!Cambiar');
@@ -42,6 +44,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
             setLimiteWhatsApp(config?.limiteWhatsApp || (holding.plan === 'bot_only' ? 1000 : holding.plan === 'full_stack' ? 10000 : 0));
             setLimiteGemini(config?.limiteGemini || (holding.plan === 'bot_only' ? 500 : holding.plan === 'full_stack' ? 5000 : 0));
             setPrecioMensual(config?.precioMensual || (holding.plan === 'bot_only' ? 99 : holding.plan === 'rq_only' ? 199 : 499));
+            setMaxBrands(config?.maxBrands || 1);
+            setMaxStores(config?.maxStores || 5);
             setTempPassword(config?.tempPassword || 'NGR2024!Cambiar');
             setRequiredDocuments(config?.requiredDocuments || [
                 { id: 'cul', name: 'Certificado Único Laboral (CUL)', active: true }
@@ -65,6 +69,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 limiteWhatsApp,
                 limiteGemini,
                 maxUsuarios,
+                maxBrands,
+                maxStores,
                 precioMensual,
                 tempPassword,
                 requiredDocuments,
@@ -161,6 +167,24 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                 type="number"
                                 value={maxUsuarios}
                                 onChange={(e) => setMaxUsuarios(parseInt(e.target.value))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-2">Máximo Marcas</label>
+                            <input
+                                type="number"
+                                value={maxBrands}
+                                onChange={(e) => setMaxBrands(parseInt(e.target.value))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-2">Máximo Tiendas</label>
+                            <input
+                                type="number"
+                                value={maxStores}
+                                onChange={(e) => setMaxStores(parseInt(e.target.value))}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
                             />
                         </div>
@@ -325,6 +349,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                             </>
                         )}
                         <p>• Usuarios: <span className="font-semibold">{maxUsuarios}</span></p>
+                        <p>• Marcas: <span className="font-semibold">{maxBrands}</span></p>
+                        <p>• Tiendas: <span className="font-semibold">{maxStores}</span></p>
                         <p>• Precio: <span className="font-semibold">${precioMensual}/mes</span></p>
                         <p>• Estado: <span className={`font-semibold ${activo ? 'text-green-600' : 'text-red-600'}`}>
                             {activo ? 'Activo' : 'Inactivo'}

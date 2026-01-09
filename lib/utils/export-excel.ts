@@ -98,3 +98,35 @@ export function exportAllCandidatesExcel(candidates: Candidate[], filename?: str
     const defaultFilename = `CANDIDATOS_LISTA_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, filename || defaultFilename);
 }
+
+/**
+ * Export RQs to Excel
+ */
+export function exportRQsExcel(rqs: any[], filename?: string) {
+    const rows = rqs.map(rq => ({
+        'RQ #': rq.rqNumber || '',
+        'ID': rq.id,
+        'Marca': rq.marcaNombre || '',
+        'Tienda': rq.tiendaNombre || '',
+        'Posición': rq.posicion || '',
+        'Categoría': rq.categoria || 'operativo',
+        'Vacantes': rq.vacantes || 1,
+        'Modalidad': rq.modalidad || 'Full Time',
+        'Turno': rq.turno || 'Horario Flexible',
+        'Estado': rq.status === 'filled' ? 'Cubierto' :
+            rq.status === 'closed' ? 'Cerrado' :
+                rq.status === 'cancelled' ? 'Cancelado' : 'Activo',
+        'Aprobación': rq.approvalStatus === 'approved' ? 'Aprobado' :
+            rq.approvalStatus === 'rejected' ? 'Rechazado' : 'Pendiente',
+        'Motivo': rq.motivo || '',
+        'Fecha Creación': rq.createdAt?.toDate ? rq.createdAt.toDate().toLocaleDateString('es-PE') : '',
+        'Solicitado por': rq.createdByEmail || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'RQs');
+
+    const defaultFilename = `REQUERIMIENTOS_LISTA_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, filename || defaultFilename);
+}

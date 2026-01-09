@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface CreateBrandModalProps {
@@ -73,8 +73,26 @@ export default function CreateBrandModal({ show, holdingId, onCancel, onSave }: 
         }
 
         setSaving(true);
-
         try {
+            // Check brand limit
+            const holdingRef = doc(db, 'holdings', holdingId);
+            const holdingSnap = await getDoc(holdingRef);
+
+            if (holdingSnap.exists()) {
+                const config = holdingSnap.data().config;
+                const maxBrands = config?.maxBrands || 1;
+
+                const marcasRef = collection(db, 'marcas');
+                const q = query(marcasRef, where('holdingId', '==', holdingId));
+                const marcasSnap = await getDocs(q);
+
+                if (marcasSnap.size >= maxBrands) {
+                    alert(`❌ Límite de marcas alcanzado (${maxBrands}). Contacta a soporte para aumentar tu plan.`);
+                    setSaving(false);
+                    return;
+                }
+            }
+
             const marcasRef = collection(db, 'marcas');
             const brandData = {
                 nombre,
