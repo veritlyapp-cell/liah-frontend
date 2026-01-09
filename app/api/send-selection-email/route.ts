@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
+export const dynamic = 'force-dynamic';
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
 
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'LIAH <noreply@notifications.getliah.com>',
+            from: 'LIAH <noreply@getliah.com>',
             to: candidateEmail,
             subject: `¡Continúas en el proceso de selección de ${companyName}!`,
             html: `

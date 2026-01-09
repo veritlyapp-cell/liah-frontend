@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import type { RQ } from '@/lib/firestore/rqs';
 import { bulkApproveRQs, bulkRejectRQs } from '@/lib/firestore/rq-approval';
 import RQCard from '@/components/RQCard';
+import InviteCandidateModal from '@/components/InviteCandidateModal';
 
 interface PendingRQsViewProps {
     storeIds: string[];
@@ -21,6 +22,7 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
     const [approving, setApproving] = useState(false);
     const [rejecting, setRejecting] = useState(false);
     const [selectedStore, setSelectedStore] = useState<string>('all');
+    const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
 
     useEffect(() => {
         loadPendingRQs();
@@ -233,11 +235,26 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
                                     rq={rq}
                                     userRole="supervisor"
                                     onUpdate={loadPendingRQs}
+                                    onInvite={(rq) => setSelectedRQForInvite(rq)}
                                 />
                             </div>
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* Invite Modal */}
+            {selectedRQForInvite && (
+                <InviteCandidateModal
+                    isOpen={true}
+                    onClose={() => setSelectedRQForInvite(null)}
+                    storeId={selectedRQForInvite.tiendaId || ''}
+                    storeName={selectedRQForInvite.tiendaNombre || ''}
+                    marcaId={selectedRQForInvite.marcaId}
+                    marcaNombre={selectedRQForInvite.marcaNombre}
+                    initialRQId={selectedRQForInvite.id}
+                    userRole="supervisor"
+                />
             )}
         </div>
     );

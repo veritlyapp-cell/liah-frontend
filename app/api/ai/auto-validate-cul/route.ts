@@ -8,7 +8,9 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 const VISION_MODELS = [
     'gemini-2.5-flash',
     'gemini-2.5-pro',
+    'gemini-3-pro',
     'gemini-2.0-flash',
+    'gemini-2.5-flash-lite',
     'gemini-2.0-flash-lite'
 ];
 
@@ -36,7 +38,7 @@ Si SÍ es un CUL válido, extrae TODA esta información:
 1. DATOS PERSONALES (de la sección IDENTIDAD - Fuente RENIEC):
    - Nombres
    - Apellidos  
-   - N° de documento (DNI - 8 dígitos)
+   - N° de documento (DNI o Carnet de Extranjería)
    - Fecha de nacimiento (formato DD/MM/AAAA)
    - Domicilio
 
@@ -49,8 +51,11 @@ Si SÍ es un CUL válido, extrae TODA esta información:
    - Lista de empresas donde trabajó
 
 REGLAS DE VALIDACIÓN:
+- Si el documento NO es un CUL válido → RECHAZAR
+- Si el DNI o Carnet de Extranjería NO coincide con el del candidato ({candidateDni}) → RECHAZAR (Indicar "DNI mismatch")
+- Si el documento tiene más de 6 meses desde su emisión (Hoy es: {hoy}) → REVISIÓN MANUAL (Indicar "Vencido")
 - Si TODOS los antecedentes dicen "No registra antecedentes" → APROBAR
-- Si CUALQUIER antecedente tiene contenido diferente → RECHAZAR y listar los antecedentes
+- Si CUALQUIER antecedente tiene contenido diferente → RECHAZAR (Listar los antecedentes)
 - Si no puedes leer claramente los antecedentes → REVISIÓN MANUAL
 
 Responde ÚNICAMENTE con este JSON:
@@ -59,10 +64,12 @@ Responde ÚNICAMENTE con este JSON:
   "datosPersonales": {
     "nombres": "string",
     "apellidos": "string",
-    "dni": "string de 8 dígitos",
+    "numeroDocumento": "string",
+    "tipoDocumento": "DNI" o "CE",
     "fechaNacimiento": "DD/MM/AAAA",
     "domicilio": "string"
   },
+  "fechaEmision": "DD/MM/AAAA",
   "antecedentes": {
     "policiales": {
       "estado": "limpio" o "con_registros",
@@ -79,9 +86,10 @@ Responde ÚNICAMENTE con este JSON:
   },
   "experienciaLaboral": ["lista de empresas"],
   "recomendacion": "aprobar" o "rechazar" o "revisar_manual",
-  "observacion": "resumen de la evaluación",
+  "observacion": "resumen detallado de lo encontrado",
   "confidence": número del 0 al 100
-}`;
+}
+`;
 
 async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any> {
     // Fetch image and convert to base64
@@ -91,8 +99,16 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
 
     // Determine mime type from URL
     let mimeType = 'image/jpeg';
-    if (imageUrl.includes('.png')) mimeType = 'image/png';
-    if (imageUrl.includes('.pdf')) mimeType = 'application/pdf';
+    const lowerUrl = imageUrl.toLowerCase();
+    if (lowerUrl.includes('.png')) mimeType = 'image/png';
+    else if (lowerUrl.includes('.pdf') || lowerUrl.includes('alt=media')) {
+        // Firebase Storage URLs often end with alt=media, but the file might be a PDF
+        // Try to check if 'pdf' is in the path
+        if (lowerUrl.includes('pdf')) mimeType = 'application/pdf';
+        else mimeType = 'application/pdf'; // Default to PDF for CUL as it's common
+    } else if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) {
+        mimeType = 'image/jpeg';
+    }
 
     // Try models in order until one works
     for (const modelName of VISION_MODELS) {
@@ -126,7 +142,7 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
         }
     }
 
-    throw new Error('All vision models failed');
+    throw new Error('All vision models failed to analyze the document. Please check the document quality or format.');
 }
 
 export async function POST(req: NextRequest) {
@@ -143,8 +159,26 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Analyze with AI
-        const analysisResult = await analyzeWithVision(culUrl, CUL_VALIDATION_PROMPT);
+        const { getAdminFirestore } = await import('@/lib/firebase-admin');
+        const dbAdmin = await getAdminFirestore();
+
+        // 1. Fetch candidate info to get DNI for comparison
+        let candidateDni = 'No provisto';
+        if (candidateId) {
+            const candDoc = await dbAdmin.collection('candidates').doc(candidateId).get();
+            if (candDoc.exists) {
+                candidateDni = candDoc.data()?.dni || 'No provisto';
+            }
+        }
+
+        // 2. Prepare dynamic prompt
+        const hoy = new Date().toLocaleDateString('es-PE');
+        const dynamicPrompt = CUL_VALIDATION_PROMPT
+            .replace('{candidateDni}', candidateDni)
+            .replace('{hoy}', hoy);
+
+        // 3. Analyze with AI
+        const analysisResult = await analyzeWithVision(culUrl, dynamicPrompt);
 
         console.log(`[AUTO-VALIDATE] Analysis complete:`, JSON.stringify(analysisResult, null, 2));
 
@@ -169,9 +203,7 @@ export async function POST(req: NextRequest) {
         // If we have candidate ID, update the candidate record
         if (candidateId) {
             try {
-                const { getAdminFirestore } = await import('@/lib/firebase-admin');
                 const { Timestamp } = await import('firebase-admin/firestore');
-                const dbAdmin = await getAdminFirestore();
 
                 const updateData = {
                     updatedAt: Timestamp.now(),
@@ -180,6 +212,8 @@ export async function POST(req: NextRequest) {
                             validationStatus === 'pending_review' ? 'manual_review' : 'pending',
                     culValidationStatus: validationStatus,
                     culAiObservation: validationMessage,
+                    culFechaEmision: analysisResult.fechaEmision || null,
+                    culDocumentoNumero: analysisResult.datosPersonales?.numeroDocumento || null,
                     culDenunciasEncontradas: analysisResult.antecedentes ?
                         Object.entries(analysisResult.antecedentes)
                             .filter(([_, v]: any) => v.estado === 'con_registros')
@@ -189,7 +223,7 @@ export async function POST(req: NextRequest) {
                 };
 
                 await dbAdmin.collection('candidates').doc(candidateId).update(updateData);
-                console.log(`[AUTO-VALIDATE] Candidate ${candidateId} updated directly with status: ${validationStatus}`);
+                console.log(`[AUTO-VALIDATE] Candidate ${candidateId} updated with status: ${validationStatus}`);
             } catch (updateError) {
                 console.error(`[AUTO-VALIDATE] Failed to update candidate:`, updateError);
             }

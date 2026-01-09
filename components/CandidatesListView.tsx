@@ -87,7 +87,7 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
     };
 
 
-    const [listFilter, setListFilter] = useState<'process' | 'selected' | 'rejected'>('process');
+    const [listFilter, setListFilter] = useState<'pending' | 'process' | 'selected' | 'hired' | 'rejected'>('pending');
 
     // Calculate counts for tabs
     const relevantStoreIds = storeIds || (storeId ? [storeId] : []);
@@ -100,18 +100,25 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
 
         if (!latestApp) return acc;
 
+        const isHired = latestApp.hiredStatus === 'hired';
+        const isNotHired = latestApp.hiredStatus === 'not_hired';
+        const isRejected = latestApp.status === 'rejected';
         const isSelected = candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId);
         const isApprovedBySM = latestApp?.status === 'approved';
 
-        if (isSelected || isApprovedBySM) {
-            acc.selected++;
-        } else if (latestApp.status === 'rejected') {
+        if (isHired) {
+            acc.hired++;
+        } else if (isNotHired || isRejected) {
             acc.rejected++;
-        } else {
+        } else if (isSelected) {
+            acc.selected++;
+        } else if (isApprovedBySM) {
             acc.process++;
+        } else {
+            acc.pending++;
         }
         return acc;
-    }, { process: 0, selected: 0, rejected: 0 });
+    }, { pending: 0, process: 0, selected: 0, hired: 0, rejected: 0 });
 
     const filteredCandidates = candidates.filter(candidate => {
         // Obtenemos la aplicación para esta tienda, lista de tiendas o marca
@@ -139,19 +146,28 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
         }
 
         // Default behavior: Categorize by listFilter
-        if (listFilter === 'process') {
-            // En Proceso: No están aprobados ni rechazados final
-            if (latestApp?.status === 'approved' || latestApp?.status === 'rejected' || candidate.selectionStatus === 'selected') {
+        if (listFilter === 'pending') {
+            // Pendientes: No aprobados aún por supervisor/SM
+            if (latestApp?.status === 'approved' || latestApp?.status === 'rejected' || candidate.selectionStatus === 'selected' || latestApp?.hiredStatus) {
+                return false;
+            }
+        } else if (listFilter === 'process') {
+            // En Proceso: Aprobados por supervisor/SM pero no seleccionados por Recruiter
+            if (latestApp?.status !== 'approved' || candidate.selectionStatus === 'selected' || latestApp?.hiredStatus) {
                 return false;
             }
         } else if (listFilter === 'selected') {
-            // Seleccionados: marcados como 'selected' por recruiter o aprobados por SM si no hay check de recruiter
-            // Pero priorizamos selectionStatus === 'selected'
+            // Seleccionados: Marcados como 'selected' por recruiter pero no ingresados
             const isSelected = candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId);
-            const isApprovedBySM = latestApp?.status === 'approved';
-            if (!isSelected && !isApprovedBySM) return false;
+            if (!isSelected || latestApp?.hiredStatus) return false;
+        } else if (listFilter === 'hired') {
+            // Ingreso: Marcados como contratados
+            if (latestApp?.hiredStatus !== 'hired') return false;
         } else if (listFilter === 'rejected') {
-            if (latestApp?.status !== 'rejected') return false;
+            // Rechazados o No Ingreso
+            const isRejected = latestApp?.status === 'rejected';
+            const isNotHired = latestApp?.hiredStatus === 'not_hired';
+            if (!isRejected && !isNotHired) return false;
         }
 
         return true;
@@ -202,22 +218,34 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
         <div className="space-y-4">
             {/* Status Tabs */}
             {!filterStatus && (
-                <div className="flex border-b border-gray-200">
+                <div className="flex border-b border-gray-200 overflow-x-auto">
+                    <button
+                        onClick={() => setListFilter('pending')}
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${listFilter === 'pending'
+                            ? 'border-violet-600 text-violet-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        ⏳ Pendientes
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'pending' ? 'bg-violet-100' : 'bg-gray-100'}`}>
+                            {tabCounts.pending}
+                        </span>
+                    </button>
                     <button
                         onClick={() => setListFilter('process')}
-                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${listFilter === 'process'
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${listFilter === 'process'
                             ? 'border-violet-600 text-violet-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         🔄 En Proceso
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'process' ? 'bg-violet-100' : 'bg-gray-100'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'process' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100'}`}>
                             {tabCounts.process}
                         </span>
                     </button>
                     <button
                         onClick={() => setListFilter('selected')}
-                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${listFilter === 'selected'
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${listFilter === 'selected'
                             ? 'border-violet-600 text-violet-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
@@ -228,13 +256,25 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                         </span>
                     </button>
                     <button
-                        onClick={() => setListFilter('rejected')}
-                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${listFilter === 'rejected'
+                        onClick={() => setListFilter('hired')}
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${listFilter === 'hired'
                             ? 'border-violet-600 text-violet-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
-                        🚫 Rechazados
+                        ✅ Ingreso
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'hired' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100'}`}>
+                            {tabCounts.hired}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setListFilter('rejected')}
+                        className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${listFilter === 'rejected'
+                            ? 'border-violet-600 text-violet-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        🚫 No ingreso / Rechazados
                         <span className={`px-2 py-0.5 rounded-full text-xs ${listFilter === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100'}`}>
                             {tabCounts.rejected}
                         </span>

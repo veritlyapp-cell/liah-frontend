@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
+export const dynamic = 'force-dynamic';
+
 // Initialize Resend - will use RESEND_API_KEY env variable
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
 
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'LIAH <noreply@notifications.getliah.com>',
+            from: 'LIAH <noreply@getliah.com>',
             to: candidateEmail,
             subject: subject || '¡Felicitaciones! Continúa tu proceso en NGR',
             html: `
