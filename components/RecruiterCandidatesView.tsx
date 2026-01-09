@@ -181,10 +181,10 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                 <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                     <div className="text-6xl mb-4">👥</div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {searchTerm ? 'No se encontraron candidatos' : 'No hay candidatos aprobados aún'}
+                        {searchTerm ? 'No se encontraron candidatos' : 'No hay candidatos pendientes de selección'}
                     </h3>
                     <p className="text-gray-600">
-                        {searchTerm ? 'Intenta con otro término de búsqueda' : 'Los candidatos aparecerán aquí cuando Store Manager los apruebe'}
+                        {searchTerm ? 'Intenta con otro término de búsqueda' : 'Los candidatos aparecerán aquí cuando el Gerente de Tienda o Supervisor los marque como aptos'}
                     </p>
                 </div>
             ) : (

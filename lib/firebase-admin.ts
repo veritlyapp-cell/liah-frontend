@@ -15,9 +15,9 @@ async function initializeFirebaseAdmin() {
         return adminApp;
     }
 
-    // Dynamic imports to prevent build-time resolution
-    const admin = (await import('firebase-admin')).default;
-    const { getApps, cert } = await import('firebase-admin/app');
+    // Use eval('require') to bypass Turbopack build-time analysis
+    const admin = eval('require')('firebase-admin');
+    const { getApps, cert } = eval('require')('firebase-admin/app');
 
     if (getApps().length > 0) {
         adminApp = getApps()[0];
@@ -84,18 +84,18 @@ async function initializeFirebaseAdmin() {
 
 export async function getAdminAuth() {
     const app = await initializeFirebaseAdmin();
-    const { getAuth } = await import('firebase-admin/auth');
+    const { getAuth } = eval('require')('firebase-admin/auth');
     return getAuth(app);
 }
 
 export async function getAdminFirestore() {
     const app = await initializeFirebaseAdmin();
-    const { getFirestore } = await import('firebase-admin/firestore');
+    const { getFirestore } = eval('require')('firebase-admin/firestore');
     return getFirestore(app);
 }
 
 export async function getFieldValue() {
     await initializeFirebaseAdmin();
-    const { FieldValue } = await import('firebase-admin/firestore');
+    const { FieldValue } = eval('require')('firebase-admin/firestore');
     return FieldValue;
 }

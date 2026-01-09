@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/firebase-admin';
 
+export const dynamic = 'force-dynamic';
+
 const BEMBOS_PROFILES = [
     {
         posicion: 'Cocinero/a',

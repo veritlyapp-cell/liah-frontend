@@ -172,7 +172,8 @@ export default function RecruiterDashboard() {
         ).length,
         pendingHire: candidates.filter(c =>
             c.culStatus === 'apto' && !c.applications?.some(app => app.hiredStatus)
-        ).length
+        ).length,
+        selected: candidates.filter(c => c.selectionStatus === 'selected').length
     };
 
     if (loading) {
@@ -292,6 +293,11 @@ export default function RecruiterDashboard() {
                             <p className="text-sm text-gray-600">CUL No Aptos</p>
                             <p className="text-3xl font-bold text-red-600">{stats.culNoAptos}</p>
                             <p className="text-xs text-gray-500 mt-1">No pueden ingresar</p>
+                        </div>
+                        <div className="bg-white rounded-lg border border-emerald-200 p-4 shadow-sm">
+                            <p className="text-sm text-emerald-700 font-medium">🎯 Seleccionados</p>
+                            <p className="text-3xl font-bold text-emerald-600">{stats.selected}</p>
+                            <p className="text-xs text-emerald-600 mt-1">Listos para exportar</p>
                         </div>
                     </div>
 

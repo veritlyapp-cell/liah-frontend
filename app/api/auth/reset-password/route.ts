@@ -1,21 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAdminAuth } from '@/lib/firebase-admin';
 
-// Initialize Firebase Admin if not already
-if (!getApps().length) {
-    try {
-        initializeApp({
-            credential: cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            }),
-        });
-    } catch (error) {
-        console.log('Firebase Admin already initialized or error:', error);
-    }
-}
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
@@ -26,6 +12,7 @@ export async function POST(request: Request) {
         }
 
         // Firebase Auth sends the password reset email automatically
+        const auth = await getAdminAuth();
         // We use the client-side SDK for this, but provide a server endpoint for flexibility
 
         // Note: Password reset emails are sent via Firebase's built-in email service

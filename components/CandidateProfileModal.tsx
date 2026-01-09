@@ -17,7 +17,7 @@ interface CandidateProfileModalProps {
 }
 
 export default function CandidateProfileModal({ candidate, onClose, onRefresh }: CandidateProfileModalProps) {
-    const { user } = useAuth();
+    const { user, claims } = useAuth();
     const [processing, setProcessing] = useState(false);
     const [showRejectReason, setShowRejectReason] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
@@ -635,13 +635,23 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     {/* Application Actions */}
                                     {app.status === 'completed' && (
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleApprove(app.id)}
-                                                disabled={processing}
-                                                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
-                                            >
-                                                <span>✓</span> Aprobar para esta posición
-                                            </button>
+                                            {(claims?.role === 'recruiter' || claims?.role === 'brand_recruiter' || claims?.role === 'super_admin' || claims?.role === 'client_admin') ? (
+                                                <button
+                                                    onClick={handleSelectCandidate}
+                                                    disabled={processing}
+                                                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                                                >
+                                                    <span>🎯</span> Seleccionar para esta posición
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleApprove(app.id)}
+                                                    disabled={processing}
+                                                    className="flex-1 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                                                >
+                                                    <span>✓</span> Aprobar para esta posición
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => setShowRejectReason(!showRejectReason)}
                                                 disabled={processing}
