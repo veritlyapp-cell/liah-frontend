@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const db = await getAdminFirestore();
+        const db = getAdminFirestore();
         const candidateRef = db.collection('candidates').doc(candidateId);
 
         let updateData: Record<string, any> = {

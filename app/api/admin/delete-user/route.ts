@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
 
         console.log(`[DELETE USER] Deleting user: ${userId || email}`);
 
-        const auth = await getAdminAuth();
-        const db = await getAdminFirestore();
+        const auth = getAdminAuth();
+        const db = getAdminFirestore();
 
         let targetUserId = userId;
 

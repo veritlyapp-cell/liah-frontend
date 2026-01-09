@@ -4,20 +4,19 @@
  * - API Routes (`app/api/...`)
  * 
  * NEVER import this in client components or shared utilities.
- * 
- * All imports are dynamic to prevent Turbopack build errors.
  */
 
-let adminApp: any = null;
+import * as admin from 'firebase-admin';
+import { getApps, cert, App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-async function initializeFirebaseAdmin() {
+let adminApp: App | null = null;
+
+function initializeFirebaseAdmin(): App {
     if (adminApp) {
         return adminApp;
     }
-
-    // Use eval('require') to bypass Turbopack build-time analysis
-    const admin = eval('require')('firebase-admin');
-    const { getApps, cert } = eval('require')('firebase-admin/app');
 
     if (getApps().length > 0) {
         adminApp = getApps()[0];
@@ -28,7 +27,7 @@ async function initializeFirebaseAdmin() {
     if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
         console.log('[Firebase Admin] Using environment variables');
 
-        // Extremely robust sanitization
+        // Robust sanitization
         let privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim();
 
         // Remove any surrounding quotes (single or double)
@@ -52,10 +51,11 @@ async function initializeFirebaseAdmin() {
         console.log('[Firebase Admin] ✅ Initialized for project:', process.env.FIREBASE_PROJECT_ID);
         return adminApp;
     }
+
     // Development: Try file-based service account
     try {
-        const fs = await import('fs');
-        const path = await import('path');
+        const fs = require('fs');
+        const path = require('path');
 
         const possiblePaths = [
             path.join(process.cwd(), '../firebase-service-account.json'),
@@ -82,20 +82,17 @@ async function initializeFirebaseAdmin() {
     );
 }
 
-export async function getAdminAuth() {
-    const app = await initializeFirebaseAdmin();
-    const { getAuth } = eval('require')('firebase-admin/auth');
+export function getAdminAuth() {
+    const app = initializeFirebaseAdmin();
     return getAuth(app);
 }
 
-export async function getAdminFirestore() {
-    const app = await initializeFirebaseAdmin();
-    const { getFirestore } = eval('require')('firebase-admin/firestore');
+export function getAdminFirestore() {
+    const app = initializeFirebaseAdmin();
     return getFirestore(app);
 }
 
-export async function getFieldValue() {
-    await initializeFirebaseAdmin();
-    const { FieldValue } = eval('require')('firebase-admin/firestore');
+export function getFieldValueHelper() {
+    initializeFirebaseAdmin();
     return FieldValue;
 }

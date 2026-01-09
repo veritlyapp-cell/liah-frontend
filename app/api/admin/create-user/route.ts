@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
         console.log(`[CREATE USER] Creating user: ${email} with role: ${role}`);
 
         // 1. Crear usuario en Firebase Auth
-        const auth = await getAdminAuth();
+        const auth = getAdminAuth();
         const userRecord = await auth.createUser({
             email,
             password: userPassword,
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         console.log(`[CREATE USER] Custom claims set for: ${userRecord.uid}`);
 
         // 3. Construir el objeto userAssignment según el rol
-        const db = await getAdminFirestore();
+        const db = getAdminFirestore();
         const userAssignment: any = {
             userId: userRecord.uid,
             email,

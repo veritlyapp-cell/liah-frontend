@@ -72,7 +72,7 @@ const BEMBOS_PROFILES = [
 
 export async function POST(request: NextRequest) {
     try {
-        const adminDb = await getAdminFirestore();
+        const adminDb = getAdminFirestore();
         const batch = adminDb.batch();
         const jobProfilesRef = adminDb.collection('jobProfiles');
         const createdProfiles: string[] = [];

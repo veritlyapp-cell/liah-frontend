@@ -12,7 +12,7 @@ export async function POST(request: Request) {
         }
 
         // Firebase Auth sends the password reset email automatically
-        const auth = await getAdminAuth();
+        const auth = getAdminAuth();
         // We use the client-side SDK for this, but provide a server endpoint for flexibility
 
         // Note: Password reset emails are sent via Firebase's built-in email service

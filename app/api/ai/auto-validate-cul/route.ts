@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
         }
 
         const { getAdminFirestore } = await import('@/lib/firebase-admin');
-        const dbAdmin = await getAdminFirestore();
+        const dbAdmin = getAdminFirestore();
 
         // 1. Fetch candidate info to get DNI for comparison
         let candidateDni = 'No provisto';

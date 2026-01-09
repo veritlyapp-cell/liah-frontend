@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
         // Import Timestamp dynamically
         const { Timestamp } = await import('firebase-admin/firestore');
-        const adminDb = await getAdminFirestore();
+        const adminDb = getAdminFirestore();
 
         const profiles = [
             {
