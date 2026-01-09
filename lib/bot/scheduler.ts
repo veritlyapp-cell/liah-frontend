@@ -67,7 +67,7 @@ class Scheduler {
             }
 
             const candidateData = candidateDoc.data() as any;
-            let storeDetails = candidateData?.candidateData?.selectedStore || {
+            const storeDetails = candidateData?.candidateData?.selectedStore || {
                 id: tiendaId,
                 nombre: 'Tienda ' + tiendaId,
                 marca: 'NGR'

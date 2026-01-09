@@ -17,6 +17,7 @@ import RQTrackingView from '@/components/admin/RQTrackingView';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import DocumentsConfigView from '@/components/admin/DocumentsConfigView';
+import AlertsConfigView from '@/components/admin/AlertsConfigView';
 
 // Mock data
 const MOCK_HOLDING_INFO = {
@@ -613,6 +614,7 @@ export default function AdminDashboard() {
                 {activeTab === 'configuracion' && (
                     <div className="space-y-6">
                         <HoldingLogoUpload holdingId={holdingId} />
+                        <AlertsConfigView holdingId={holdingId} />
                         <DocumentsConfigView holdingId={holdingId} />
                         <ConfigurationView />
                     </div>

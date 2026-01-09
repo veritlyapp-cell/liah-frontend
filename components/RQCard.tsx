@@ -143,10 +143,10 @@ export default function RQCard({
                 <div className="flex flex-col items-end gap-2">
                     {getStateBadge()}
 
-                    {/* Alerta de 7+ días */}
+                    {/* Alerta de X+ días sin cubrir (configurable) */}
                     {rq.alert_unfilled && (
                         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 animate-pulse">
-                            🚨 +7 días sin cubrir
+                            🚨 +{rq.alert_days_threshold || 7} días sin cubrir
                         </span>
                     )}
 

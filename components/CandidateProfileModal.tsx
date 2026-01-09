@@ -545,23 +545,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             </div>
                         )}
 
-                        {/* CUL Actions Bar */}
+                        {/* CUL Actions Bar - Manual overrides (validación automática al subir CUL) */}
                         <div className="flex gap-2 flex-wrap items-center">
-                            <button
-                                onClick={handleAnalyzeCUL}
-                                disabled={analyzingCUL || processing || (!candidate.certificadoUnicoLaboral && !candidate.documents?.cul)}
-                                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white rounded-full text-sm font-medium hover:opacity-90 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
-                            >
-                                {analyzingCUL ? (
-
-                                    <><span className="animate-spin">⌛</span> Analizando...</>
-                                ) : (
-                                    <><span className="text-lg">🤖</span> Analizar con IA</>
-                                )}
-                            </button>
-
-                            <div className="h-6 w-px bg-gray-200 mx-1" />
-
+                            <p className="text-xs text-gray-500 w-full mb-2">
+                                ℹ️ La validación con IA se ejecuta automáticamente al subir el CUL. Usa estos botones solo para correcciones manuales:
+                            </p>
                             <button
                                 onClick={() => handleUpdateCUL('apto')}
                                 disabled={processing}

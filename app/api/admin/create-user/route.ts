@@ -85,11 +85,30 @@ export async function POST(req: NextRequest) {
 
         console.log(`[CREATE USER] UserAssignment created for: ${userRecord.uid}`);
 
+        // 4. Enviar email de bienvenida con credenciales
+        try {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            await fetch(`${baseUrl}/api/send-welcome-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail: email,
+                    userName: displayName,
+                    temporaryPassword: userPassword,
+                    role: role,
+                    holdingName: marcaNombre || 'LIAH'
+                })
+            });
+            console.log(`[CREATE USER] Welcome email sent to: ${email}`);
+        } catch (emailError) {
+            console.warn('[CREATE USER] Failed to send welcome email (non-blocking):', emailError);
+        }
+
         return NextResponse.json({
             success: true,
             userId: userRecord.uid,
             email,
-            message: `Usuario creado exitosamente. Contraseña temporal: ${userPassword}`
+            message: `Usuario creado exitosamente. Se envió email de bienvenida a ${email}`
         });
 
     } catch (error: any) {

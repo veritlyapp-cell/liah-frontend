@@ -122,7 +122,9 @@ export interface RQ {
     // Reclutamiento
     recruitment_started_at?: any;
     recruitment_ended_at?: any;
-    alert_unfilled: boolean; // true si +7 días sin cubrir
+    alert_unfilled: boolean; // true si +X días sin cubrir
+    alert_days_threshold?: number; // Días configurados para la alerta (default 7)
+    alert_unfilled_at?: any; // Cuando se marcó como unfilled
 
     // Eliminación
     deletion_requested: boolean;
