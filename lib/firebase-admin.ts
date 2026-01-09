@@ -92,7 +92,7 @@ export function getAdminFirestore() {
     return getFirestore(app);
 }
 
-export function getFieldValueHelper() {
+export function getFieldValue() {
     initializeFirebaseAdmin();
     return FieldValue;
 }
