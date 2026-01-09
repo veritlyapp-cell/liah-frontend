@@ -69,7 +69,7 @@ class StoreMatcher {
 
                         // Filter vacancies by shift compatibility
                         const compatibleVacancies: any[] = [];
-                        vacantesSnapshot.docs.forEach(vacanteDoc => {
+                        vacantesSnapshot.docs.forEach((vacanteDoc: any) => {
                             const vacanteData = vacanteDoc.data() as any;
                             const vacante = { id: vacanteDoc.id, ...vacanteData };
                             const isShiftCompatible =
