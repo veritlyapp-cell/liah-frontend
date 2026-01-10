@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,17 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
     try {
+        // Rate limiting check
+        const clientIP = getClientIP(request);
+        const rateLimit = checkRateLimit(clientIP, RATE_LIMITS.email);
+
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { error: 'Too many email requests. Please wait and try again.' },
+                { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } }
+            );
+        }
+
         const { candidateEmail, candidateName, applicationLink, subject, body } = await request.json();
 
         if (!candidateEmail) {

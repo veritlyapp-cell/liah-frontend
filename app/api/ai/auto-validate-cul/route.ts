@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
+import { verifyAuth } from '@/lib/middleware/auth-verify';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,10 +151,33 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting check
+        const clientIP = getClientIP(req);
+        const rateLimit = checkRateLimit(clientIP, RATE_LIMITS.ai);
+
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please wait and try again.' },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(rateLimit.retryAfter) }
+                }
+            );
+        }
+
+        // Auth verification
+        const authResult = await verifyAuth(req);
+        if (!authResult.authenticated) {
+            return NextResponse.json(
+                { error: 'Unauthorized: ' + authResult.error },
+                { status: 401 }
+            );
+        }
+
         const body = await req.json();
         const { candidateId, culUrl } = body;
 
-        console.log(`[AUTO-VALIDATE] Processing CUL for candidate ${candidateId}`);
+        console.log(`[AUTO-VALIDATE] Processing CUL for candidate ${candidateId} by user ${authResult.user?.uid}`);
 
         if (!culUrl) {
             return NextResponse.json(

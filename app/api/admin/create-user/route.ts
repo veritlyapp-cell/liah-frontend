@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { verifyAuth, isAdmin } from '@/lib/middleware/auth-verify';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting
+        const clientIP = getClientIP(req);
+        const rateLimit = checkRateLimit(clientIP, RATE_LIMITS.admin);
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { error: 'Too many requests' },
+                { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } }
+            );
+        }
+
+        // Auth verification - Admin only
+        const authResult = await verifyAuth(req);
+        if (!authResult.authenticated || !authResult.user || !isAdmin(authResult.user)) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Admin access required' },
+                { status: 403 }
+            );
+        }
+
         const body = await req.json();
         const {
             email, password, displayName, role, holdingId,
