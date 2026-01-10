@@ -635,7 +635,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     {/* Application Actions */}
                                     {app.status === 'completed' && (
                                         <div className="flex gap-2">
-                                            {(claims?.role === 'recruiter' || claims?.role === 'brand_recruiter' || claims?.role === 'super_admin' || claims?.role === 'client_admin') ? (
+                                            {(claims?.role === 'recruiter' || claims?.role === 'brand_recruiter' || claims?.role === 'supervisor' || claims?.role === 'brand_admin' || claims?.role === 'super_admin' || claims?.role === 'client_admin') ? (
                                                 <button
                                                     onClick={handleSelectCandidate}
                                                     disabled={processing}
