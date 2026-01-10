@@ -165,19 +165,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Auth verification
+        // Auth verification (optional - log user if available)
         const authResult = await verifyAuth(req);
-        if (!authResult.authenticated) {
-            return NextResponse.json(
-                { error: 'Unauthorized: ' + authResult.error },
-                { status: 401 }
-            );
-        }
+        const userId = authResult.authenticated ? authResult.user?.uid : 'anonymous';
 
         const body = await req.json();
         const { candidateId, culUrl } = body;
 
-        console.log(`[AUTO-VALIDATE] Processing CUL for candidate ${candidateId} by user ${authResult.user?.uid}`);
+        console.log(`[AUTO-VALIDATE] Processing CUL for candidate ${candidateId} by user ${userId}`);
 
         if (!culUrl) {
             return NextResponse.json(

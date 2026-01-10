@@ -170,11 +170,11 @@ service cloud.firestore {
     }
     
     // ==========================================
-    // CATCH-ALL: Deny by default
+    // CATCH-ALL: Allow authenticated (TEMPORARY)
+    // TODO: Define explicit rules for remaining collections
     // ==========================================
-    // Any collection not explicitly defined above is DENIED
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isAuthenticated();
     }
   }
 }
