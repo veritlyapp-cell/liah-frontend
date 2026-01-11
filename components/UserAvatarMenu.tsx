@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 
 interface UserAvatarMenuProps {
     subtitle?: string; // e.g., "Gerente de Tienda", "Recruiter"
+    onConfigClick?: () => void;
 }
 
-export default function UserAvatarMenu({ subtitle }: UserAvatarMenuProps) {
+export default function UserAvatarMenu({ subtitle, onConfigClick }: UserAvatarMenuProps) {
     const { user, claims, signOut } = useAuth();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
@@ -95,12 +96,8 @@ export default function UserAvatarMenu({ subtitle }: UserAvatarMenuProps) {
                         <button
                             onClick={() => {
                                 setIsOpen(false);
-                                // Navigate to settings/config based on current path or emit event
-                                const currentPath = window.location.pathname;
-                                if (currentPath.includes('store-manager')) {
-                                    // Switch to config tab (handled by parent)
-                                } else if (currentPath.includes('recruiter')) {
-                                    // Switch to config tab
+                                if (onConfigClick) {
+                                    onConfigClick();
                                 }
                             }}
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-3"

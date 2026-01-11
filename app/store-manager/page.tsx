@@ -122,6 +122,7 @@ export default function StoreManagerDashboard() {
                 marcaId={MARCA_ID}
                 marcaName={marcaNombre}
                 storeId={STORE_ID}
+                onConfigClick={() => setActiveTab('configuracion')}
             />
 
             {/* Action Buttons Bar */}
@@ -209,15 +210,6 @@ export default function StoreManagerDashboard() {
                                 Para Ingreso
                             </span>
                         </span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('configuracion')}
-                        className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'configuracion'
-                            ? 'border-violet-600 text-violet-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        ⚙️ Configuración
                     </button>
                 </div>
             </div>
@@ -309,6 +301,6 @@ export default function StoreManagerDashboard() {
                 marcaId={MARCA_ID}
                 marcaNombre={marcaNombre}
             />
-        </div>
+        </div >
     );
 }

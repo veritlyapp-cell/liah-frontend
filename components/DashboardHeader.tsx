@@ -20,6 +20,7 @@ interface DashboardHeaderProps {
     storeId?: string; // For notification bell
     storeIds?: string[]; // For supervisor notification bell
     showLogout?: boolean;
+    onConfigClick?: () => void;
 }
 
 interface HoldingInfo {
@@ -43,7 +44,8 @@ export default function DashboardHeader({
     marcaLogo,
     storeId,
     storeIds,
-    showLogout = true
+    showLogout = true,
+    onConfigClick
 }: DashboardHeaderProps) {
     const { user, claims, signOut } = useAuth();
     const [holdingInfo, setHoldingInfo] = useState<HoldingInfo | null>(null);
@@ -154,7 +156,10 @@ export default function DashboardHeader({
                         />
 
                         {/* User Avatar Menu */}
-                        <UserAvatarMenu subtitle={subtitle} />
+                        <UserAvatarMenu
+                            subtitle={subtitle}
+                            onConfigClick={onConfigClick}
+                        />
                     </div>
                 </div>
             </div>
