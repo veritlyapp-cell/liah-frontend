@@ -256,7 +256,7 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                     { value: 'supervisor', label: '👔 Supervisor', desc: 'Gestiona múltiples tiendas' },
                                     { value: 'jefe_marca', label: '🎯 Jefe de Marca', desc: 'Gestiona una marca completa' },
                                     { value: 'recruiter', label: '🔍 Recruiter', desc: 'Evalúa candidatos de una marca' },
-                                    { value: 'store_manager', label: '🏪 Store Manager', desc: 'Gestiona una tienda' }
+                                    { value: 'store_manager', label: '🏪 Gerente de Tienda', desc: 'Gestiona una tienda' }
                                 ].map(r => (
                                     <button
                                         key={r.value}

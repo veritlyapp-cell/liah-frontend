@@ -51,7 +51,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 { id: 'cul', name: 'Certificado Único Laboral (CUL)', active: true }
             ]);
             setApprovalLevels(config?.approvalLevels || [
-                { level: 1, name: 'Store Manager', role: 'store_manager' },
+                { level: 1, name: 'Gerente de Tienda', role: 'store_manager' },
                 { level: 2, name: 'Jefe de Marca', role: 'jefe_marca' }
             ]);
         }
@@ -278,7 +278,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                     }}
                                     className="px-3 py-1 border border-violet-200 rounded-md text-sm bg-white"
                                 >
-                                    <option value="store_manager">Store Manager</option>
+                                    <option value="store_manager">Gerente de Tienda</option>
                                     <option value="supervisor">Supervisor</option>
                                     <option value="jefe_marca">Jefe de Marca</option>
                                     <option value="recruiter">Recruiter</option>

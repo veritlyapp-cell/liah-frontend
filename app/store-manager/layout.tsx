@@ -71,7 +71,7 @@ export default function StoreManagerLayout({
                         <div className="flex items-center gap-3">
                             <div className="text-right">
                                 <p className="text-sm font-medium text-gray-900">{user?.displayName || user?.email || 'Usuario'}</p>
-                                <p className="text-xs text-gray-500">Store Manager</p>
+                                <p className="text-xs text-gray-500">Gerente de Tienda</p>
                             </div>
 
                             <button

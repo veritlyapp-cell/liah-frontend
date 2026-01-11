@@ -117,7 +117,7 @@ export default function StoreManagerDashboard() {
             {/* Unified Header */}
             <DashboardHeader
                 title={STORE_NAME}
-                subtitle="Store Manager Dashboard"
+                subtitle="Gerente de Tienda"
                 holdingId={assignment?.holdingId}
                 marcaId={MARCA_ID}
                 marcaName={marcaNombre}

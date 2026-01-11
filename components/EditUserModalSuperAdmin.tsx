@@ -150,7 +150,7 @@ export default function EditUserModalSuperAdmin({ show, user, onCancel, onSave }
                                     : 'border-gray-200 hover:border-gray-300'
                                     }`}
                             >
-                                <p className="font-semibold text-gray-900">Store Manager</p>
+                                <p className="font-semibold text-gray-900">Gerente de Tienda</p>
                                 <p className="text-xs text-gray-600 mt-1">Gestiona tienda</p>
                             </button>
                         </div>

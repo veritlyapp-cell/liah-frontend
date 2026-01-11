@@ -375,6 +375,16 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 </span>
                                             )}
 
+                                            {/* Priority Badge from Gerente de Tienda - Visible to Recruiters */}
+                                            {latestApp?.priority && (
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${latestApp.priority === 'principal'
+                                                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                        : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                                    }`}>
+                                                    {latestApp.priority === 'principal' ? '⭐ Principal' : '📋 Backup'}
+                                                </span>
+                                            )}
+
                                             {/* Warning if selected for another RQ */}
                                             {candidate.selectionStatus === 'selected' && candidate.selectedForRQ !== latestApp?.rqId && (
                                                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
