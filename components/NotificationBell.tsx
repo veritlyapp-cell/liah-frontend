@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface PendingItem {
@@ -10,8 +10,6 @@ interface PendingItem {
     type: 'rq_approval' | 'candidate_validation' | 'ingreso_pending';
     title: string;
     subtitle: string;
-    timestamp?: Date;
-    link?: string;
 }
 
 interface NotificationBellProps {
@@ -24,7 +22,9 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
     const { user, claims } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [pendingCount, setPendingCount] = useState<number | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const role = claims?.role;
@@ -40,129 +40,205 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Load pending items based on role
+    // Quick count on mount (lightweight query for badge only)
     useEffect(() => {
         if (!user || !role) return;
-
-        loadPendingItems();
-
-        // Refresh every 2 minutes
-        const interval = setInterval(loadPendingItems, 120000);
-        return () => clearInterval(interval);
+        loadQuickCount();
     }, [user, role, marcaId, storeId, storeIds]);
 
-    async function loadPendingItems() {
+    // Load quick count for badge (using indexed queries where possible)
+    async function loadQuickCount() {
+        try {
+            let count = 0;
+
+            // RQ approval counts (these are efficient - using indexed fields)
+            if (role === 'jefe_marca' && marcaId) {
+                const rqQuery = query(
+                    collection(db, 'rqs'),
+                    where('marcaId', '==', marcaId),
+                    where('approvalStatus', '==', 'pending'),
+                    where('currentApprovalLevel', '==', 3),
+                    limit(20)
+                );
+                const snap = await getDocs(rqQuery);
+                count += snap.size;
+            }
+
+            if (role === 'supervisor' && marcaId) {
+                const rqQuery = query(
+                    collection(db, 'rqs'),
+                    where('marcaId', '==', marcaId),
+                    where('approvalStatus', '==', 'pending'),
+                    where('currentApprovalLevel', '==', 2),
+                    limit(20)
+                );
+                const snap = await getDocs(rqQuery);
+                count += snap.size;
+            }
+
+            // For recruiter/store_manager - use indexed culStatus/selectionStatus queries
+            if ((role === 'recruiter' || role === 'brand_recruiter') && marcaId) {
+                // Query candidates with pending CUL - requires index on culStatus
+                const culQuery = query(
+                    collection(db, 'candidates'),
+                    where('culStatus', '==', 'pending'),
+                    limit(50)
+                );
+                const snap = await getDocs(culQuery);
+                // Filter by marca in memory (cheaper than no index)
+                const marcaCandidates = snap.docs.filter(doc => {
+                    const data = doc.data();
+                    return data.applications?.some((app: any) =>
+                        app.marcaId === marcaId && app.status === 'approved'
+                    );
+                });
+                count += marcaCandidates.length;
+            }
+
+            if (role === 'store_manager' && storeId) {
+                // Query selected candidates - requires index on selectionStatus
+                const selectedQuery = query(
+                    collection(db, 'candidates'),
+                    where('selectionStatus', '==', 'selected'),
+                    limit(50)
+                );
+                const snap = await getDocs(selectedQuery);
+                // Filter by store in memory
+                const storeCandidates = snap.docs.filter(doc => {
+                    const data = doc.data();
+                    return !data.hiredAt && data.applications?.some((app: any) =>
+                        app.tiendaId === storeId && app.status === 'approved'
+                    );
+                });
+                count += storeCandidates.length;
+            }
+
+            setPendingCount(count);
+        } catch (error) {
+            console.error('Error loading pending count:', error);
+            setPendingCount(0);
+        }
+    }
+
+    // Full load when dropdown opens (lazy loading)
+    const loadPendingItems = useCallback(async () => {
+        if (loading) return;
         setLoading(true);
+
         try {
             const items: PendingItem[] = [];
 
-            // Based on role, load different pending items
             if (role === 'jefe_marca' && marcaId) {
-                // RQs pending approval for Jefe de Marca
-                const rqsRef = collection(db, 'rqs');
                 const rqQuery = query(
-                    rqsRef,
+                    collection(db, 'rqs'),
                     where('marcaId', '==', marcaId),
                     where('approvalStatus', '==', 'pending'),
-                    where('currentApprovalLevel', '==', 3) // Level 3 = Jefe Marca
+                    where('currentApprovalLevel', '==', 3),
+                    limit(10)
                 );
-                const rqSnapshot = await getDocs(rqQuery);
-                rqSnapshot.docs.forEach(doc => {
+                const snap = await getDocs(rqQuery);
+                snap.docs.forEach(doc => {
                     const data = doc.data();
                     items.push({
                         id: doc.id,
                         type: 'rq_approval',
-                        title: `RQ por aprobar: ${data.posicion}`,
-                        subtitle: `${data.tiendaNombre} - ${data.vacantes} vacante(s)`,
-                        timestamp: data.createdAt?.toDate?.()
+                        title: `RQ: ${data.posicion}`,
+                        subtitle: data.tiendaNombre
                     });
                 });
             }
 
-            if (role === 'supervisor' && storeIds && storeIds.length > 0) {
-                // RQs pending at supervisor level
-                const rqsRef = collection(db, 'rqs');
-                // Can't query with 'in' + multiple conditions, so query all and filter
-                const allRQsSnapshot = await getDocs(rqsRef);
-                allRQsSnapshot.docs.forEach(doc => {
+            if (role === 'supervisor' && marcaId) {
+                const rqQuery = query(
+                    collection(db, 'rqs'),
+                    where('marcaId', '==', marcaId),
+                    where('approvalStatus', '==', 'pending'),
+                    where('currentApprovalLevel', '==', 2),
+                    limit(10)
+                );
+                const snap = await getDocs(rqQuery);
+                snap.docs.forEach(doc => {
                     const data = doc.data();
-                    if (
-                        storeIds.includes(data.tiendaId) &&
-                        data.approvalStatus === 'pending' &&
-                        data.currentApprovalLevel === 2
-                    ) {
+                    if (!storeIds || storeIds.includes(data.tiendaId)) {
                         items.push({
                             id: doc.id,
                             type: 'rq_approval',
-                            title: `RQ por aprobar: ${data.posicion}`,
-                            subtitle: `${data.tiendaNombre}`,
-                            timestamp: data.createdAt?.toDate?.()
+                            title: `RQ: ${data.posicion}`,
+                            subtitle: data.tiendaNombre
                         });
                     }
                 });
             }
 
             if ((role === 'recruiter' || role === 'brand_recruiter') && marcaId) {
-                // Candidates pending CUL validation
-                const candidatesRef = collection(db, 'candidates');
-                const candidateSnapshot = await getDocs(candidatesRef);
-                candidateSnapshot.docs.forEach(doc => {
+                const culQuery = query(
+                    collection(db, 'candidates'),
+                    where('culStatus', '==', 'pending'),
+                    limit(20)
+                );
+                const snap = await getDocs(culQuery);
+                snap.docs.forEach(doc => {
                     const data = doc.data();
                     const hasApprovedApp = data.applications?.some((app: any) =>
                         app.marcaId === marcaId && app.status === 'approved'
                     );
-                    if (hasApprovedApp && (!data.culStatus || data.culStatus === 'pending')) {
+                    if (hasApprovedApp) {
                         items.push({
                             id: doc.id,
                             type: 'candidate_validation',
-                            title: `Validar CUL: ${data.nombre} ${data.apellidoPaterno}`,
-                            subtitle: `DNI: ${data.dni}`,
-                            timestamp: data.createdAt?.toDate?.()
+                            title: `CUL: ${data.nombre} ${data.apellidoPaterno}`,
+                            subtitle: `DNI: ${data.dni}`
                         });
                     }
                 });
             }
 
             if (role === 'store_manager' && storeId) {
-                // Candidates pending ingreso confirmation
-                const candidatesRef = collection(db, 'candidates');
-                const candidateSnapshot = await getDocs(candidatesRef);
-                candidateSnapshot.docs.forEach(doc => {
+                const selectedQuery = query(
+                    collection(db, 'candidates'),
+                    where('selectionStatus', '==', 'selected'),
+                    limit(20)
+                );
+                const snap = await getDocs(selectedQuery);
+                snap.docs.forEach(doc => {
                     const data = doc.data();
                     const storeApp = data.applications?.find((app: any) =>
                         app.tiendaId === storeId && app.status === 'approved'
                     );
-                    // Selected by recruiter but not yet confirmed ingreso
-                    if (storeApp && data.selectionStatus === 'selected' && !data.hiredAt) {
+                    if (storeApp && !data.hiredAt) {
                         items.push({
                             id: doc.id,
                             type: 'ingreso_pending',
-                            title: `Confirmar ingreso: ${data.nombre} ${data.apellidoPaterno}`,
-                            subtitle: storeApp.posicion || 'Candidato seleccionado',
-                            timestamp: data.selectedAt?.toDate?.()
+                            title: `Ingreso: ${data.nombre} ${data.apellidoPaterno}`,
+                            subtitle: storeApp.posicion || 'Seleccionado'
                         });
                     }
                 });
             }
 
             setPendingItems(items);
+            setPendingCount(items.length);
+            setHasLoaded(true);
         } catch (error) {
             console.error('Error loading pending items:', error);
         } finally {
             setLoading(false);
         }
-    }
+    }, [role, marcaId, storeId, storeIds, loading]);
 
-    const totalPending = pendingItems.length;
+    // Load items when dropdown opens
+    useEffect(() => {
+        if (isOpen && !hasLoaded) {
+            loadPendingItems();
+        }
+    }, [isOpen, hasLoaded, loadPendingItems]);
 
-    // Group items by type
     const rqItems = pendingItems.filter(i => i.type === 'rq_approval');
     const validationItems = pendingItems.filter(i => i.type === 'candidate_validation');
     const ingresoItems = pendingItems.filter(i => i.type === 'ingreso_pending');
 
     return (
         <div className="relative" ref={dropdownRef}>
-            {/* Bell Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
@@ -172,116 +248,82 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
 
-                {/* Badge */}
-                {totalPending > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 animate-pulse">
-                        {totalPending > 99 ? '99+' : totalPending}
+                {pendingCount !== null && pendingCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {pendingCount > 99 ? '99+' : pendingCount}
                     </span>
                 )}
             </button>
 
-            {/* Dropdown Panel */}
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[70vh] overflow-hidden">
-                    {/* Header */}
-                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-gray-900">Pendientes</h3>
-                            <span className="text-sm text-gray-500">{totalPending} items</span>
-                        </div>
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-900 text-sm">Pendientes</h3>
+                        <button
+                            onClick={() => { setHasLoaded(false); loadPendingItems(); }}
+                            className="text-xs text-violet-600 hover:text-violet-700"
+                        >
+                            🔄
+                        </button>
                     </div>
 
-                    {/* Content */}
-                    <div className="overflow-y-auto max-h-[50vh]">
+                    <div className="max-h-[300px] overflow-y-auto">
                         {loading ? (
-                            <div className="px-4 py-8 text-center text-gray-500">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-600 mx-auto mb-2"></div>
+                            <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-violet-600 mx-auto mb-2"></div>
                                 Cargando...
                             </div>
-                        ) : totalPending === 0 ? (
-                            <div className="px-4 py-8 text-center">
-                                <div className="text-4xl mb-2">✅</div>
-                                <p className="text-gray-500">¡No hay pendientes!</p>
+                        ) : pendingItems.length === 0 ? (
+                            <div className="px-4 py-6 text-center">
+                                <div className="text-3xl mb-1">✅</div>
+                                <p className="text-gray-500 text-sm">¡Sin pendientes!</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-100">
-                                {/* RQ Approvals Section */}
                                 {rqItems.length > 0 && (
                                     <div>
-                                        <div className="px-4 py-2 bg-amber-50 text-amber-800 text-xs font-medium uppercase">
-                                            📋 RQs por aprobar ({rqItems.length})
+                                        <div className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium">
+                                            📋 RQs ({rqItems.length})
                                         </div>
                                         {rqItems.slice(0, 5).map(item => (
-                                            <div key={item.id} className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                                            <div key={item.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
                                                 <p className="text-sm font-medium text-gray-900">{item.title}</p>
                                                 <p className="text-xs text-gray-500">{item.subtitle}</p>
                                             </div>
                                         ))}
-                                        {rqItems.length > 5 && (
-                                            <div className="px-4 py-2 text-xs text-gray-500 text-center">
-                                                +{rqItems.length - 5} más...
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
-                                {/* Candidate Validation Section */}
                                 {validationItems.length > 0 && (
                                     <div>
-                                        <div className="px-4 py-2 bg-blue-50 text-blue-800 text-xs font-medium uppercase">
-                                            📄 CUL por validar ({validationItems.length})
+                                        <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium">
+                                            📄 CUL ({validationItems.length})
                                         </div>
                                         {validationItems.slice(0, 5).map(item => (
-                                            <div key={item.id} className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                                            <div key={item.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
                                                 <p className="text-sm font-medium text-gray-900">{item.title}</p>
                                                 <p className="text-xs text-gray-500">{item.subtitle}</p>
                                             </div>
                                         ))}
-                                        {validationItems.length > 5 && (
-                                            <div className="px-4 py-2 text-xs text-gray-500 text-center">
-                                                +{validationItems.length - 5} más...
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
-                                {/* Ingreso Pending Section */}
                                 {ingresoItems.length > 0 && (
                                     <div>
-                                        <div className="px-4 py-2 bg-green-50 text-green-800 text-xs font-medium uppercase">
-                                            ✅ Confirmar ingreso ({ingresoItems.length})
+                                        <div className="px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium">
+                                            ✅ Ingreso ({ingresoItems.length})
                                         </div>
                                         {ingresoItems.slice(0, 5).map(item => (
-                                            <div key={item.id} className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                                            <div key={item.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
                                                 <p className="text-sm font-medium text-gray-900">{item.title}</p>
                                                 <p className="text-xs text-gray-500">{item.subtitle}</p>
                                             </div>
                                         ))}
-                                        {ingresoItems.length > 5 && (
-                                            <div className="px-4 py-2 text-xs text-gray-500 text-center">
-                                                +{ingresoItems.length - 5} más...
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
-
-                    {/* Footer */}
-                    {totalPending > 0 && (
-                        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                            <button
-                                onClick={() => {
-                                    loadPendingItems();
-                                    setIsOpen(false);
-                                }}
-                                className="w-full text-center text-sm text-violet-600 hover:text-violet-700 font-medium"
-                            >
-                                🔄 Actualizar
-                            </button>
-                        </div>
-                    )}
                 </div>
             )}
         </div>
