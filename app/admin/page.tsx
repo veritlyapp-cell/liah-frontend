@@ -14,6 +14,7 @@ import ConfigurationView from '@/components/ConfigurationView';
 import HoldingLogoUpload from '@/components/admin/HoldingLogoUpload';
 import JobProfilesManagement from '@/components/admin/JobProfilesManagement';
 import RQTrackingView from '@/components/admin/RQTrackingView';
+import AdminCandidatesView from '@/components/admin/AdminCandidatesView';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import DocumentsConfigView from '@/components/admin/DocumentsConfigView';
@@ -86,7 +87,7 @@ type Tab = 'marcas' | 'usuarios' | 'rqs' | 'reportes' | 'users';
 export default function AdminDashboard() {
     const { user, claims, loading, signOut } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'reportes'>('marcas');
+    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'reportes'>('marcas');
     const [brands, setBrands] = useState<any[]>([]);
     const [stores, setStores] = useState<any[]>([]);
     const [loadingBrands, setLoadingBrands] = useState(true);
@@ -355,6 +356,15 @@ export default function AdminDashboard() {
                         </button>
                     )}
                     <button
+                        onClick={() => setActiveTab('candidatos')}
+                        className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeTab === 'candidatos'
+                            ? 'border-violet-600 text-violet-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        👥 Candidatos
+                    </button>
+                    <button
                         onClick={() => setActiveTab('perfiles')}
                         className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeTab === 'perfiles'
                             ? 'border-violet-600 text-violet-600'
@@ -563,6 +573,15 @@ export default function AdminDashboard() {
                     <RQTrackingView
                         holdingId={holdingId}
                         marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))}
+                    />
+                )}
+
+                {/* Tab: Candidatos */}
+                {activeTab === 'candidatos' && (
+                    <AdminCandidatesView
+                        holdingId={holdingId}
+                        marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))}
+                        tiendas={stores.map(s => ({ id: s.id, nombre: s.nombre, marcaId: s.marcaId }))}
                     />
                 )}
 
