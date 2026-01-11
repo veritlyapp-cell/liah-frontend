@@ -1,13 +1,27 @@
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit as firestoreLimit } from 'firebase/firestore';
 import type { Candidate } from './candidates';
+
+// Cache for loaded candidates
+let storeCache: { storeId: string; candidates: Candidate[]; timestamp: number } | null = null;
+const CACHE_TTL = 60000; // 1 minute cache
 
 /**
  * Obtener candidatos por tienda (basado en sus applications)
  */
-export async function getCandidatesByStore(storeId: string): Promise<Candidate[]> {
+export async function getCandidatesByStore(storeId: string, maxResults: number = 150): Promise<Candidate[]> {
+    // Check cache
+    if (storeCache &&
+        storeCache.storeId === storeId &&
+        (Date.now() - storeCache.timestamp) < CACHE_TTL) {
+        console.log('[getCandidatesByStore] Using cache');
+        return storeCache.candidates;
+    }
+
+    console.log('[getCandidatesByStore] Fetching from Firestore...');
     const candidatesRef = collection(db, 'candidates');
-    const snapshot = await getDocs(candidatesRef);
+    const q = query(candidatesRef, firestoreLimit(maxResults));
+    const snapshot = await getDocs(q);
 
     // Filtrar candidatos que tienen applications para esta tienda
     const candidates = snapshot.docs
@@ -19,15 +33,29 @@ export async function getCandidatesByStore(storeId: string): Promise<Candidate[]
             candidate.applications?.some(app => app.tiendaId === storeId)
         );
 
+    // Cache results
+    storeCache = {
+        storeId,
+        candidates,
+        timestamp: Date.now()
+    };
+
+    console.log('[getCandidatesByStore] Found:', candidates.length);
     return candidates;
 }
 
+// Clear store cache function
+export function clearStoreCache() {
+    storeCache = null;
+}
+
 /**
- * Obtener candidatos por marca
+ * Obtener candidatos por marca (with limit)
  */
-export async function getCandidatesByMarca(marcaId: string): Promise<Candidate[]> {
+export async function getCandidatesByMarca(marcaId: string, maxResults: number = 150): Promise<Candidate[]> {
     const candidatesRef = collection(db, 'candidates');
-    const snapshot = await getDocs(candidatesRef);
+    const q = query(candidatesRef, firestoreLimit(maxResults));
+    const snapshot = await getDocs(q);
 
     // Filtrar candidatos que tienen applications para esta marca
     const candidates = snapshot.docs
@@ -40,21 +68,18 @@ export async function getCandidatesByMarca(marcaId: string): Promise<Candidate[]
         );
 
     console.log('[getCandidatesByMarca] marcaId:', marcaId, 'found:', candidates.length);
-    if (candidates.length === 0 && snapshot.docs.length > 0) {
-        console.log('[getCandidatesByMarca] All candidates apps:', snapshot.docs.map(d => d.data().applications?.map((a: any) => a.marcaId)));
-    }
-
     return candidates;
 }
 
 /**
  * Obtener candidatos por lista de tiendas (para supervisores)
  */
-export async function getCandidatesByMultipleStores(storeIds: string[]): Promise<Candidate[]> {
+export async function getCandidatesByMultipleStores(storeIds: string[], maxResults: number = 150): Promise<Candidate[]> {
     if (!storeIds || storeIds.length === 0) return [];
 
     const candidatesRef = collection(db, 'candidates');
-    const snapshot = await getDocs(candidatesRef);
+    const q = query(candidatesRef, firestoreLimit(maxResults));
+    const snapshot = await getDocs(q);
 
     // Filtrar candidatos que tienen applications para alguna de estas tiendas
     const candidates = snapshot.docs
@@ -66,10 +91,6 @@ export async function getCandidatesByMultipleStores(storeIds: string[]): Promise
             candidate.applications?.some(app => storeIds.includes(app.tiendaId))
         );
 
-    console.log('[getCandidatesByMultipleStores] storeIds:', storeIds, 'found:', candidates.length);
-    if (candidates.length === 0 && snapshot.docs.length > 0) {
-        console.log('[getCandidatesByMultipleStores] All candidates apps tiendaIds:', snapshot.docs.map(d => d.data().applications?.map((a: any) => a.tiendaId)));
-    }
-
+    console.log('[getCandidatesByMultipleStores] storeIds:', storeIds.length, 'found:', candidates.length);
     return candidates;
 }
