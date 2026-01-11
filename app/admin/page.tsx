@@ -15,6 +15,7 @@ import HoldingLogoUpload from '@/components/admin/HoldingLogoUpload';
 import JobProfilesManagement from '@/components/admin/JobProfilesManagement';
 import RQTrackingView from '@/components/admin/RQTrackingView';
 import AdminCandidatesView from '@/components/admin/AdminCandidatesView';
+import AdminRQAnalyticsView from '@/components/admin/AdminRQAnalyticsView';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import DocumentsConfigView from '@/components/admin/DocumentsConfigView';
@@ -585,21 +586,6 @@ export default function AdminDashboard() {
                     />
                 )}
 
-                {/* Tab: Reportes */}
-                {activeTab === 'reportes' && (
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-bold text-gray-900">Reportes y Métricas</h2>
-                            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-                                📥 Exportar Reporte
-                            </button>
-                        </div>
-                        <div className="glass-card rounded-xl p-8 text-center">
-                            <p className="text-gray-500">Tab Reportes - En desarrollo</p>
-                        </div>
-                    </div>
-                )}
-
                 {/* Tab: Perfiles de Puesto */}
                 {activeTab === 'perfiles' && (
                     <JobProfilesManagement
@@ -608,24 +594,24 @@ export default function AdminDashboard() {
                     />
                 )}
 
-                {/* Tab: Reportes / Analítica */}
+                {/* Tab: Reportes */}
                 {activeTab === 'reportes' && (
-                    <div className="space-y-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Reportes y Analítica</h2>
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
-                            <div className="text-6xl mb-4">📊</div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Dashboard de Analítica Completo</h3>
-                            <p className="text-gray-600 mb-6 max-w-xl mx-auto">
-                                Visualiza métricas de reclutamiento, funnel de candidatos, razones de rechazo,
-                                fuentes de reclutamiento, demografía y tendencias.
-                            </p>
+                    <div className="space-y-8">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-2xl font-bold text-gray-900">Reportes y Analítica</h2>
                             <a
                                 href="/analytics"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
                             >
-                                Abrir Dashboard de Analítica →
+                                📊 Dashboard Completo →
                             </a>
                         </div>
+
+                        {/* RQ Analytics */}
+                        <AdminRQAnalyticsView
+                            holdingId={holdingId}
+                            marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))}
+                        />
                     </div>
                 )}
 
