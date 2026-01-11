@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/Logo';
+import NotificationBell from '@/components/NotificationBell';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -15,6 +16,8 @@ interface DashboardHeaderProps {
     marcaId?: string; // For auto-loading marca logo
     marcaName?: string;
     marcaLogo?: string;
+    storeId?: string; // For notification bell
+    storeIds?: string[]; // For supervisor notification bell
     showLogout?: boolean;
 }
 
@@ -37,9 +40,11 @@ export default function DashboardHeader({
     marcaId,
     marcaName,
     marcaLogo,
+    storeId,
+    storeIds,
     showLogout = true
 }: DashboardHeaderProps) {
-    const { user, signOut } = useAuth();
+    const { user, claims, signOut } = useAuth();
     const [holdingInfo, setHoldingInfo] = useState<HoldingInfo | null>(null);
     const [marcaInfo, setMarcaInfo] = useState<MarcaInfo | null>(null);
 
@@ -138,8 +143,15 @@ export default function DashboardHeader({
                         </div>
                     </div>
 
-                    {/* Right: User info and logout */}
-                    <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                    {/* Right: Notification Bell, User info and logout */}
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                        {/* Notification Bell */}
+                        <NotificationBell
+                            marcaId={marcaId}
+                            storeId={storeId}
+                            storeIds={storeIds}
+                        />
+
                         <span className="text-sm text-gray-600 hidden lg:block truncate max-w-[150px]">
                             {user?.displayName || user?.email}
                         </span>

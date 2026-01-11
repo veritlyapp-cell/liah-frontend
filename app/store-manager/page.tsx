@@ -121,6 +121,7 @@ export default function StoreManagerDashboard() {
                 holdingId={assignment?.holdingId}
                 marcaId={MARCA_ID}
                 marcaName={marcaNombre}
+                storeId={STORE_ID}
             />
 
             {/* Action Buttons Bar */}
