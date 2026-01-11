@@ -155,12 +155,11 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                             const aptoApp = candidate.applications?.find(app => (app.tiendaId === storeId || app.marcaId === marcaId) && app.status === 'approved');
                             if (!aptoApp) return null;
 
-                            // Enable buttons if:
-                            // 1. Candidate was selected by Recruiter for this RQ, OR
-                            // 2. Candidate was approved with a priority (principal/backup) by Store Manager
-                            const isSelectedByRecruiter = candidate.selectionStatus === 'selected' && candidate.selectedForRQ === aptoApp.rqId;
-                            const hasApprovedPriority = aptoApp.priority === 'principal' || aptoApp.priority === 'backup';
-                            const canConfirmIngreso = isSelectedByRecruiter || hasApprovedPriority;
+                            // Enable buttons if Recruiter selected candidate for ANY RQ in this store
+                            // Check if the selectedForRQ belongs to this store
+                            const selectedForRQInThisStore = candidate.selectionStatus === 'selected' &&
+                                candidate.applications?.some(app => app.rqId === candidate.selectedForRQ && app.tiendaId === storeId);
+                            const canConfirmIngreso = selectedForRQInThisStore;
                             const fullName = `${candidate.nombre} ${candidate.apellidoPaterno} ${candidate.apellidoMaterno}`;
 
                             return (
@@ -176,7 +175,7 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                         ⭐ Principal
                                                     </span>
                                                 )}
-                                                {isSelectedByRecruiter ? (
+                                                {selectedForRQInThisStore ? (
                                                     <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                                                         <span>🎯</span> SELECCIONADO
                                                     </span>
