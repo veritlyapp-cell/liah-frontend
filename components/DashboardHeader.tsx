@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/Logo';
 import NotificationBell from '@/components/NotificationBell';
+import UserAvatarMenu from '@/components/UserAvatarMenu';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -143,8 +144,8 @@ export default function DashboardHeader({
                         </div>
                     </div>
 
-                    {/* Right: Notification Bell, User info and logout */}
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                    {/* Right: Notification Bell and User Menu */}
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                         {/* Notification Bell */}
                         <NotificationBell
                             marcaId={marcaId}
@@ -152,18 +153,8 @@ export default function DashboardHeader({
                             storeIds={storeIds}
                         />
 
-                        <span className="text-sm text-gray-600 hidden lg:block truncate max-w-[150px]">
-                            {user?.displayName || user?.email}
-                        </span>
-                        {showLogout && (
-                            <button
-                                onClick={() => signOut()}
-                                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
-                            >
-                                <span className="hidden sm:inline">Cerrar Sesión</span>
-                                <span className="sm:hidden">Salir</span>
-                            </button>
-                        )}
+                        {/* User Avatar Menu */}
+                        <UserAvatarMenu subtitle={subtitle} />
                     </div>
                 </div>
             </div>
