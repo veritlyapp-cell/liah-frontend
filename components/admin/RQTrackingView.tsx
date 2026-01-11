@@ -132,6 +132,48 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
         });
     }
 
+    function formatDateTime(timestamp: any) {
+        if (!timestamp) return '-';
+        const date = timestamp.toDate?.() || new Date(timestamp);
+        return date.toLocaleDateString('es-PE', {
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function getApprovalHistory(rq: RQ) {
+        if (!rq.approvalChain || rq.approvalChain.length === 0) {
+            return <span className="text-gray-400 text-xs">Sin historial</span>;
+        }
+
+        return (
+            <div className="space-y-1">
+                {rq.approvalChain.filter(step => step.status !== 'pending').map((step, idx) => {
+                    const levelNames = ['', 'Tienda', 'Supervisor', 'Jefe Marca'];
+                    const statusIcon = step.status === 'approved' ? '✅' : step.status === 'rejected' ? '❌' : '⏳';
+                    const statusColor = step.status === 'approved' ? 'text-green-700' : step.status === 'rejected' ? 'text-red-700' : 'text-gray-500';
+
+                    return (
+                        <div key={idx} className="text-xs">
+                            <span className={statusColor}>{statusIcon} {levelNames[step.level] || `Nivel ${step.level}`}</span>
+                            {step.approvedByName && (
+                                <span className="text-gray-500"> - {step.approvedByName}</span>
+                            )}
+                            {step.approvedAt && (
+                                <span className="text-gray-400"> ({formatDateTime(step.approvedAt)})</span>
+                            )}
+                            {step.rejectionReason && (
+                                <div className="text-red-500 text-xs italic ml-4">"{step.rejectionReason}"</div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
     async function handleReject(rqId: string) {
         const reason = prompt('Motivo de rechazo (se devolverá al Jefe de Marca):');
         if (!reason || !user) return;
@@ -272,7 +314,8 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posición</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vacantes</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Creado</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Historial Aprobaciones</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                             </tr>
                         </thead>
@@ -296,6 +339,9 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {formatDate(rq.createdAt)}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {getApprovalHistory(rq)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
