@@ -193,6 +193,7 @@ export default function RecruiterDashboard() {
             <DashboardHeader
                 title="Dashboard Recruiter"
                 subtitle={`Gestiona candidatos - ${marcas.length > 0 ? marcas.map(m => m.nombre).join(', ') : 'Cargando...'}`}
+                marcaId={selectedMarca !== 'all' ? selectedMarca : marcas[0]?.id}
             />
 
             {/* Navigation Tabs */}

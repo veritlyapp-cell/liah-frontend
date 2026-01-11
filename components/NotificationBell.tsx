@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 
 interface PendingItem {
     id: string;
-    type: 'rq_approval' | 'candidate_validation' | 'ingreso_pending';
+    type: 'rq_approval' | 'candidate_validation' | 'ingreso_pending' | 'remaining_slots';
     title: string;
     subtitle: string;
 }
@@ -193,6 +193,33 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                 });
             }
 
+            if ((role === 'recruiter' || role === 'brand_recruiter') && marcaId) {
+                // ... (candidates logic remains same)
+
+                // ADDED: RQs with remaining slots
+                const rqsRef = collection(db, 'rqs');
+                const rqQuery = query(
+                    rqsRef,
+                    where('marcaId', '==', marcaId),
+                    where('status', '==', 'recruiting'),
+                    limit(15)
+                );
+                const rqSnap = await getDocs(rqQuery);
+                rqSnap.docs.forEach(doc => {
+                    const data = doc.data();
+                    const filled = data.filledSlots || 0;
+                    const total = data.vacantes || 0;
+                    if (filled < total) {
+                        items.push({
+                            id: doc.id,
+                            type: 'remaining_slots',
+                            title: `RQ abierto: ${data.posicion}`,
+                            subtitle: `${data.tiendaNombre} - ${total - filled} vacantes rest.`
+                        });
+                    }
+                });
+            }
+
             if (role === 'store_manager' && storeId) {
                 const selectedQuery = query(
                     collection(db, 'candidates'),
@@ -236,6 +263,7 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
     const rqItems = pendingItems.filter(i => i.type === 'rq_approval');
     const validationItems = pendingItems.filter(i => i.type === 'candidate_validation');
     const ingresoItems = pendingItems.filter(i => i.type === 'ingreso_pending');
+    const slotItems = pendingItems.filter(i => i.type === 'remaining_slots');
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -314,6 +342,20 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                                             ✅ Ingreso ({ingresoItems.length})
                                         </div>
                                         {ingresoItems.slice(0, 5).map(item => (
+                                            <div key={item.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                                                <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                                                <p className="text-xs text-gray-500">{item.subtitle}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {/* Remaining Slots Section */}
+                                {slotItems.length > 0 && (
+                                    <div>
+                                        <div className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-medium">
+                                            🔥 Vacantes abiertas ({slotItems.length})
+                                        </div>
+                                        {slotItems.slice(0, 5).map(item => (
                                             <div key={item.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
                                                 <p className="text-sm font-medium text-gray-900">{item.title}</p>
                                                 <p className="text-xs text-gray-500">{item.subtitle}</p>
