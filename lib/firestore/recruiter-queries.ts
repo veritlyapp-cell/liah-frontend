@@ -1,13 +1,29 @@
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit as firestoreLimit, Timestamp } from 'firebase/firestore';
 import type { Candidate } from './candidates';
 
+// Cache for loaded candidates to avoid redundant queries
+let candidateCache: { marcaId: string; candidates: Candidate[]; timestamp: number } | null = null;
+const CACHE_TTL = 60000; // 1 minute cache
+
 /**
- * Obtener todos los candidatos de una marca (todas las tiendas)
+ * Obtener candidatos de una marca con límite y cache
  */
-export async function getCandidatesByMarca(marcaId: string): Promise<Candidate[]> {
+export async function getCandidatesByMarca(marcaId: string, maxResults: number = 200): Promise<Candidate[]> {
+    // Check cache
+    if (candidateCache &&
+        candidateCache.marcaId === marcaId &&
+        (Date.now() - candidateCache.timestamp) < CACHE_TTL) {
+        console.log('[getCandidatesByMarca] Using cache');
+        return candidateCache.candidates;
+    }
+
+    console.log('[getCandidatesByMarca] Fetching from Firestore...');
     const candidatesRef = collection(db, 'candidates');
-    const snapshot = await getDocs(candidatesRef);
+
+    // Add limit to prevent loading too many documents
+    const q = query(candidatesRef, firestoreLimit(maxResults));
+    const snapshot = await getDocs(q);
 
     // Filtrar candidatos que tienen applications para esta marca
     const candidates = snapshot.docs
@@ -19,7 +35,20 @@ export async function getCandidatesByMarca(marcaId: string): Promise<Candidate[]
             candidate.applications?.some(app => app.marcaId === marcaId)
         );
 
+    // Cache results
+    candidateCache = {
+        marcaId,
+        candidates,
+        timestamp: Date.now()
+    };
+
+    console.log('[getCandidatesByMarca] Loaded:', candidates.length, 'candidates');
     return candidates;
+}
+
+// Clear cache function (call when data changes)
+export function clearCandidateCache() {
+    candidateCache = null;
 }
 
 interface FilterOptions {
@@ -37,7 +66,7 @@ interface FilterOptions {
  * Obtener candidatos con filtros múltiples
  */
 export async function getFilteredCandidates(filters: FilterOptions): Promise<Candidate[]> {
-    // Obtener todos los candidatos de la marca primero
+    // Obtener candidatos de la marca (uses cache)
     let candidates = await getCandidatesByMarca(filters.marcaId);
 
     // Aplicar filtros adicionales
@@ -68,7 +97,7 @@ export async function getFilteredCandidates(filters: FilterOptions): Promise<Can
 }
 
 /**
- * Obtener posiciones únicas de una marca
+ * Obtener posiciones únicas de una marca (uses cached candidates)
  */
 export async function getPositionsByMarca(marcaId: string): Promise<string[]> {
     const candidates = await getCandidatesByMarca(marcaId);
@@ -76,7 +105,7 @@ export async function getPositionsByMarca(marcaId: string): Promise<string[]> {
     const positionsSet = new Set<string>();
     candidates.forEach(candidate => {
         candidate.applications?.forEach(app => {
-            if (app.posicion) {
+            if (app.posicion && app.marcaId === marcaId) {
                 positionsSet.add(app.posicion);
             }
         });
@@ -86,7 +115,7 @@ export async function getPositionsByMarca(marcaId: string): Promise<string[]> {
 }
 
 /**
- * Obtener tiendas únicas de una marca
+ * Obtener tiendas únicas de una marca (uses cached candidates)
  */
 export async function getStoresByMarca(marcaId: string): Promise<Array<{ id: string, nombre: string }>> {
     const candidates = await getCandidatesByMarca(marcaId);
@@ -94,13 +123,13 @@ export async function getStoresByMarca(marcaId: string): Promise<Array<{ id: str
     const storesMap = new Map<string, string>();
     candidates.forEach(candidate => {
         candidate.applications?.forEach(app => {
-            if (app.tiendaId && app.tiendaNombre) {
+            if (app.tiendaId && app.tiendaNombre && app.marcaId === marcaId) {
                 storesMap.set(app.tiendaId, app.tiendaNombre);
             }
         });
     });
 
-    return Array.from(storesMap.entries())
-        .map(([id, nombre]) => ({ id, nombre }))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return Array.from(storesMap, ([id, nombre]) => ({ id, nombre })).sort((a, b) =>
+        a.nombre.localeCompare(b.nombre)
+    );
 }
