@@ -22,7 +22,7 @@ export default function RecruiterDashboard() {
     const [selectedStores, setSelectedStores] = useState<string[]>([]);
     const [selectedPosition, setSelectedPosition] = useState<string>('');
     const [selectedCULStatus, setSelectedCULStatus] = useState<string>('');
-    const [activeTab, setActiveTab] = useState<'candidatos' | 'requerimientos' | 'analitica' | 'configuracion'>('candidatos');
+    const [activeTab, setActiveTab] = useState<'candidatos' | 'requerimientos' | 'analitica' | 'configuracion'>('requerimientos');
 
     // Marcas from user assignment (can be multiple)
     const [marcas, setMarcas] = useState<{ id: string; nombre: string }[]>([]);
@@ -201,15 +201,6 @@ export default function RecruiterDashboard() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex gap-4">
                         <button
-                            onClick={() => setActiveTab('candidatos')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'candidatos'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            👥 Candidatos
-                        </button>
-                        <button
                             onClick={() => setActiveTab('requerimientos')}
                             className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'requerimientos'
                                 ? 'border-violet-600 text-violet-600'
@@ -217,6 +208,15 @@ export default function RecruiterDashboard() {
                                 }`}
                         >
                             📋 Requerimientos
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('candidatos')}
+                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'candidatos'
+                                ? 'border-violet-600 text-violet-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            👥 Candidatos
                         </button>
                         <button
                             onClick={() => setActiveTab('analitica')}

@@ -24,6 +24,7 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [rejecting, setRejecting] = useState<string | null>(null);
     const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
+    const [selectedRQForHistory, setSelectedRQForHistory] = useState<RQ | null>(null);
 
     useEffect(() => {
         loadRQs();
@@ -341,7 +342,16 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                                         {formatDate(rq.createdAt)}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {getApprovalHistory(rq)}
+                                        {rq.approvalChain && rq.approvalChain.length > 0 ? (
+                                            <button
+                                                onClick={() => setSelectedRQForHistory(rq)}
+                                                className="text-violet-600 hover:text-violet-800 text-xs font-medium flex items-center gap-1"
+                                            >
+                                                👁️ Ver Historial ({rq.approvalChain.filter(s => s.status !== 'pending').length})
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs">Sin historial</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
@@ -380,8 +390,73 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                     storeName={selectedRQForInvite.tiendaNombre || ''}
                     marcaId={selectedRQForInvite.marcaId}
                     marcaNombre={selectedRQForInvite.marcaNombre}
-                    initialRQId={selectedRQForInvite.id} // Added initialRQId
+                    initialRQId={selectedRQForInvite.id}
                 />
+            )}
+
+            {/* History Modal */}
+            {selectedRQForHistory && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Historial de Aprobaciones</h3>
+                                <p className="text-xs text-gray-500">RQ: {selectedRQForHistory.rqNumber || selectedRQForHistory.id}</p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedRQForHistory(null)}
+                                className="text-gray-400 hover:text-gray-600 p-2"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="space-y-4">
+                                {selectedRQForHistory.approvalChain?.filter(step => step.status !== 'pending').map((step, idx) => {
+                                    const levelNames = ['', 'Tienda', 'Supervisor', 'Jefe Marca'];
+                                    const statusIcon = step.status === 'approved' ? '✅' : step.status === 'rejected' ? '❌' : '⏳';
+                                    const statusBg = step.status === 'approved' ? 'bg-green-50' : step.status === 'rejected' ? 'bg-red-50' : 'bg-gray-50';
+                                    const statusText = step.status === 'approved' ? 'Aprobado' : step.status === 'rejected' ? 'Rechazado' : 'Pendiente';
+                                    const statusColor = step.status === 'approved' ? 'text-green-700' : step.status === 'rejected' ? 'text-red-700' : 'text-gray-600';
+
+                                    return (
+                                        <div key={idx} className={`p-3 rounded-xl border ${statusBg} border-opacity-50 flex gap-4`}>
+                                            <div className="text-xl">{statusIcon}</div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start">
+                                                    <p className="font-bold text-gray-900">{levelNames[step.level] || `Nivel ${step.level}`}</p>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusBg} ${statusColor}`}>
+                                                        {statusText}
+                                                    </span>
+                                                </div>
+                                                <div className="text-sm text-gray-600 mt-1">
+                                                    {step.approvedByName || 'Usuario'}
+                                                </div>
+                                                <div className="text-xs text-gray-400">
+                                                    {formatDateTime(step.approvedAt)}
+                                                </div>
+                                                {step.rejectionReason && (
+                                                    <div className="mt-2 p-2 bg-white rounded-lg border border-red-100 text-red-600 text-sm italic">
+                                                        "{step.rejectionReason}"
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-8">
+                                <button
+                                    onClick={() => setSelectedRQForHistory(null)}
+                                    className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
             <p className="text-sm text-gray-500 mt-4">
