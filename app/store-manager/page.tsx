@@ -23,7 +23,7 @@ export default function StoreManagerDashboard() {
     const [loadingAssignment, setLoadingAssignment] = useState(true);
     const [showCreateRQModal, setShowCreateRQModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'rqs' | 'candidates' | 'entrevistas' | 'aptos' | 'configuracion' | 'rechazados'>('rqs');
+    const [activeTab, setActiveTab] = useState<'rqs' | 'candidates' | 'entrevistas' | 'aptos' | 'configuracion'>('rqs');
 
     // Load user assignment to get assigned store
     useEffect(() => {
@@ -210,20 +210,6 @@ export default function StoreManagerDashboard() {
                         </span>
                     </button>
                     <button
-                        onClick={() => setActiveTab('rechazados')}
-                        className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'rechazados'
-                            ? 'border-violet-600 text-violet-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        🚫 Rechazados
-                        {stats.rejected > 0 && (
-                            <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">
-                                {stats.rejected}
-                            </span>
-                        )}
-                    </button>
-                    <button
                         onClick={() => setActiveTab('configuracion')}
                         className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'configuracion'
                             ? 'border-violet-600 text-violet-600'
@@ -294,24 +280,6 @@ export default function StoreManagerDashboard() {
                 {activeTab === 'aptos' && (
                     <div>
                         <CandidatosAptosView storeId={STORE_ID} marcaId={MARCA_ID} />
-                    </div>
-                )}
-
-                {activeTab === 'rechazados' && (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-gray-900">Requerimientos Rechazados</h2>
-                        </div>
-                        <RQListView
-                            rqs={rqs}
-                            userRole={userRole}
-                            initialFilter="rechazados"
-                            onDelete={(rqId, reason) => {
-                                if (confirm('¿Eliminar este RQ? Esta acción no se puede deshacer.')) {
-                                    deleteDirectly(rqId, reason);
-                                }
-                            }}
-                        />
                     </div>
                 )}
 

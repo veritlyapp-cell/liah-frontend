@@ -30,7 +30,7 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
     // Form state
     const [selectedPosicion, setSelectedPosicion] = useState('');
     const [selectedTurno, setSelectedTurno] = useState('');
-    const [selectedModalidad, setSelectedModalidad] = useState<'Part Time' | 'Full Time'>('Part Time');
+    const [selectedModalidad, setSelectedModalidad] = useState<'Part Time 19' | 'Part Time 23' | 'Full Time'>('Part Time 23');
     const [numVacantes, setNumVacantes] = useState('1');
     const [motivo, setMotivo] = useState<'Reemplazo' | 'Necesidad de Venta' | ''>('');
 
@@ -135,7 +135,7 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
             // Reset form
             setSelectedPosicion('');
             setSelectedTurno('');
-            setSelectedModalidad('Part Time');
+            setSelectedModalidad('Part Time 23');
             setNumVacantes('1');
             setMotivo('');
             setStep(1);
@@ -245,20 +245,30 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Modalidad <span className="text-red-500">*</span>
                         </label>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <button
-                                onClick={() => selectedProfileData.categoria !== 'gerencial' && setSelectedModalidad('Part Time')}
-                                className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${selectedModalidad === 'Part Time'
+                                onClick={() => selectedProfileData.categoria !== 'gerencial' && setSelectedModalidad('Part Time 19')}
+                                className={`flex-1 py-3 px-3 rounded-lg border-2 font-medium transition-all text-sm ${selectedModalidad === 'Part Time 19'
                                     ? 'border-violet-500 bg-violet-50 text-violet-700'
                                     : 'border-gray-300 bg-white text-gray-700 hover:border-violet-300'
                                     } ${selectedProfileData.categoria === 'gerencial' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 disabled={selectedProfileData.categoria === 'gerencial'}
                             >
-                                Part Time
+                                Part Time 19h
+                            </button>
+                            <button
+                                onClick={() => selectedProfileData.categoria !== 'gerencial' && setSelectedModalidad('Part Time 23')}
+                                className={`flex-1 py-3 px-3 rounded-lg border-2 font-medium transition-all text-sm ${selectedModalidad === 'Part Time 23'
+                                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:border-violet-300'
+                                    } ${selectedProfileData.categoria === 'gerencial' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={selectedProfileData.categoria === 'gerencial'}
+                            >
+                                Part Time 23h
                             </button>
                             <button
                                 onClick={() => setSelectedModalidad('Full Time')}
-                                className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${selectedModalidad === 'Full Time'
+                                className={`flex-1 py-3 px-3 rounded-lg border-2 font-medium transition-all text-sm ${selectedModalidad === 'Full Time'
                                     ? 'border-violet-500 bg-violet-50 text-violet-700'
                                     : 'border-gray-300 bg-white text-gray-700 hover:border-violet-300'
                                     }`}

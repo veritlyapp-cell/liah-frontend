@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { RQ } from '@/lib/firestore/rqs';
-import { bulkApproveRQs } from '@/lib/firestore/rq-approval';
+import { bulkApproveRQs, bulkRejectRQs } from '@/lib/firestore/rq-approval';
 import RQCard from '@/components/RQCard';
 
 interface MarcaPendingRQsViewProps {
@@ -18,6 +18,9 @@ export default function MarcaPendingRQsView({ marcaId, jefeId, jefeNombre }: Mar
     const [selectedRQs, setSelectedRQs] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [approving, setApproving] = useState(false);
+    const [rejecting, setRejecting] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
     const [selectedStore, setSelectedStore] = useState<string>('all');
     const [stores, setStores] = useState<{ id: string, name: string }[]>([]);
 
@@ -118,6 +121,38 @@ export default function MarcaPendingRQsView({ marcaId, jefeId, jefeNombre }: Mar
         }
     }
 
+    async function handleBulkReject() {
+        if (selectedRQs.size === 0 || !rejectReason.trim()) return;
+
+        setRejecting(true);
+        try {
+            const result = await bulkRejectRQs(
+                Array.from(selectedRQs),
+                jefeId,
+                jefeNombre,
+                'jefe_marca',
+                rejectReason
+            );
+
+            if (result.failed.length > 0) {
+                alert(`Rechazados: ${result.rejected}\nFallaron: ${result.failed.length}`);
+            } else {
+                alert(`❌ ${result.rejected} RQ(s) rechazados`);
+            }
+
+            // Reset and reload
+            setSelectedRQs(new Set());
+            setShowRejectModal(false);
+            setRejectReason('');
+            await loadPendingRQs();
+        } catch (error) {
+            console.error('Error rejecting RQs:', error);
+            alert('Error al rechazar RQs. Intenta nuevamente.');
+        } finally {
+            setRejecting(false);
+        }
+    }
+
     // Filter by selected store
     const filteredRQs = selectedStore === 'all'
         ? rqs
@@ -173,6 +208,15 @@ export default function MarcaPendingRQsView({ marcaId, jefeId, jefeNombre }: Mar
                 >
                     {approving ? 'Aprobando...' : `✅ Aprobar ${selectedRQs.size} RQ(s)`}
                 </button>
+
+                {/* Bulk Reject Button */}
+                <button
+                    onClick={() => setShowRejectModal(true)}
+                    disabled={selectedRQs.size === 0}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    ❌ Rechazar {selectedRQs.size} RQ(s)
+                </button>
             </div>
 
             {/* RQs List */}
@@ -200,6 +244,37 @@ export default function MarcaPendingRQsView({ marcaId, jefeId, jefeNombre }: Mar
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Reject Reason Modal */}
+            {showRejectModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Motivo del Rechazo</h3>
+                        <textarea
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="Escribe el motivo del rechazo..."
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            rows={4}
+                        />
+                        <div className="flex gap-3 mt-4">
+                            <button
+                                onClick={() => { setShowRejectModal(false); setRejectReason(''); }}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleBulkReject}
+                                disabled={!rejectReason.trim() || rejecting}
+                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {rejecting ? 'Rechazando...' : 'Confirmar Rechazo'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

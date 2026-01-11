@@ -166,9 +166,14 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         if (candidate.selectionStatus === 'selected') {
             const selectedForApp = candidate.applications?.find(app => app.rqId === candidate.selectedForRQ);
 
-            // Check if selected in the same brand
-            if (selectedForApp?.marcaId === latestApp?.marcaId) {
-                alert(`❌ Este candidato ya fue SELECCIONADO para:\n\n🏪 Tienda: ${selectedForApp?.tiendaNombre}\n📋 Posición: ${selectedForApp?.posicion}\n\nNo es posible seleccionarlo para otra posición en la misma marca.`);
+            // Check if selected in the same store (different RQ)
+            if (selectedForApp?.tiendaId === latestApp?.tiendaId) {
+                alert(`❌ Este candidato ya fue SELECCIONADO para otro RQ en esta misma tienda:\n\n📋 Posición: ${selectedForApp?.posicion}\n📝 RQ: ${selectedForApp?.rqId}\n\nNo es posible seleccionarlo para otra posición en la misma tienda.`);
+                return;
+            }
+            // Check if selected in same brand but different store
+            else if (selectedForApp?.marcaId === latestApp?.marcaId) {
+                alert(`❌ Este candidato ya fue SELECCIONADO en otra tienda de esta marca:\n\n🏪 Tienda: ${selectedForApp?.tiendaNombre}\n📋 Posición: ${selectedForApp?.posicion}\n\nNo es posible seleccionarlo para otra posición en la misma marca.`);
                 return;
             } else {
                 // Selected in different brand - show warning
