@@ -192,7 +192,10 @@ export default function RQListView({
                         >
                             <option value="todos">Categoría: Todos</option>
                             <option value="operativo">👷 Operativos</option>
-                            <option value="gerencial">👔 Gerenciales</option>
+                            {/* Only show Gerenciales for non-store_manager roles */}
+                            {userRole !== 'store_manager' && (
+                                <option value="gerencial">👔 Gerenciales</option>
+                            )}
                         </select>
                     )}
                 </div>

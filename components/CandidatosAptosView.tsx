@@ -155,7 +155,12 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                             const aptoApp = candidate.applications?.find(app => (app.tiendaId === storeId || app.marcaId === marcaId) && app.status === 'approved');
                             if (!aptoApp) return null;
 
+                            // Enable buttons if:
+                            // 1. Candidate was selected by Recruiter for this RQ, OR
+                            // 2. Candidate was approved with a priority (principal/backup) by Store Manager
                             const isSelectedByRecruiter = candidate.selectionStatus === 'selected' && candidate.selectedForRQ === aptoApp.rqId;
+                            const hasApprovedPriority = aptoApp.priority === 'principal' || aptoApp.priority === 'backup';
+                            const canConfirmIngreso = isSelectedByRecruiter || hasApprovedPriority;
                             const fullName = `${candidate.nombre} ${candidate.apellidoPaterno} ${candidate.apellidoMaterno}`;
 
                             return (
@@ -191,16 +196,16 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                 {aptoApp.turno && <div><span className="font-medium">Turno:</span> {aptoApp.turno}</div>}
                                             </div>
 
-                                            {!isSelectedByRecruiter && (
+                                            {!canConfirmIngreso && (
                                                 <p className="mt-2 text-xs text-amber-600 font-medium">
-                                                    📌 Los botones se habilitarán una vez que el Recruiter confirme la selección final.
+                                                    📌 Aprueba al candidato con prioridad (Principal/Backup) para habilitar los botones.
                                                 </p>
                                             )}
                                         </div>
 
                                         <div className="flex flex-col gap-2 ml-4">
                                             <button
-                                                disabled={!isSelectedByRecruiter}
+                                                disabled={!canConfirmIngreso}
                                                 onClick={() => {
                                                     setSelectedCandidate({
                                                         id: candidate.id,
@@ -209,7 +214,7 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                     });
                                                     setShowDatePicker(true);
                                                 }}
-                                                className={`px-4 py-2 rounded font-medium transition-colors text-sm ${isSelectedByRecruiter
+                                                className={`px-4 py-2 rounded font-medium transition-colors text-sm ${canConfirmIngreso
                                                     ? 'bg-green-600 text-white hover:bg-green-700'
                                                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                                     }`}
@@ -217,9 +222,9 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                 ✅ Confirmar Ingreso
                                             </button>
                                             <button
-                                                disabled={!isSelectedByRecruiter}
+                                                disabled={!canConfirmIngreso}
                                                 onClick={() => handleMarkNotHired(candidate.id, aptoApp.id)}
-                                                className={`px-4 py-2 rounded font-medium transition-colors text-sm ${isSelectedByRecruiter
+                                                className={`px-4 py-2 rounded font-medium transition-colors text-sm ${canConfirmIngreso
                                                     ? 'bg-gray-600 text-white hover:bg-gray-700'
                                                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                                     }`}
