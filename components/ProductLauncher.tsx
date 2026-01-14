@@ -70,7 +70,7 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
             description: 'Reclutamiento Masivo',
             icon: '🚀',
             color: 'from-orange-500 to-red-500',
-            path: '/dashboard',
+            path: '/admin',  // Fixed: was /dashboard which doesn't exist
             enabled: hasFlow
         },
         {
