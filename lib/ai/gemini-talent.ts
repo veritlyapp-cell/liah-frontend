@@ -13,7 +13,7 @@ let talentAI: GoogleGenerativeAI | null = null;
  */
 export function getTalentAI(): GoogleGenerativeAI {
     if (!talentAI) {
-        const apiKey = process.env.GEMINI_API_KEY_TALENT || process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY_TALENT || process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
             throw new Error('GEMINI_API_KEY_TALENT is not configured');
