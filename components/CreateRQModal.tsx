@@ -236,6 +236,7 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                                 <option value="Mañana">Mañana</option>
                                 <option value="Tarde">Tarde</option>
                                 <option value="Noche">Noche</option>
+                                <option value="Rotativo">Rotativo</option>
                             </select>
                         </div>
                     )}

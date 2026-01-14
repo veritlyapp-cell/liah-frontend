@@ -1,0 +1,42 @@
+⚠ `eslint` configuration in next.config.js is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.js options detected: 
+⚠     Unrecognized key(s) in object: 'turbo' at "experimental"
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\oscar\Bot_Whatsapp\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\oscar\Bot_Whatsapp\lia-frontend\package-lock.json
+
+▲ Next.js 16.1.0 (webpack)
+- Environments: .env.local
+- Experiments (use with caution):
+  ? turbo (invalid experimental key)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.4s
+  Skipping validation of types
+  Collecting page data using 15 workers ...
+[INFO] [BOT] 🤖 Gemini initialized with model: gemini-2.5-flash
+  Generating static pages using 15 workers (0/19) ...
+[INFO] [BOT] 🤖 Gemini initialized with model: gemini-2.5-flash
+Error occurred prerendering page "/_not-found". Read more: https://nextjs.org/docs/messages/prerender-error
+Error [FirebaseError]: Firebase: Error (auth/invalid-api-key).
+    at r (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:40867)
+    at s (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:40915)
+    at e.instanceFactory (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:93944)
+    at g.getOrInitializeService (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:162765)
+    at g.initialize (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:162173)
+    at aO (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:78831)
+    at bF (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\31.js:1:94613)
+    at 15233 (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\3868.js:1:3619)
+    at k (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\webpack-runtime.js:1:144)
+    at 9838 (C:\Users\oscar\Bot_Whatsapp\lia-frontend\.next\server\chunks\3868.js:1:156) {
+  code: 'auth/invalid-api-key',
+  customData: [Object],
+  digest: '227591736'
+}
+Export encountered an error on /_not-found/page: /_not-found, exiting the build.
+⨯ Next.js build worker exited with code: 1 and signal: null

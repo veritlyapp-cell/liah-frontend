@@ -24,6 +24,12 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
     const [analyzingCUL, setAnalyzingCUL] = useState(false);
     const [analyzingDNI, setAnalyzingDNI] = useState(false);
     const [aiResult, setAiResult] = useState<any>(null);
+    const [localCandidate, setLocalCandidate] = useState<Candidate>(candidate);
+
+    // Keep localCandidate in sync if props change
+    useEffect(() => {
+        setLocalCandidate(candidate);
+    }, [candidate]);
 
     // Blacklist state
     const [showBlacklistModal, setShowBlacklistModal] = useState(false);
@@ -55,6 +61,13 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
                     const alreadyApplied = candidate.applications?.some(app => app.rqId === r.id);
 
+                    // NEW: Filter by category for Store Managers
+                    if ((claims as any)?.role === 'store_manager') {
+                        if (r.categoria === 'gerencial') return false;
+                        const lowerPos = r.posicion.toLowerCase();
+                        if (lowerPos.includes('gerente') || lowerPos.includes('asistente de tienda')) return false;
+                    }
+
                     return isAvailable && !alreadyApplied;
                 });
 
@@ -66,7 +79,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             }
         }
         fetchRQs();
-    }, [candidate]);
+    }, [localCandidate]);
 
     async function handleApprove(applicationId: string) {
         if (!user) return;
@@ -150,29 +163,30 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
     }
 
     // Check for re-entry status
-    const { isReentry, lastHire } = hasHireHistory(candidate.applications || []);
+    const { isReentry, lastHire } = hasHireHistory(localCandidate.applications || []);
 
 
     // NEW: Select candidate for the position (sends email notification)
-    async function handleSelectCandidate() {
-        if (!user || !candidate.email) {
+    async function handleSelectCandidate(applicationId: string) {
+        if (!user || !localCandidate.email) {
             alert('Este candidato no tiene email registrado');
             return;
         }
 
-        const latestApp = candidate.applications?.[candidate.applications.length - 1];
+        const appToSelect = localCandidate.applications?.find(app => app.id === applicationId);
+        if (!appToSelect) return;
 
         // Check if candidate is already selected for another RQ
-        if (candidate.selectionStatus === 'selected') {
-            const selectedForApp = candidate.applications?.find(app => app.rqId === candidate.selectedForRQ);
+        if (localCandidate.selectionStatus === 'selected') {
+            const selectedForApp = localCandidate.applications?.find(app => app.rqId === localCandidate.selectedForRQ);
 
             // Check if selected in the same store (different RQ)
-            if (selectedForApp?.tiendaId === latestApp?.tiendaId) {
+            if (selectedForApp?.tiendaId === appToSelect.tiendaId) {
                 alert(`❌ Este candidato ya fue SELECCIONADO para otro RQ en esta misma tienda:\n\n📋 Posición: ${selectedForApp?.posicion}\n📝 RQ: ${selectedForApp?.rqId}\n\nNo es posible seleccionarlo para otra posición en la misma tienda.`);
                 return;
             }
             // Check if selected in same brand but different store
-            else if (selectedForApp?.marcaId === latestApp?.marcaId) {
+            else if (selectedForApp?.marcaId === appToSelect.marcaId) {
                 alert(`❌ Este candidato ya fue SELECCIONADO en otra tienda de esta marca:\n\n🏪 Tienda: ${selectedForApp?.tiendaNombre}\n📋 Posición: ${selectedForApp?.posicion}\n\nNo es posible seleccionarlo para otra posición en la misma marca.`);
                 return;
             } else {
@@ -190,45 +204,47 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         }
 
         // Verify CUL is approved first
-        if (candidate.culStatus !== 'apto') {
+        if (localCandidate.culStatus !== 'apto') {
             const proceed = window.confirm('⚠️ El CUL de este candidato no está marcado como Apto.\n\n¿Deseas seleccionarlo de todas formas?');
             if (!proceed) return;
         }
 
         setProcessing(true);
         try {
-            const latestApp = candidate.applications?.[candidate.applications.length - 1];
-
             // Send selection email
             await fetch('/api/send-selection-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    candidateEmail: candidate.email,
-                    candidateName: candidate.nombre,
-                    posicion: latestApp?.posicion,
-                    marcaNombre: latestApp?.marcaNombre
+                    candidateEmail: localCandidate.email,
+                    candidateName: localCandidate.nombre,
+                    posicion: appToSelect.posicion,
+                    marcaNombre: appToSelect.marcaNombre
                 })
             });
 
-            // Update candidate status and its applications
-            // const { updateDoc, doc } = await import('firebase/firestore'); // Removed dynamic imports
-            // const { db } = await import('@/lib/firebase');
-
-            const updatedApplications = candidate.applications?.map(app => {
-                if (app.id === latestApp?.id) {
+            const updatedApplications = localCandidate.applications?.map(app => {
+                if (app.id === appToSelect.id) {
                     return { ...app, status: 'selected' as const, selectedAt: new Date(), selectedBy: user.uid };
                 }
                 return app;
             }) || [];
 
-            await updateDoc(doc(db, 'candidates', candidate.id), {
-                selectionStatus: 'selected',
+            const updateData = {
+                selectionStatus: 'selected' as const,
                 selectedAt: new Date(),
                 selectedBy: user.uid,
-                selectedForRQ: latestApp?.rqId,
+                selectedForRQ: appToSelect.rqId,
                 applications: updatedApplications
-            });
+            };
+
+            await updateDoc(doc(db, 'candidates', localCandidate.id), updateData);
+
+            // Update local state immediately
+            setLocalCandidate(prev => ({
+                ...prev,
+                ...updateData
+            }));
 
             alert('🎉 Candidato SELECCIONADO. Se ha enviado el correo de notificación.');
             onRefresh();
@@ -290,7 +306,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
 
     async function handleAnalyzeCUL() {
-        const culUrl = candidate.certificadoUnicoLaboral || candidate.documents?.cul;
+        const culUrl = localCandidate.certificadoUnicoLaboral || localCandidate.documents?.cul;
         if (!culUrl) {
             alert('No hay CUL subido para analizar');
             return;
@@ -304,8 +320,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 body: JSON.stringify({
                     documentType: 'cul',
                     documentUrl: culUrl,
-                    candidateId: candidate.id,
-                    candidateDni: candidate.dni // [NEW] For DNI verification
+                    candidateId: localCandidate.id,
+                    candidateDni: localCandidate.dni // [NEW] For DNI verification
                 })
 
             });
@@ -336,7 +352,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
     async function handleAnalyzeDNI() {
         // First check if there's a DNI document
-        const dniUrl = candidate.documents?.dni || (candidate as any).documentoDNI;
+        const dniUrl = localCandidate.documents?.dni || (localCandidate as any).documentoDNI;
         if (!dniUrl) {
             alert('No hay imagen de DNI subida para analizar');
             return;
@@ -350,7 +366,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 body: JSON.stringify({
                     documentType: 'dni',
                     documentUrl: dniUrl,
-                    candidateId: candidate.id
+                    candidateId: localCandidate.id
                 })
             });
 
@@ -362,7 +378,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    candidateId: candidate.id,
+                    candidateId: localCandidate.id,
                     updateType: 'dni_verification',
                     data: data.extractedData
                 })
@@ -378,8 +394,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         }
     }
 
-    const latestApp = candidate.applications && candidate.applications.length > 0
-        ? candidate.applications[candidate.applications.length - 1]
+    const latestApp = localCandidate.applications && localCandidate.applications.length > 0
+        ? localCandidate.applications[localCandidate.applications.length - 1]
         : null;
 
     return (
@@ -433,7 +449,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             <div>
                                 <label className="text-sm text-gray-500">Nombre Completo</label>
                                 <p className="font-medium text-gray-900">
-                                    {candidate.nombre} {candidate.apellidoPaterno} {candidate.apellidoMaterno}
+                                    {localCandidate.nombre} {localCandidate.apellidoPaterno} {localCandidate.apellidoMaterno}
                                 </p>
                             </div>
                             <div>
@@ -455,8 +471,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     )}
                                 </label>
                                 <div className="flex items-center gap-2">
-                                    <p className="font-medium text-gray-900">{candidate.dni}</p>
-                                    {candidate.documents?.dni && !(candidate as any).dniVerified && (
+                                    <p className="font-medium text-gray-900">{localCandidate.dni}</p>
+                                    {localCandidate.documents?.dni && !(localCandidate as any).dniVerified && (
                                         <button
                                             onClick={handleAnalyzeDNI}
                                             disabled={analyzingDNI}
@@ -481,6 +497,22 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     {candidate.distrito}, {candidate.provincia}, {candidate.departamento}
                                 </p>
                             </div>
+                            <div>
+                                <label className="text-sm text-gray-500">Fecha de Nacimiento</label>
+                                <p className="font-medium text-gray-900">
+                                    {localCandidate.fechaNacimiento ? (
+                                        localCandidate.fechaNacimiento.includes('-')
+                                            ? localCandidate.fechaNacimiento.split('-').reverse().join('/')
+                                            : localCandidate.fechaNacimiento
+                                    ) : 'No especificada'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="text-sm text-gray-500">Edad</label>
+                                <p className="font-medium text-gray-900">
+                                    {localCandidate.edad ? `${localCandidate.edad} años` : 'No calculada'}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -491,17 +523,17 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">Estado de CUL (Global)</p>
                                 <div className="flex flex-col gap-1">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-medium w-fit ${candidate.culStatus === 'apto' ? 'bg-green-100 text-green-800 border border-green-200' :
-                                        candidate.culStatus === 'no_apto' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                            candidate.culStatus === 'manual_review' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium w-fit ${localCandidate.culStatus === 'apto' ? 'bg-green-100 text-green-800 border border-green-200' :
+                                        localCandidate.culStatus === 'no_apto' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                            localCandidate.culStatus === 'manual_review' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
                                                 'bg-gray-100 text-gray-800'
                                         }`}>
-                                        {candidate.culStatus === 'apto' ? '✓ CUL Verificado (Apto)' :
-                                            candidate.culStatus === 'no_apto' ? '✗ CUL Verificado (No Apto)' :
-                                                candidate.culStatus === 'manual_review' ? '⚠ Revisión Manual' :
+                                        {localCandidate.culStatus === 'apto' ? '✓ CUL Verificado (Apto)' :
+                                            localCandidate.culStatus === 'no_apto' ? '✗ CUL Verificado (No Apto)' :
+                                                localCandidate.culStatus === 'manual_review' ? '⚠ Revisión Manual' :
                                                     '⌛ Pendiente de Validación'}
                                     </span>
-                                    {candidate.culCheckedBy && (
+                                    {localCandidate.culCheckedBy && (
                                         <p className="text-xs text-blue-600 font-medium italic">
                                             ℹ️ Este CUL ya fue validado por un reclutador anteriormente.
                                         </p>
@@ -527,21 +559,25 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
 
                         {/* AI Result Display */}
-                        {aiResult && aiResult.documentType === 'cul' && (
+                        {(aiResult || localCandidate.culAiObservation) && (
                             <div className="mb-4 p-4 bg-violet-50 border border-violet-200 rounded-xl">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="text-lg">🤖</span>
                                     <p className="font-medium text-violet-900">Resultado del Análisis IA</p>
-                                    <span className="text-xs bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full">
-                                        {aiResult.confidence}% confianza
-                                    </span>
+                                    {(aiResult?.confidence || (localCandidate as any).culConfidence) && (
+                                        <span className="text-xs bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full">
+                                            {aiResult?.confidence || (localCandidate as any).culConfidence}% confianza
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="text-sm text-violet-800">{aiResult.aiObservation}</p>
-                                {aiResult.denunciasEncontradas?.length > 0 && (
+                                <p className="text-sm text-violet-800">
+                                    {aiResult?.aiObservation || localCandidate.culAiObservation}
+                                </p>
+                                {(aiResult?.denunciasEncontradas?.length > 0 || (localCandidate as any).culDenunciasEncontradas?.length > 0) && (
                                     <div className="mt-2 p-2 bg-red-50 rounded">
-                                        <p className="text-sm font-medium text-red-800">⚠️ Denuncias detectadas:</p>
+                                        <p className="text-sm font-medium text-red-800">⚠️ Hallazgos detectados:</p>
                                         <ul className="list-disc list-inside text-sm text-red-700">
-                                            {aiResult.denunciasEncontradas.map((d: string, i: number) => (
+                                            {(aiResult?.denunciasEncontradas || (localCandidate as any).culDenunciasEncontradas || []).map((d: string, i: number) => (
                                                 <li key={i}>{d}</li>
                                             ))}
                                         </ul>
@@ -585,7 +621,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             Postulaciones ({(() => {
                                 // Deduplicate by rqId, keeping most recent per RQ
                                 const appsMap = new Map();
-                                candidate.applications?.forEach(app => {
+                                localCandidate.applications?.forEach(app => {
                                     const key = app.rqId || `${app.tiendaId}-${app.posicion}`;
                                     const existing = appsMap.get(key);
                                     if (!existing || (app.appliedAt?.toDate?.() || app.appliedAt) > (existing.appliedAt?.toDate?.() || existing.appliedAt)) {
@@ -599,7 +635,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             {(() => {
                                 // Deduplicate by rqId, keeping most recent per RQ
                                 const appsMap = new Map();
-                                candidate.applications?.forEach(app => {
+                                localCandidate.applications?.forEach(app => {
                                     const key = app.rqId || `${app.tiendaId}-${app.posicion}`;
                                     const existing = appsMap.get(key);
                                     if (!existing || (app.appliedAt?.toDate?.() || app.appliedAt) > (existing.appliedAt?.toDate?.() || existing.appliedAt)) {
@@ -638,24 +674,26 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     </div>
 
                                     {/* Application Actions */}
-                                    {app.status === 'completed' && (
+                                    {(app.status === 'completed' || app.status === 'approved') && (
                                         <div className="flex gap-2">
                                             {(claims?.role === 'recruiter' || claims?.role === 'brand_recruiter' || claims?.role === 'supervisor' || claims?.role === 'jefe_marca' || claims?.role === 'super_admin' || claims?.role === 'client_admin') ? (
                                                 <button
-                                                    onClick={handleSelectCandidate}
+                                                    onClick={() => handleSelectCandidate(app.id)}
                                                     disabled={processing}
                                                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
                                                 >
                                                     <span>🎯</span> Seleccionar para esta posición
                                                 </button>
                                             ) : (
-                                                <button
-                                                    onClick={() => handleApprove(app.id)}
-                                                    disabled={processing}
-                                                    className="flex-1 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
-                                                >
-                                                    <span>✓</span> Aprobar para esta posición
-                                                </button>
+                                                app.status === 'completed' && (
+                                                    <button
+                                                        onClick={() => handleApprove(app.id)}
+                                                        disabled={processing}
+                                                        className="flex-1 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium hover:bg-green-600 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                                                    >
+                                                        <span>✓</span> Aprobar para esta posición
+                                                    </button>
+                                                )
                                             )}
                                             <button
                                                 onClick={() => setShowRejectReason(!showRejectReason)}
@@ -668,7 +706,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                     )}
 
                                     {/* Rejection Reason Input */}
-                                    {showRejectReason && app.status === 'completed' && (
+                                    {showRejectReason && (app.status === 'completed' || app.status === 'approved') && (
                                         <div className="mt-3">
                                             <textarea
                                                 value={rejectionReason}
@@ -762,7 +800,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                             🚫 Agregar a Lista Negra
                         </h3>
                         <p className="text-gray-600 mb-4">
-                            Estás por agregar a <strong>{candidate.nombre} {candidate.apellidoPaterno}</strong> (DNI: <strong>{candidate.dni}</strong>) a la lista negra.
+                            Estás por agregar a <strong>{localCandidate.nombre} {localCandidate.apellidoPaterno}</strong> (DNI: <strong>{localCandidate.dni}</strong>) a la lista negra.
                         </p>
                         <p className="text-sm text-red-600 mb-4">
                             ⚠️ Esta acción bloqueará a esta persona de postular nuevamente a cualquier posición.

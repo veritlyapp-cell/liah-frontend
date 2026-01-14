@@ -63,31 +63,8 @@ export default function StoreManagerLayout({
         <div className="min-h-screen bg-gray-50">
             {/* Mobile-First Layout */}
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-                    <div className="px-4 py-4 flex items-center justify-between">
-                        <Logo size="sm" />
-
-                        <div className="flex items-center gap-3">
-                            <div className="text-right">
-                                <p className="text-sm font-medium text-gray-900">{user?.displayName || user?.email || 'Usuario'}</p>
-                                <p className="text-xs text-gray-500">Gerente de Tienda</p>
-                            </div>
-
-                            <button
-                                onClick={() => { }}
-                                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                            >
-                                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </header>
-
                 {/* Main Content */}
-                <main className="p-4 pb-20">
+                <main className="p-0 pb-20">
                     {children}
                 </main>
 

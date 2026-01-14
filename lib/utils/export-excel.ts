@@ -2,6 +2,35 @@ import * as XLSX from 'xlsx';
 import type { Candidate } from '@/lib/firestore/candidates';
 
 /**
+ * Helper to calculate age from birth date string (DD/MM/YYYY or YYYY-MM-DD)
+ */
+function calculateAge(birthDateStr: string | undefined): string {
+    if (!birthDateStr) return '';
+    try {
+        let birthDate: Date;
+        if (birthDateStr.includes('/')) {
+            const [day, month, year] = birthDateStr.split('/').map(Number);
+            birthDate = new Date(year, month - 1, day);
+        } else if (birthDateStr.includes('-')) {
+            const [year, month, day] = birthDateStr.split('-').map(Number);
+            birthDate = new Date(year, month - 1, day);
+        } else {
+            return '';
+        }
+
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age.toString();
+    } catch (e) {
+        return '';
+    }
+}
+
+/**
  * Generic function to export data to Excel
  */
 export function exportToExcel(data: any[], headers: string[], filename: string) {
@@ -40,9 +69,8 @@ export function exportAptosExcel(candidates: Candidate[], filename?: string) {
                 'Apellidos y Nombres': `${candidate.apellidoPaterno || ''} ${candidate.apellidoMaterno || ''} ${candidate.nombre || ''}`.trim(),
                 'DNI': candidate.dni || '',
                 'Fecha Nacimiento': candidate.fechaNacimiento || '',
-                'Edad': candidate.edad || '',
+                'Edad': candidate.edad || calculateAge(candidate.fechaNacimiento),
                 'Dirección': `${candidate.direccion || ''}, ${candidate.distrito || ''}, ${candidate.provincia || ''}`.trim(),
-                'Celular': candidate.telefono || '',
                 'Correo': candidate.email || ''
             }));
     });
@@ -76,7 +104,7 @@ export function exportAllCandidatesExcel(candidates: Candidate[], filename?: str
             'Nombre Completo': `${candidate.nombre || ''} ${candidate.apellidoPaterno || ''} ${candidate.apellidoMaterno || ''}`.trim(),
             'DNI': candidate.dni || '',
             'Fecha Nacimiento': candidate.fechaNacimiento || '',
-            'Edad': candidate.edad || '',
+            'Edad': candidate.edad || calculateAge(candidate.fechaNacimiento),
             'Email': candidate.email || '',
             'Teléfono': candidate.telefono || '',
             'Distrito': candidate.distrito || '',

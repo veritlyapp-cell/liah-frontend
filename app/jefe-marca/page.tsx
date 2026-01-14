@@ -9,11 +9,12 @@ import MarcaPendingRQsView from '@/components/jefe-marca/MarcaPendingRQsView';
 import MarcaApprovedRQsView from '@/components/jefe-marca/MarcaApprovedRQsView';
 import DashboardHeader from '@/components/DashboardHeader';
 import CandidatesListView from '@/components/CandidatesListView';
+import ConfigurationView from '@/components/ConfigurationView';
 
 export default function JefeMarcaDashboard() {
     const { user } = useAuth();
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
-    const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'candidates'>('pending');
+    const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'candidates' | 'configuracion'>('pending');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -67,65 +68,72 @@ export default function JefeMarcaDashboard() {
                 holdingId={assignment.holdingId}
                 marcaId={marcaId}
                 marcaName={marcaNombre}
+                onConfigClick={() => setActiveTab('configuracion')}
             />
 
             {/* Content Container */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {/* Stats Cards */}
-                <MarcaStatsCards marcaId={marcaId} />
+                {/* Stats Cards - Hide if in config */}
+                {activeTab !== 'configuracion' && <MarcaStatsCards marcaId={marcaId} />}
 
-                {/* Tabs */}
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-8">
-                    <div className="border-b border-gray-200">
-                        <nav className="flex -mb-px">
-                            <button
-                                onClick={() => setActiveTab('pending')}
-                                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                ⏳ RQs Pendientes
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('approved')}
-                                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'approved'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                ✅ RQs Aprobados
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('candidates')}
-                                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'candidates'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                👥 Candidatos
-                            </button>
-                        </nav>
-                    </div>
+                {/* Content */}
+                {activeTab !== 'configuracion' ? (
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-8">
+                        <div className="border-b border-gray-200">
+                            <nav className="flex -mb-px">
+                                <button
+                                    onClick={() => setActiveTab('pending')}
+                                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending'
+                                        ? 'border-violet-600 text-violet-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                >
+                                    ⏳ RQs Pendientes
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('approved')}
+                                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'approved'
+                                        ? 'border-violet-600 text-violet-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                >
+                                    ✅ RQs Aprobados
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('candidates')}
+                                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'candidates'
+                                        ? 'border-violet-600 text-violet-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                >
+                                    👥 Candidatos
+                                </button>
+                            </nav>
+                        </div>
 
-                    <div className="p-6">
-                        {activeTab === 'pending' && (
-                            <MarcaPendingRQsView
-                                marcaId={marcaId}
-                                jefeId={user?.uid || ''}
-                                jefeNombre={assignment.displayName}
-                            />
-                        )}
-                        {activeTab === 'approved' && (
-                            <MarcaApprovedRQsView marcaId={marcaId} />
-                        )}
-                        {activeTab === 'candidates' && (
-                            <div className="space-y-6">
-                                <CandidatesListView marcaId={marcaId} />
-                            </div>
-                        )}
+                        <div className="p-6">
+                            {activeTab === 'pending' && (
+                                <MarcaPendingRQsView
+                                    marcaId={marcaId}
+                                    jefeId={user?.uid || ''}
+                                    jefeNombre={assignment.displayName}
+                                />
+                            )}
+                            {activeTab === 'approved' && (
+                                <MarcaApprovedRQsView marcaId={marcaId} />
+                            )}
+                            {activeTab === 'candidates' && (
+                                <div className="space-y-6">
+                                    <CandidatesListView marcaId={marcaId} />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="mt-8">
+                        <ConfigurationView />
+                    </div>
+                )}
             </div>
         </div>
     );

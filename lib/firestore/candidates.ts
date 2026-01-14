@@ -137,6 +137,10 @@ export interface Candidate {
     // Source tracking (para diferenciar RQ Only vs Bot)
     source: 'manual_form' | 'bot_whatsapp' | 'email_invitation';
     botConversationId?: string;
+    culAiObservation?: string;
+    culDenunciasEncontradas?: string[];
+    culConfidence?: number;
+    culValidatedAt?: any;
 
     // Tracking completo
     assignments: CandidateAssignment[];  // Asignaciones a RQs
@@ -252,6 +256,8 @@ export async function createCandidate(data: {
     direccion: string;
     certificadoUnicoLaboral?: string;
     documents?: Record<string, string>;
+    fechaNacimiento?: string;
+    edad?: number;
 }): Promise<string> {
     const candidatesRef = collection(db, 'candidates');
     const now = Timestamp.now();
@@ -272,7 +278,9 @@ export async function createCandidate(data: {
         distrito,
         direccion,
         certificadoUnicoLaboral,
-        documents
+        documents,
+        fechaNacimiento,
+        edad
     } = data;
 
     const candidateData: Partial<Candidate> = {
@@ -289,6 +297,8 @@ export async function createCandidate(data: {
         direccion,
         candidateCode,
         documents,
+        fechaNacimiento,
+        edad,
         source: 'email_invitation', // Nuevo flujo con invitaciones
         culStatus: 'pending', // Requiere revisión manual
         hasAccount: false, // Sin login inicialmente

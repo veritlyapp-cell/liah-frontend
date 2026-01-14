@@ -39,6 +39,25 @@ export async function POST(req: NextRequest) {
                 dniVerifiedAt: Timestamp.now(),
                 dniExtractedData: data
             };
+
+            // Calculate age if fechaNacimiento is present (DD/MM/AAAA)
+            if (data.fechaNacimiento && data.fechaNacimiento.includes('/')) {
+                try {
+                    const [day, month, year] = data.fechaNacimiento.split('/').map(Number);
+                    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                        const birthDate = new Date(year, month - 1, day);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                            age--;
+                        }
+                        updateData.edad = age;
+                    }
+                } catch (e) {
+                    console.warn('[CANDIDATE UPDATE] Failed to calculate age from:', data.fechaNacimiento);
+                }
+            }
             console.log(`[CANDIDATE UPDATE] DNI verification for ${candidateId}`);
 
         } else if (updateType === 'cul_validation' && data) {

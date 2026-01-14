@@ -41,6 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Helper function to get role from Firestore
     async function getRoleFromFirestore(userId: string): Promise<UserClaims | null> {
         try {
+            if (!db) {
+                console.error('❌ Firestore not initialized');
+                return null;
+            }
             const assignmentsRef = collection(db, 'userAssignments');
             // Search by userId only, then check active status in code (supports both 'active' and 'isActive' fields)
             const q = query(assignmentsRef, where('userId', '==', userId));
@@ -74,6 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     useEffect(() => {
+        if (!auth) {
+            console.error('❌ Firebase Auth not initialized. Check your environment variables.');
+            setLoading(false);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUser(user);
 
@@ -104,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signIn = async (email: string, password: string) => {
+        if (!auth) throw new Error('Firebase Auth no está inicializado');
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const idTokenResult = await userCredential.user.getIdTokenResult();
@@ -169,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signOut = async () => {
+        if (!auth) return;
         try {
             await firebaseSignOut(auth);
             router.push('/login');

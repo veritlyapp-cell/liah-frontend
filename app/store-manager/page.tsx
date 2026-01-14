@@ -300,6 +300,7 @@ export default function StoreManagerDashboard() {
                 storeName={STORE_NAME}
                 marcaId={MARCA_ID}
                 marcaNombre={marcaNombre}
+                userRole={userRole}
             />
         </div >
     );

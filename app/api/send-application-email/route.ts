@@ -5,9 +5,8 @@ import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-
 export const dynamic = 'force-dynamic';
 
 // Initialize Resend - will use RESEND_API_KEY env variable
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: Request) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     try {
         // Rate limiting check
         const clientIP = getClientIP(request);

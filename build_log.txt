@@ -1,0 +1,36 @@
+
+> liah-frontend@0.1.0 build
+> next build
+
+⚠ `eslint` configuration in next.config.js is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.js options detected: 
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\oscar\Bot_Whatsapp\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\oscar\Bot_Whatsapp\lia-frontend\package-lock.json
+
+▲ Next.js 16.1.0 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to C:\Users\oscar\AppData\Local\Temp\next-panic-c275531da9c7eb329cb720b12bcb2483.log.
+
+To help make Turbopack better, report this error by ]8;;https://github.com/vercel/next.js/discussions/new?category=turbopack-error-report&title=Turbopack%20Error%3A%20create%20symlink%20to%20..%2F..%2F..%2Flia-frontend%2Fnode_modules%2Ffirebase-admin&body=Turbopack%20version%3A%20%60ea1df5f2%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0Acreate%20symlink%20to%20..%2F..%2F..%2Flia-frontend%2Fnode_modules%2Ffirebase-admin%0A%0ACaused%20by%3A%0A-%20El%20cliente%20no%20dispone%20de%20un%20privilegio%20requerido.%20%28os%20error%201314%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace\clicking here.]8;;\
+-----
+
+
+> Build error occurred
+Error [TurbopackInternalError]: create symlink to ../../../lia-frontend/node_modules/firebase-admin
+
+Caused by:
+- El cliente no dispone de un privilegio requerido. (os error 1314)
+    at ignore-listed frames {
+  type: 'TurbopackInternalError',
+  location: undefined
+}

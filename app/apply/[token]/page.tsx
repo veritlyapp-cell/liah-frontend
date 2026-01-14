@@ -231,10 +231,11 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             console.log('[ApplyPage] uploadedDocs:', uploadedDocs);
             console.log('[ApplyPage] uploadedDocs.cul:', uploadedDocs['cul']);
 
-            // Calculate age from fechaNacimiento
+            // Calculate age from fechaNacimiento (YYYY-MM-DD)
             let edad: number | undefined;
             if (formData.fechaNacimiento) {
-                const birthDate = new Date(formData.fechaNacimiento);
+                const [year, month, day] = formData.fechaNacimiento.split('-').map(Number);
+                const birthDate = new Date(year, month - 1, day);
                 const today = new Date();
                 edad = today.getFullYear() - birthDate.getFullYear();
                 const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -243,9 +244,17 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 }
             }
 
+            // Format birth date to DD/MM/YYYY for storage
+            let formattedBirthDate = formData.fechaNacimiento;
+            if (formData.fechaNacimiento && formData.fechaNacimiento.includes('-')) {
+                const [year, month, day] = formData.fechaNacimiento.split('-');
+                formattedBirthDate = `${day}/${month}/${year}`;
+            }
+
             const candidateData = {
                 ...formData,
-                edad, // Age calculated from fechaNacimiento
+                fechaNacimiento: formattedBirthDate, // Saved in DD/MM/YYYY
+                edad, // Age calculated from original YYYY-MM-DD
                 documents: uploadedDocs,
                 source: formData.origenConvocatoria, // [NEW] Sync with source field for Analytics
                 // Mantener CUL en campo raíz para compatibilidad si existe un docId 'cul'

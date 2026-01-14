@@ -1,7 +1,7 @@
 // Firebase configuration for LIAH
 // Estas son las credenciales públicas de Firebase (seguras para el frontend)
 
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -15,12 +15,34 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Initialize Firebase (solo si no está inicializado)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Debug logging
+console.log('[Firebase] Initializing...');
+console.log('[Firebase] apiKey exists:', !!firebaseConfig.apiKey);
+console.log('[Firebase] projectId:', firebaseConfig.projectId);
+
+// Initialize Firebase - works in both client and server (API routes)
+function getFirebaseApp() {
+    if (getApps().length === 0) {
+        // Check if config is valid
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
+            console.error('[Firebase] ⚠️ API Key missing! Check NEXT_PUBLIC_FIREBASE_API_KEY in .env.local');
+            console.error('[Firebase] Available env keys:', Object.keys(process.env).filter(k => k.includes('FIREBASE')));
+            return null;
+        }
+        console.log('[Firebase] Creating new app instance...');
+        return initializeApp(firebaseConfig);
+    }
+    console.log('[Firebase] Using existing app instance');
+    return getApp();
+}
+
+const app = getFirebaseApp();
 
 // Initialize services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const auth = app ? getAuth(app) : null as any;
+export const db = app ? getFirestore(app) : null as any;
+export const storage = app ? getStorage(app) : null as any;
+
+console.log('[Firebase] db initialized:', db ? 'YES' : 'NO');
 
 export default app;

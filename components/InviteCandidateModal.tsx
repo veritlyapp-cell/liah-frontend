@@ -91,8 +91,18 @@ export default function InviteCandidateModal({
             let activeApprovedRQs = rqs.filter(rq => rq.status === 'active');
 
             // NEW: Filter by category for Store Managers
-            if (userRole === 'store_manager') {
-                activeApprovedRQs = activeApprovedRQs.filter(rq => rq.categoria !== 'gerencial');
+            const effectiveRole = userRole || claims?.role;
+            if (effectiveRole === 'store_manager') {
+                activeApprovedRQs = activeApprovedRQs.filter(rq => {
+                    // Filter out if category is gerencial
+                    if (rq.categoria === 'gerencial') return false;
+
+                    // Fallback: Filter out if position name contains gerente or asistente de tienda (case insensitive)
+                    const lowerPos = rq.posicion.toLowerCase();
+                    if (lowerPos.includes('gerente') || lowerPos.includes('asistente de tienda')) return false;
+
+                    return true;
+                });
             }
 
             setApprovedRQs(activeApprovedRQs);
