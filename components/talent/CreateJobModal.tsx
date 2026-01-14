@@ -133,8 +133,8 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
                                 <button
                                     onClick={() => setStep(s.id as any)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${step === s.id
-                                            ? 'bg-violet-100 text-violet-700'
-                                            : 'text-gray-500 hover:bg-gray-100'
+                                        ? 'bg-violet-100 text-violet-700'
+                                        : 'text-gray-500 hover:bg-gray-100'
                                         }`}
                                 >
                                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === s.id ? 'bg-violet-600 text-white' : 'bg-gray-300 text-gray-600'
@@ -215,9 +215,44 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
                                 />
                             </div>
 
+                            {/* PDF Upload Option */}
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-violet-400 transition-colors">
+                                <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.txt"
+                                    className="hidden"
+                                    id="jd-upload"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+
+                                        // For now, just extract text from simple files
+                                        // TODO: Add proper PDF parsing with pdf.js
+                                        try {
+                                            if (file.type === 'text/plain') {
+                                                const text = await file.text();
+                                                setDescripcionBase(prev => prev + '\n\n--- Contenido del archivo ---\n' + text);
+                                            } else {
+                                                // For PDF/DOC, just note the file name
+                                                setDescripcionBase(prev => prev + `\n\n[Archivo adjunto: ${file.name}]`);
+                                                alert('📎 Archivo adjunto. Para mejor interpretación, copia el contenido del documento manualmente.');
+                                            }
+                                        } catch (error) {
+                                            console.error('Error reading file:', error);
+                                            alert('Error leyendo archivo');
+                                        }
+                                    }}
+                                />
+                                <label htmlFor="jd-upload" className="cursor-pointer">
+                                    <div className="text-4xl mb-2">📄</div>
+                                    <p className="font-medium text-gray-900">Subir Documento</p>
+                                    <p className="text-sm text-gray-500 mt-1">PDF, Word o TXT (para extraer info)</p>
+                                </label>
+                            </div>
+
                             <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
                                 <p className="text-violet-900 text-sm">
-                                    💡 <strong>Tip:</strong> Proporciona algunos detalles y la IA generará un Job Description profesional basado en perfiles exitosos similares.
+                                    💡 <strong>Tip:</strong> Proporciona algunos detalles o sube un documento de referencia, y la IA generará un Job Description profesional basado en perfiles exitosos similares.
                                 </p>
                             </div>
                         </div>

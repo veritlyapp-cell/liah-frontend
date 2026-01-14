@@ -28,11 +28,11 @@ export function getTalentAI(): GoogleGenerativeAI {
 // ============ MODEL GETTERS BY TASK TYPE ============
 
 /**
- * Pro model for complex reasoning (CV Matching, JD Generation)
+ * Pro model for complex reasoning with JSON output (CV Matching)
  */
 export function getTalentModelPro(): GenerativeModel {
     const ai = getTalentAI();
-    const modelName = process.env.GEMINI_MODEL_TALENT_PRO || 'gemini-2.5-pro';
+    const modelName = process.env.GEMINI_MODEL_TALENT_PRO || 'gemini-2.0-flash';
 
     return ai.getGenerativeModel({
         model: modelName,
@@ -40,6 +40,22 @@ export function getTalentModelPro(): GenerativeModel {
             temperature: 0.3,        // Deterministic for scoring
             maxOutputTokens: 8192,
             responseMimeType: 'application/json'
+        }
+    });
+}
+
+/**
+ * Pro model for text generation (JD Generation)
+ */
+export function getTalentModelProText(): GenerativeModel {
+    const ai = getTalentAI();
+    const modelName = process.env.GEMINI_MODEL_TALENT_PRO || 'gemini-2.0-flash';
+
+    return ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+            temperature: 0.7,        // More creative for JD writing
+            maxOutputTokens: 8192,
         }
     });
 }
@@ -228,7 +244,7 @@ export async function analyzeCVMatch(cvContent: string, jdContent: string): Prom
  * Generate optimized JD
  */
 export async function generateJD(titulo: string, descripcionBase: string, jdsSimilares: string[]): Promise<string> {
-    const model = getTalentModelPro();
+    const model = getTalentModelProText();
 
     const prompt = TALENT_PROMPTS.JD_GENERATION
         .replace('{TITULO}', titulo)
