@@ -435,3 +435,17 @@ export function getLimaCallaoDistritos(): string[] {
 
     return [...limaDistritos, ...callaoDistritos].sort();
 }
+
+// Aliases for compatibility with components
+export function getDepartmentNames(): string[] {
+    return getDepartamentos();
+}
+
+export function getProvincesByDepartment(departamento: string): { name: string }[] {
+    return getProvincias(departamento).map(name => ({ name }));
+}
+
+export function getDistrictsByProvince(departamento: string, provincia: string): { name: string }[] {
+    return getDistritos(departamento, provincia).map(name => ({ name }));
+}
+
