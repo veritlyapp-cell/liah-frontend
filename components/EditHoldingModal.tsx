@@ -26,6 +26,10 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [precioMensual, setPrecioMensual] = useState(99);
     const [tempPassword, setTempPassword] = useState('NGR2024!Cambiar');
 
+    // Product Access Control
+    const [hasLiahFlow, setHasLiahFlow] = useState(true);
+    const [hasLiahTalent, setHasLiahTalent] = useState(false);
+
     // Dynamic Documents
     const [requiredDocuments, setRequiredDocuments] = useState<any[]>([]);
 
@@ -54,6 +58,9 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 { level: 1, name: 'Gerente de Tienda', role: 'store_manager' },
                 { level: 2, name: 'Jefe de Marca', role: 'jefe_marca' }
             ]);
+            // Products
+            setHasLiahFlow(config?.hasLiahFlow !== false); // Default true
+            setHasLiahTalent(config?.hasLiahTalent || false);
         }
     }, [holding]);
 
@@ -74,7 +81,10 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 precioMensual,
                 tempPassword,
                 requiredDocuments,
-                approvalLevels
+                approvalLevels,
+                // Products
+                hasLiahFlow,
+                hasLiahTalent
             }
         });
     };
@@ -133,6 +143,44 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                             <p className="text-xs text-gray-500 mt-1">$499/mes</p>
                         </button>
                     </div>
+                </div>
+
+                {/* Product Access */}
+                <div className="mb-6 bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl p-4 border border-violet-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-4">🚀 Acceso a Productos LIAH</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <label className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 cursor-pointer transition-all hover:border-orange-300" style={{ borderColor: hasLiahFlow ? '#f97316' : '#e5e7eb' }}>
+                            <input
+                                type="checkbox"
+                                checked={hasLiahFlow}
+                                onChange={(e) => setHasLiahFlow(e.target.checked)}
+                                className="w-5 h-5 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                            />
+                            <div>
+                                <p className="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span className="text-xl">🚀</span> Liah Flow
+                                </p>
+                                <p className="text-xs text-gray-500">Reclutamiento Masivo (Bot WhatsApp)</p>
+                            </div>
+                        </label>
+                        <label className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 cursor-pointer transition-all hover:border-violet-300" style={{ borderColor: hasLiahTalent ? '#8b5cf6' : '#e5e7eb' }}>
+                            <input
+                                type="checkbox"
+                                checked={hasLiahTalent}
+                                onChange={(e) => setHasLiahTalent(e.target.checked)}
+                                className="w-5 h-5 text-violet-500 rounded border-gray-300 focus:ring-violet-500"
+                            />
+                            <div>
+                                <p className="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span className="text-xl">💼</span> Liah Talent
+                                </p>
+                                <p className="text-xs text-gray-500">Reclutamiento Corporativo (AI Matching)</p>
+                            </div>
+                        </label>
+                    </div>
+                    {!hasLiahFlow && !hasLiahTalent && (
+                        <p className="text-xs text-red-500 mt-2">⚠️ Debe tener al menos un producto activo</p>
+                    )}
                 </div>
 
                 {/* Límites Personalizados */}

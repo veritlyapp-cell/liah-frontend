@@ -1,7 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface ProductLauncherProps {
     accessFlow?: boolean;
@@ -10,10 +13,55 @@ interface ProductLauncherProps {
 
 /**
  * Product Launcher - Shows after login if user has access to multiple products
+ * Reads holding config to determine product access
  */
-export default function ProductLauncher({ accessFlow = true, accessTalent = true }: ProductLauncherProps) {
+export default function ProductLauncher({ accessFlow, accessTalent }: ProductLauncherProps) {
     const router = useRouter();
     const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [hasFlow, setHasFlow] = useState(accessFlow ?? true);
+    const [hasTalent, setHasTalent] = useState(accessTalent ?? false);
+
+    // Fetch holding config to determine product access
+    useEffect(() => {
+        async function fetchHoldingConfig() {
+            if (!user || accessFlow !== undefined || accessTalent !== undefined) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                // Get user assignment
+                const assignmentsRef = collection(db, 'userAssignments');
+                const q = query(assignmentsRef, where('email', '==', user.email));
+                const snap = await getDocs(q);
+
+                if (!snap.empty) {
+                    const assignment = snap.docs[0].data();
+                    const holdingId = assignment.holdingId;
+
+                    if (holdingId) {
+                        // Get holding config
+                        const holdingsRef = collection(db, 'holdings');
+                        const holdingSnap = await getDocs(holdingsRef);
+                        const holdingDoc = holdingSnap.docs.find(d => d.id === holdingId || d.data().id === holdingId);
+
+                        if (holdingDoc) {
+                            const config = holdingDoc.data().config || {};
+                            setHasFlow(config.hasLiahFlow !== false);
+                            setHasTalent(config.hasLiahTalent === true);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching holding config:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchHoldingConfig();
+    }, [user, accessFlow, accessTalent]);
 
     const products = [
         {
@@ -23,7 +71,7 @@ export default function ProductLauncher({ accessFlow = true, accessTalent = true
             icon: '🚀',
             color: 'from-orange-500 to-red-500',
             path: '/dashboard',
-            enabled: accessFlow
+            enabled: hasFlow
         },
         {
             id: 'talent',
@@ -32,16 +80,38 @@ export default function ProductLauncher({ accessFlow = true, accessTalent = true
             icon: '💼',
             color: 'from-violet-500 to-indigo-500',
             path: '/talent',
-            enabled: accessTalent
+            enabled: hasTalent
         }
     ];
 
     const enabledProducts = products.filter(p => p.enabled);
 
+    // If loading, show spinner
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500" />
+            </div>
+        );
+    }
+
     // If only one product, redirect directly
     if (enabledProducts.length === 1) {
         router.push(enabledProducts[0].path);
         return null;
+    }
+
+    // If no products enabled
+    if (enabledProducts.length === 0) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-center p-6">
+                <div>
+                    <div className="text-6xl mb-4">🔒</div>
+                    <h1 className="text-2xl font-bold text-white">Sin acceso a productos</h1>
+                    <p className="text-white/60 mt-2">Contacta al administrador para habilitar tu acceso</p>
+                </div>
+            </div>
+        );
     }
 
     return (
