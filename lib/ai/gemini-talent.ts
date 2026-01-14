@@ -49,7 +49,7 @@ export function getTalentModelPro(): GenerativeModel {
  */
 export function getTalentModelProText(): GenerativeModel {
     const ai = getTalentAI();
-    const modelName = process.env.GEMINI_MODEL_TALENT_PRO || 'gemini-2.0-flash';
+    const modelName = process.env.GEMINI_MODEL_TALENT_PRO || 'gemini-2.5-pro';
 
     return ai.getGenerativeModel({
         model: modelName,
