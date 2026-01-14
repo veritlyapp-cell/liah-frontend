@@ -31,7 +31,8 @@ export default function LoginPage() {
                 case 'client_admin':
                 case 'admin':
                 case 'gerente':
-                    router.push('/admin');
+                    // Redirect to launcher so user can choose between Flow/Talent
+                    router.push('/launcher');
                     break;
                 case 'jefe_marca':
                     router.push('/jefe-marca');

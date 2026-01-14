@@ -13,7 +13,7 @@ import PendingUsersActivation from '@/components/admin/PendingUsersActivation';
 import BulkUploadStoresModal from '@/components/admin/BulkUploadStoresModal';
 import BulkUploadUsersModal from '@/components/admin/BulkUploadUsersModal';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, onSnapshot, query, orderBy, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, orderBy, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import GlobalCandidatesView from '@/components/admin/GlobalCandidatesView';
 
 // Mock data removed to avoid duplicates with Firestore
@@ -171,22 +171,39 @@ export default function SuperAdminDashboard() {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleSaveHolding = (updatedHolding: any) => {
-        // Actualizar el holding en la lista
-        setHoldings(holdings.map(h =>
-            h.id === updatedHolding.id
-                ? {
-                    ...h,
+    const handleSaveHolding = async (updatedHolding: any) => {
+        try {
+            // Save to Firestore
+            const holdingId = updatedHolding.id || updatedHolding.firestoreId;
+            if (holdingId) {
+                const holdingRef = doc(db, 'holdings', holdingId);
+                await updateDoc(holdingRef, {
                     plan: updatedHolding.plan,
                     activo: updatedHolding.activo,
                     config: updatedHolding.config
-                }
-                : h
-        ));
+                });
+                console.log('✅ Holding guardado en Firestore:', holdingId);
+            }
 
-        console.log('✅ Holding actualizado:', updatedHolding);
-        console.log('📊 Config guardada:', updatedHolding.config);
-        setShowEditModal(false);
+            // Actualizar el holding en la lista local
+            setHoldings(holdings.map(h =>
+                (h.id === updatedHolding.id || h.firestoreId === updatedHolding.firestoreId)
+                    ? {
+                        ...h,
+                        plan: updatedHolding.plan,
+                        activo: updatedHolding.activo,
+                        config: updatedHolding.config
+                    }
+                    : h
+            ));
+
+            console.log('✅ Holding actualizado:', updatedHolding);
+            console.log('📊 Config guardada:', updatedHolding.config);
+            setShowEditModal(false);
+        } catch (error) {
+            console.error('Error guardando holding:', error);
+            alert('Error guardando cambios. Ver consola para detalles.');
+        }
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
