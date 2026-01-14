@@ -8,6 +8,8 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, Timestamp, orderBy } from 'firebase/firestore';
 import CreateJobModal from '@/components/talent/CreateJobModal';
 
+import CandidateList from '@/components/talent/CandidateList';
+
 interface Job {
     id: string;
     titulo: string;
@@ -152,8 +154,8 @@ export default function TalentDashboard() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`px-5 py-3 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === tab.id
-                                        ? 'bg-slate-50 text-violet-600 border-t-2 border-x border-violet-500'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                    ? 'bg-slate-50 text-violet-600 border-t-2 border-x border-violet-500'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                     }`}
                             >
                                 <span>{tab.icon}</span>
@@ -238,11 +240,7 @@ export default function TalentDashboard() {
                 {activeTab === 'candidates' && (
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 mb-4">Candidatos</h1>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
-                            <div className="text-6xl mb-4">👥</div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Sin candidatos</h3>
-                            <p className="text-gray-600">Los candidatos aparecerán aquí cuando apliquen</p>
-                        </div>
+                        <CandidateList holdingId={holdingId} />
                     </div>
                 )}
 
