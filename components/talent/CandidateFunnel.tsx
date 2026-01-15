@@ -19,6 +19,18 @@ interface Application {
     matchScore?: number;
     funnelStage: string;
     createdAt: any;
+    aiAnalysis?: {
+        matchScore: number;
+        resumenEjecutivo: string;
+        puntosFuertes: string[];
+        puntosDebiles: string[];
+        recomendacion: string;
+        analisisDetallado: {
+            experiencia: string;
+            habilidades: string;
+            formacion: string;
+        }
+    };
 }
 
 interface FunnelStage {
@@ -270,6 +282,42 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                                 )}
                             </div>
 
+                            {/* AI Analysis Details */}
+                            {selectedCandidate.aiAnalysis && (
+                                <div className="space-y-4 border-t border-gray-100 pt-4">
+                                    <div>
+                                        <h4 className="text-sm font-bold text-gray-900 border-l-4 border-violet-500 pl-2 mb-2">Resumen AI</h4>
+                                        <p className="text-sm text-gray-700 bg-violet-50 p-3 rounded-lg italic">
+                                            "{selectedCandidate.aiAnalysis.resumenEjecutivo}"
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-green-50 p-3 rounded-lg">
+                                            <h5 className="text-xs font-bold text-green-700 mb-2">💪 Puntos Fuertes</h5>
+                                            <ul className="text-xs text-green-800 space-y-1">
+                                                {selectedCandidate.aiAnalysis.puntosFuertes.map((p, i) => (
+                                                    <li key={i}>• {p}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-orange-50 p-3 rounded-lg">
+                                            <h5 className="text-xs font-bold text-orange-700 mb-2">⚠️ Puntos Débiles</h5>
+                                            <ul className="text-xs text-orange-800 space-y-1">
+                                                {selectedCandidate.aiAnalysis.puntosDebiles.map((p, i) => (
+                                                    <li key={i}>• {p}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                        <h4 className="text-xs font-bold text-gray-700 mb-2">💡 Recomendación</h4>
+                                        <p className="text-sm font-semibold text-gray-900">{selectedCandidate.aiAnalysis.recomendacion}</p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Move to stage */}
                             <div>
                                 <p className="text-sm font-medium text-gray-700 mb-2">Mover a etapa:</p>
@@ -283,8 +331,8 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                                             }}
                                             disabled={processing || selectedCandidate.funnelStage === stage.id}
                                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCandidate.funnelStage === stage.id
-                                                    ? 'bg-violet-600 text-white'
-                                                    : `${stage.color} text-gray-700 hover:opacity-80`
+                                                ? 'bg-violet-600 text-white'
+                                                : `${stage.color} text-gray-700 hover:opacity-80`
                                                 } disabled:opacity-50`}
                                         >
                                             {stage.nombre}

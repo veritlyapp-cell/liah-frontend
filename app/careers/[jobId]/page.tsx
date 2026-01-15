@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore';
 
 interface KillerQuestion {
     id: string;
@@ -47,6 +47,10 @@ export default function JobApplicationPage() {
     const [email, setEmail] = useState('');
     const [telefono, setTelefono] = useState('');
     const [cvFile, setCvFile] = useState<File | null>(null);
+    const [cvBase64, setCvBase64] = useState<string | null>(null);
+    const [cvMimeType, setCvMimeType] = useState<string | null>(null);
+    const [cvText, setCvText] = useState<string | null>(null);
+    const [parsingCV, setParsingCV] = useState(false);
     const [killerAnswers, setKillerAnswers] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -106,6 +110,52 @@ export default function JobApplicationPage() {
         };
     }
 
+    async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setCvFile(file);
+        setCvMimeType(file.type);
+        setParsingCV(true);
+
+        try {
+            const reader = new FileReader();
+
+            // For AI parsing, we want base64 for vision/multimodal models
+            reader.onload = async (event) => {
+                const base64String = (event.target?.result as string).split(',')[1];
+                setCvBase64(base64String);
+
+                // Call Parse API
+                const resp = await fetch('/api/talent/parse-cv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cvBase64: base64String,
+                        mimeType: file.type
+                    })
+                });
+
+                if (resp.ok) {
+                    const { data } = await resp.json();
+                    if (data) {
+                        if (data.nombre && !nombre) setNombre(data.nombre);
+                        if (data.email && !email) setEmail(data.email);
+                        if (data.telefono && !telefono) setTelefono(data.telefono);
+                        // Store parsed data for matching
+                        setCvText(JSON.stringify(data));
+                    }
+                }
+                setParsingCV(false);
+            };
+            reader.readAsDataURL(file);
+
+        } catch (error) {
+            console.error('Error parsing CV:', error);
+            setParsingCV(false);
+        }
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
@@ -152,7 +202,42 @@ export default function JobApplicationPage() {
                 updatedAt: Timestamp.now()
             };
 
-            await addDoc(collection(db, 'talent_applications'), applicationData);
+            const docRef = await addDoc(collection(db, 'talent_applications'), applicationData);
+
+            // If passed KQ, run AI Matching
+            if (passed) {
+                try {
+                    const matchResp = await fetch('/api/talent/match-candidate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jobProfile: {
+                                titulo: job.titulo,
+                                descripcion: job.descripcion,
+                                requisitos: job.requisitos
+                            },
+                            candidateData: {
+                                nombre,
+                                cvText: cvText || '', // Use parsed text or raw text if available
+                                parsedData: applicationData // Full data
+                            },
+                            killerAnswers
+                        })
+                    });
+
+                    if (matchResp.ok) {
+                        const { data: matchData } = await matchResp.json();
+                        await updateDoc(doc(db, 'talent_applications', docRef.id), {
+                            matchScore: matchData.matchScore,
+                            aiAnalysis: matchData,
+                            updatedAt: Timestamp.now()
+                        });
+                    }
+                } catch (matchErr) {
+                    console.error('Error during AI matching:', matchErr);
+                }
+            }
+
             setSubmitted(true);
 
         } catch (err) {
@@ -319,14 +404,19 @@ export default function JobApplicationPage() {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        CV (PDF)
+                                        CV (PDF, Word) {parsingCV && <span className="text-violet-600 animate-pulse ml-2">✨ Analizando...</span>}
                                     </label>
                                     <input
                                         type="file"
                                         accept=".pdf,.doc,.docx"
-                                        onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                                        onChange={handleFileChange}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
                                     />
+                                    {parsingCV && (
+                                        <p className="text-xs text-violet-500 mt-1">
+                                            IA está completando tus datos automáticamente...
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Killer Questions */}
