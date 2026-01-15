@@ -158,11 +158,45 @@ export default function CreateRQModal({
         try {
             const codigo = await generateRQCode();
 
+            // Import workflow resolution dynamically
+            const { resolveWorkflowApprovers, getDefaultWorkflow } = await import('@/lib/workflow/resolve-approvers');
+
+            // Get default workflow
+            const workflow = await getDefaultWorkflow(holdingId);
+
+            // Resolve approvers for this RQ
+            let resolvedApprovers: any[] = [];
+            let workflowId: string | null = null;
+            let workflowName: string | null = null;
+
+            if (workflow && workflow.steps) {
+                workflowId = workflow.id;
+                workflowName = workflow.nombre;
+
+                resolvedApprovers = await resolveWorkflowApprovers(
+                    workflow.steps,
+                    {
+                        holdingId,
+                        puestoId: selectedPuestoId,
+                        areaId: selectedPuesto?.areaId || '',
+                        gerenciaId: selectedPuesto?.gerenciaId || '',
+                        createdByEmail: creatorEmail,
+                        createdByNombre: creatorEmail // TODO: get from user profile
+                    }
+                );
+            }
+
+            // Find the first non-skipped step
+            const firstPendingStep = resolvedApprovers.find(a => !a.skipped);
+            const currentStep = firstPendingStep?.stepOrden || 1;
+
             const rqData = {
                 codigo,
                 puestoId: selectedPuestoId,
                 puestoNombre: selectedPuesto?.nombre || '',
+                areaId: selectedPuesto?.areaId || '',
                 areaNombre: selectedPuesto?.areaNombre || '',
+                gerenciaId: selectedPuesto?.gerenciaId || '',
                 gerenciaNombre: selectedPuesto?.gerenciaNombre || '',
                 cantidad,
                 perfilContent,
@@ -170,10 +204,14 @@ export default function CreateRQModal({
                 justificacion,
                 urgente,
                 fechaLimite: fechaLimite ? Timestamp.fromDate(new Date(fechaLimite)) : null,
-                status: 'pending_approval', // Waiting for first level approval
+                status: 'pending_approval',
+                currentStep, // Which step we're waiting for
+                workflowId,
+                workflowName,
+                resolvedApprovers, // The resolved workflow with actual approver emails
+                aprobaciones: [], // Will store each approval as it happens
                 createdBy: creatorEmail,
                 holdingId,
-                aprobaciones: [],
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
@@ -235,8 +273,8 @@ export default function CreateRQModal({
                                                 key={p.id}
                                                 onClick={() => setSelectedPuestoId(p.id)}
                                                 className={`text-left p-4 rounded-lg border transition-colors ${selectedPuestoId === p.id
-                                                        ? 'border-violet-500 bg-violet-50'
-                                                        : 'border-gray-200 hover:border-gray-300'
+                                                    ? 'border-violet-500 bg-violet-50'
+                                                    : 'border-gray-200 hover:border-gray-300'
                                                     }`}
                                             >
                                                 <div className="font-medium text-gray-900">{p.nombre}</div>
