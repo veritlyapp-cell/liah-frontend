@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, Timestamp, orderBy } from 'firebase/firestore';
 import CreateJobModal from '@/components/talent/CreateJobModal';
-
 import CandidateList from '@/components/talent/CandidateList';
+import OrgStructure from '@/components/talent/OrgStructure';
 
 interface Job {
     id: string;
@@ -102,6 +102,7 @@ export default function TalentDashboard() {
         { id: 'jobs', label: 'Vacantes', icon: '📋' },
         { id: 'candidates', label: 'Candidatos', icon: '👥' },
         { id: 'pipeline', label: 'Pipeline', icon: '🎯' },
+        { id: 'estructura', label: 'Estructura Org', icon: '🏢' },
         { id: 'analytics', label: 'Analytics', icon: '📊' },
     ];
 
@@ -259,6 +260,14 @@ export default function TalentDashboard() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'estructura' && (
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-4">Estructura Organizacional</h1>
+                        <p className="text-gray-600 mb-6">Gestiona la jerarquía de tu organización: Gerencias → Áreas → Puestos</p>
+                        <OrgStructure holdingId={holdingId} />
                     </div>
                 )}
 
