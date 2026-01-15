@@ -10,6 +10,7 @@ import CreateJobModal from '@/components/talent/CreateJobModal';
 import CandidateList from '@/components/talent/CandidateList';
 import OrgStructure from '@/components/talent/OrgStructure';
 import CreateRQModal from '@/components/talent/CreateRQModal';
+import TalentUsers from '@/components/talent/TalentUsers';
 
 interface Job {
     id: string;
@@ -143,6 +144,7 @@ export default function TalentDashboard() {
         { id: 'candidates', label: 'Candidatos', icon: '👥' },
         { id: 'pipeline', label: 'Pipeline', icon: '🎯' },
         { id: 'estructura', label: 'Estructura Org', icon: '🏢' },
+        { id: 'usuarios', label: 'Usuarios', icon: '👤' },
         { id: 'analytics', label: 'Analytics', icon: '📊' },
     ];
 
@@ -393,6 +395,10 @@ export default function TalentDashboard() {
                         <p className="text-gray-600 mb-6">Gestiona la jerarquía de tu organización: Gerencias → Áreas → Puestos</p>
                         <OrgStructure holdingId={holdingId} />
                     </div>
+                )}
+
+                {activeTab === 'usuarios' && (
+                    <TalentUsers holdingId={holdingId} />
                 )}
 
                 {activeTab === 'analytics' && (
