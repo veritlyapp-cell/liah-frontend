@@ -384,7 +384,7 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     }
 
     function downloadTemplate() {
-        const csv = 'gerencia,area,puesto,perfil\nOperaciones,Prevención,Supervisor Seguridad,Encargado de supervisar la seguridad del local\nOperaciones,Prevención,Vigilante,Personal de vigilancia\nComercial,Marketing,Analista Digital,Especialista en marketing digital\nComercial,Ventas,Ejecutivo de Ventas,Responsable de ventas corporativas';
+        const csv = 'gerencia,area,puesto\nOperaciones,Prevención,Supervisor Seguridad\nOperaciones,Prevención,Vigilante\nComercial,Marketing,Analista Digital\nComercial,Ventas,Ejecutivo de Ventas';
 
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);

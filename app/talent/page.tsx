@@ -9,6 +9,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, orderBy } from 'f
 import CreateJobModal from '@/components/talent/CreateJobModal';
 import CandidateList from '@/components/talent/CandidateList';
 import OrgStructure from '@/components/talent/OrgStructure';
+import CreateRQModal from '@/components/talent/CreateRQModal';
 
 interface Job {
     id: string;
@@ -26,10 +27,13 @@ interface Job {
 export default function TalentDashboard() {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('jobs');
+    const [activeTab, setActiveTab] = useState('rqs');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showRQModal, setShowRQModal] = useState(false);
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loadingJobs, setLoadingJobs] = useState(true);
+    const [rqs, setRqs] = useState<any[]>([]);
+    const [loadingRQs, setLoadingRQs] = useState(true);
 
     // TODO: Get from user profile
     const holdingId = 'ngr';
@@ -43,8 +47,43 @@ export default function TalentDashboard() {
     useEffect(() => {
         if (user) {
             loadJobs();
+            loadRQs();
         }
     }, [user]);
+
+    async function loadRQs() {
+        setLoadingRQs(true);
+        try {
+            const rqsRef = collection(db, 'talent_rqs');
+            const rqQuery = query(
+                rqsRef,
+                where('holdingId', '==', holdingId),
+                orderBy('createdAt', 'desc')
+            );
+            const rqSnap = await getDocs(rqQuery);
+            const loadedRqs = rqSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setRqs(loadedRqs);
+        } catch (error) {
+            console.error('Error loading RQs:', error);
+        } finally {
+            setLoadingRQs(false);
+        }
+    }
+
+    async function handleSaveRQ(rqData: any) {
+        try {
+            await addDoc(collection(db, 'talent_rqs'), rqData);
+            await loadRQs();
+            setShowRQModal(false);
+            alert('✅ Requerimiento creado exitosamente');
+        } catch (error) {
+            console.error('Error saving RQ:', error);
+            throw error;
+        }
+    }
 
     async function loadJobs() {
         try {
@@ -99,6 +138,7 @@ export default function TalentDashboard() {
     }
 
     const tabs = [
+        { id: 'rqs', label: 'Requerimientos', icon: '📝' },
         { id: 'jobs', label: 'Vacantes', icon: '📋' },
         { id: 'candidates', label: 'Candidatos', icon: '👥' },
         { id: 'pipeline', label: 'Pipeline', icon: '🎯' },
@@ -173,6 +213,90 @@ export default function TalentDashboard() {
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-6 py-8">
+                {/* RQs Tab */}
+                {activeTab === 'rqs' && (
+                    <div>
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">Requerimientos (RQ)</h1>
+                                <p className="text-gray-600">Gestiona las solicitudes de posiciones</p>
+                            </div>
+                            <button
+                                onClick={() => setShowRQModal(true)}
+                                className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                            >
+                                + Nuevo Requerimiento
+                            </button>
+                        </div>
+
+                        {loadingRQs ? (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-violet-500 mx-auto" />
+                                <p className="text-gray-500 mt-4">Cargando requerimientos...</p>
+                            </div>
+                        ) : rqs.length === 0 ? (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+                                <div className="text-6xl mb-4">📝</div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">No hay requerimientos aún</h3>
+                                <p className="text-gray-600 mb-6">Crea tu primer requerimiento para iniciar el proceso de reclutamiento</p>
+                                <button
+                                    onClick={() => setShowRQModal(true)}
+                                    className="px-6 py-3 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-colors"
+                                >
+                                    Crear Primer Requerimiento
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4">
+                                {rqs.map(rq => (
+                                    <div key={rq.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-600">
+                                                        {rq.codigo}
+                                                    </span>
+                                                    {rq.urgente && (
+                                                        <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                                                            🔥 Urgente
+                                                        </span>
+                                                    )}
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${rq.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' :
+                                                        rq.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                                            rq.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                rq.status === 'published' ? 'bg-blue-100 text-blue-700' :
+                                                                    'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {rq.status === 'pending_approval' ? '⏳ Pendiente Aprobación' :
+                                                            rq.status === 'approved' ? '✅ Aprobado' :
+                                                                rq.status === 'rejected' ? '❌ Rechazado' :
+                                                                    rq.status === 'published' ? '📣 Publicado' :
+                                                                        rq.status}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-gray-900">{rq.puestoNombre}</h3>
+                                                <p className="text-sm text-gray-500">
+                                                    {rq.gerenciaNombre} → {rq.areaNombre}
+                                                </p>
+                                                <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+                                                    <span>👥 {rq.cantidad} posicion{rq.cantidad > 1 ? 'es' : ''}</span>
+                                                    {rq.fechaLimite && (
+                                                        <span>📅 Límite: {new Date(rq.fechaLimite.seconds * 1000).toLocaleDateString()}</span>
+                                                    )}
+                                                    <span>✉️ {rq.createdBy}</span>
+                                                </div>
+                                            </div>
+                                            <button className="px-4 py-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors">
+                                                Ver detalles →
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {activeTab === 'jobs' && (
                     <div>
                         <div className="flex items-center justify-between mb-8">
@@ -298,6 +422,15 @@ export default function TalentDashboard() {
                 holdingId={holdingId}
                 onCancel={() => setShowCreateModal(false)}
                 onSave={handleSaveJob}
+            />
+
+            {/* Create RQ Modal */}
+            <CreateRQModal
+                show={showRQModal}
+                holdingId={holdingId}
+                creatorEmail={user?.email || ''}
+                onCancel={() => setShowRQModal(false)}
+                onSave={handleSaveRQ}
             />
         </div>
     );
