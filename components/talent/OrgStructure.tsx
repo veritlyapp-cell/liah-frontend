@@ -10,7 +10,9 @@ import {
 interface Gerencia {
     id: string;
     nombre: string;
-    jefeEmail?: string;
+    managerId?: string;
+    managerNombre?: string;
+    managerEmail?: string;
     holdingId: string;
 }
 
@@ -19,7 +21,9 @@ interface Area {
     nombre: string;
     gerenciaId: string;
     gerenciaNombre?: string;
-    jefeEmail?: string;
+    managerId?: string;
+    managerNombre?: string;
+    managerEmail?: string;
     holdingId: string;
 }
 
@@ -53,10 +57,13 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
     // Form fields
     const [formNombre, setFormNombre] = useState('');
-    const [formJefeEmail, setFormJefeEmail] = useState('');
+    const [formManagerId, setFormManagerId] = useState('');
     const [formGerenciaId, setFormGerenciaId] = useState('');
     const [formAreaId, setFormAreaId] = useState('');
     const [formPerfilBase, setFormPerfilBase] = useState('');
+
+    // Users for manager selection
+    const [talentUsers, setTalentUsers] = useState<any[]>([]);
 
     // Bulk upload
     const [showBulkModal, setShowBulkModal] = useState(false);
@@ -70,6 +77,13 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     async function loadData() {
         setLoading(true);
         try {
+            // Load Talent Users for manager selection
+            const usersRef = collection(db, 'talent_users');
+            const uQuery = query(usersRef, where('holdingId', '==', holdingId), where('activo', '==', true));
+            const uSnap = await getDocs(uQuery);
+            const loadedUsers = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setTalentUsers(loadedUsers);
+
             // Load Gerencias
             const gerenciasRef = collection(db, 'gerencias');
             const gQuery = query(gerenciasRef, where('holdingId', '==', holdingId));
@@ -118,7 +132,7 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
     function resetForm() {
         setFormNombre('');
-        setFormJefeEmail('');
+        setFormManagerId('');
         setFormGerenciaId('');
         setFormAreaId('');
         setFormPerfilBase('');
@@ -133,7 +147,7 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     function openEdit(item: any) {
         setEditingItem(item);
         setFormNombre(item.nombre);
-        setFormJefeEmail(item.jefeEmail || '');
+        setFormManagerId(item.managerId || '');
         setFormGerenciaId(item.gerenciaId || '');
         setFormAreaId(item.areaId || '');
         setFormPerfilBase(item.perfilBase || '');
@@ -148,9 +162,12 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
         try {
             if (activeTab === 'gerencias') {
+                const manager = talentUsers.find(u => u.id === formManagerId);
                 const data = {
                     nombre: formNombre,
-                    jefeEmail: formJefeEmail || null,
+                    managerId: formManagerId || null,
+                    managerEmail: manager?.email || null,
+                    managerNombre: manager?.nombre || null,
                     holdingId,
                     updatedAt: Timestamp.now()
                 };
@@ -165,10 +182,13 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                     alert('Selecciona una gerencia');
                     return;
                 }
+                const manager = talentUsers.find(u => u.id === formManagerId);
                 const data = {
                     nombre: formNombre,
                     gerenciaId: formGerenciaId,
-                    jefeEmail: formJefeEmail || null,
+                    managerId: formManagerId || null,
+                    managerEmail: manager?.email || null,
+                    managerNombre: manager?.nombre || null,
                     holdingId,
                     updatedAt: Timestamp.now()
                 };
@@ -473,7 +493,7 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                             ) : gerencias.map((g) => (
                                 <tr key={g.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{g.nombre}</td>
-                                    <td className="px-6 py-4 text-gray-600">{g.jefeEmail || '-'}</td>
+                                    <td className="px-6 py-4 text-gray-600">{g.managerNombre || '-'}</td>
                                     <td className="px-6 py-4 text-gray-600">{areas.filter(a => a.gerenciaId === g.id).length}</td>
                                     <td className="px-6 py-4 text-right">
                                         <button onClick={() => openEdit(g)} className="text-violet-600 hover:text-violet-800 mr-3">Editar</button>
@@ -504,7 +524,7 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                 <tr key={a.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{a.nombre}</td>
                                     <td className="px-6 py-4 text-gray-600">{a.gerenciaNombre || '-'}</td>
-                                    <td className="px-6 py-4 text-gray-600">{a.jefeEmail || '-'}</td>
+                                    <td className="px-6 py-4 text-gray-600">{a.managerNombre || '-'}</td>
                                     <td className="px-6 py-4 text-gray-600">{puestos.filter(p => p.areaId === a.id).length}</td>
                                     <td className="px-6 py-4 text-right">
                                         <button onClick={() => openEdit(a)} className="text-violet-600 hover:text-violet-800 mr-3">Editar</button>
@@ -586,6 +606,25 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                             <option key={g.id} value={g.id}>{g.nombre}</option>
                                         ))}
                                     </select>
+                                </div>
+                            )}
+
+                            {(activeTab === 'gerencias' || activeTab === 'areas') && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Responsable/Jefe</label>
+                                    <select
+                                        value={formManagerId}
+                                        onChange={(e) => setFormManagerId(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                    >
+                                        <option value="">Sin asignar</option>
+                                        {talentUsers.map(u => (
+                                            <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Este usuario recibirá las solicitudes de aprobación de RQs
+                                    </p>
                                 </div>
                             )}
 

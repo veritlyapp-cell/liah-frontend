@@ -11,6 +11,7 @@ import CandidateList from '@/components/talent/CandidateList';
 import OrgStructure from '@/components/talent/OrgStructure';
 import CreateRQModal from '@/components/talent/CreateRQModal';
 import TalentUsers from '@/components/talent/TalentUsers';
+import ApprovalWorkflows from '@/components/talent/ApprovalWorkflows';
 
 interface Job {
     id: string;
@@ -145,6 +146,7 @@ export default function TalentDashboard() {
         { id: 'pipeline', label: 'Pipeline', icon: '🎯' },
         { id: 'estructura', label: 'Estructura Org', icon: '🏢' },
         { id: 'usuarios', label: 'Usuarios', icon: '👤' },
+        { id: 'config', label: 'Flujos', icon: '⚙️' },
         { id: 'analytics', label: 'Analytics', icon: '📊' },
     ];
 
@@ -399,6 +401,10 @@ export default function TalentDashboard() {
 
                 {activeTab === 'usuarios' && (
                     <TalentUsers holdingId={holdingId} />
+                )}
+
+                {activeTab === 'config' && (
+                    <ApprovalWorkflows holdingId={holdingId} />
                 )}
 
                 {activeTab === 'analytics' && (
