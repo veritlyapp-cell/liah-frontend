@@ -13,6 +13,7 @@ import CreateRQModal from '@/components/talent/CreateRQModal';
 import TalentUsers from '@/components/talent/TalentUsers';
 import ApprovalWorkflows from '@/components/talent/ApprovalWorkflows';
 import ApprovalDashboard from '@/components/talent/ApprovalDashboard';
+import PublishRQModal from '@/components/talent/PublishRQModal';
 
 interface Job {
     id: string;
@@ -33,6 +34,8 @@ export default function TalentDashboard() {
     const [activeTab, setActiveTab] = useState('rqs');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showRQModal, setShowRQModal] = useState(false);
+    const [showPublishModal, setShowPublishModal] = useState(false);
+    const [selectedRQForPublish, setSelectedRQForPublish] = useState<any>(null);
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loadingJobs, setLoadingJobs] = useState(true);
     const [rqs, setRqs] = useState<any[]>([]);
@@ -292,9 +295,22 @@ export default function TalentDashboard() {
                                                     <span>✉️ {rq.createdBy}</span>
                                                 </div>
                                             </div>
-                                            <button className="px-4 py-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors">
-                                                Ver detalles →
-                                            </button>
+                                            <div className="flex gap-2">
+                                                {rq.status === 'approved' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedRQForPublish(rq);
+                                                            setShowPublishModal(true);
+                                                        }}
+                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                                    >
+                                                        📣 Publicar
+                                                    </button>
+                                                )}
+                                                <button className="px-4 py-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors">
+                                                    Ver detalles →
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -449,6 +465,23 @@ export default function TalentDashboard() {
                 creatorEmail={user?.email || ''}
                 onCancel={() => setShowRQModal(false)}
                 onSave={handleSaveRQ}
+            />
+
+            {/* Publish RQ Modal */}
+            <PublishRQModal
+                show={showPublishModal}
+                holdingId={holdingId}
+                rq={selectedRQForPublish}
+                onClose={() => {
+                    setShowPublishModal(false);
+                    setSelectedRQForPublish(null);
+                }}
+                onPublished={() => {
+                    setShowPublishModal(false);
+                    setSelectedRQForPublish(null);
+                    loadRQs();
+                    loadJobs();
+                }}
             />
         </div>
     );
