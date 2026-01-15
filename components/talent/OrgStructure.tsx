@@ -262,69 +262,135 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
         setBulkUploading(true);
         try {
-            let successCount = 0;
+            // Reload current data to check for duplicates
+            await loadData();
 
-            for (const item of bulkData) {
-                const data: any = {
-                    nombre: item.nombre,
+            // Extract unique gerencias
+            const uniqueGerencias = [...new Set(bulkData.map(r => r.gerencia?.trim()).filter(Boolean))];
+            const existingGerenciasMap = new Map(gerencias.map(g => [g.nombre.toLowerCase(), g.id]));
+
+            // Create missing gerencias
+            const newGerenciasMap = new Map<string, string>();
+            for (const gNombre of uniqueGerencias) {
+                const key = gNombre.toLowerCase();
+                if (existingGerenciasMap.has(key)) {
+                    newGerenciasMap.set(key, existingGerenciasMap.get(key)!);
+                } else {
+                    const docRef = await addDoc(collection(db, 'gerencias'), {
+                        nombre: gNombre,
+                        holdingId,
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now()
+                    });
+                    newGerenciasMap.set(key, docRef.id);
+                }
+            }
+
+            // Reload areas to get updated list
+            const areasRef = collection(db, 'areas');
+            const aQuery = query(areasRef, where('holdingId', '==', holdingId));
+            const aSnap = await getDocs(aQuery);
+            const currentAreas = aSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Area[];
+
+            // Extract unique areas (combination of gerencia + area name)
+            const uniqueAreas = [...new Set(bulkData.map(r => `${r.gerencia?.trim()}|||${r.area?.trim()}`).filter(s => s.includes('|||')))];
+            const existingAreasMap = new Map(currentAreas.map(a => {
+                const gerenciaNombre = gerencias.find(g => g.id === a.gerenciaId)?.nombre || '';
+                return [`${gerenciaNombre.toLowerCase()}|||${a.nombre.toLowerCase()}`, a.id];
+            }));
+
+            // Create missing areas
+            const newAreasMap = new Map<string, { id: string; gerenciaId: string }>();
+            for (const areaKey of uniqueAreas) {
+                const [gNombre, aNombre] = areaKey.split('|||');
+                if (!gNombre || !aNombre) continue;
+
+                const key = `${gNombre.toLowerCase()}|||${aNombre.toLowerCase()}`;
+                const gerenciaId = newGerenciasMap.get(gNombre.toLowerCase()) || existingGerenciasMap.get(gNombre.toLowerCase());
+
+                if (existingAreasMap.has(key)) {
+                    const areaId = existingAreasMap.get(key)!;
+                    newAreasMap.set(key, { id: areaId, gerenciaId: gerenciaId || '' });
+                } else if (gerenciaId) {
+                    const docRef = await addDoc(collection(db, 'areas'), {
+                        nombre: aNombre,
+                        gerenciaId,
+                        holdingId,
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now()
+                    });
+                    newAreasMap.set(key, { id: docRef.id, gerenciaId });
+                }
+            }
+
+            // Reload puestos to get updated list
+            const puestosRef = collection(db, 'puestos');
+            const pQuery = query(puestosRef, where('holdingId', '==', holdingId));
+            const pSnap = await getDocs(pQuery);
+            const currentPuestos = pSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Puesto[];
+            const existingPuestosMap = new Map(currentPuestos.map(p => [
+                `${p.gerenciaId}|||${p.areaId}|||${p.nombre.toLowerCase()}`,
+                true
+            ]));
+
+            // Create puestos
+            let puestosCreated = 0;
+            for (const row of bulkData) {
+                if (!row.puesto?.trim()) continue;
+
+                const gKey = row.gerencia?.trim().toLowerCase();
+                const aKey = `${gKey}|||${row.area?.trim().toLowerCase()}`;
+                const areaInfo = newAreasMap.get(aKey) || (() => {
+                    const found = currentAreas.find(a =>
+                        a.nombre.toLowerCase() === row.area?.trim().toLowerCase()
+                    );
+                    return found ? { id: found.id, gerenciaId: found.gerenciaId } : null;
+                })();
+
+                if (!areaInfo) continue;
+
+                const pKey = `${areaInfo.gerenciaId}|||${areaInfo.id}|||${row.puesto.trim().toLowerCase()}`;
+                if (existingPuestosMap.has(pKey)) continue; // Skip duplicate
+
+                await addDoc(collection(db, 'puestos'), {
+                    nombre: row.puesto.trim(),
+                    areaId: areaInfo.id,
+                    gerenciaId: areaInfo.gerenciaId,
+                    perfilBase: row.perfil?.trim() || null,
                     holdingId,
                     createdAt: Timestamp.now(),
                     updatedAt: Timestamp.now()
-                };
-
-                if (activeTab === 'gerencias') {
-                    await addDoc(collection(db, 'gerencias'), data);
-                } else if (activeTab === 'areas') {
-                    // Find gerencia by name
-                    const gerencia = gerencias.find(g =>
-                        g.nombre.toLowerCase() === item.gerencia?.toLowerCase()
-                    );
-                    if (gerencia) {
-                        data.gerenciaId = gerencia.id;
-                        await addDoc(collection(db, 'areas'), data);
-                    }
-                } else if (activeTab === 'puestos') {
-                    // Find area by name
-                    const area = areas.find(a =>
-                        a.nombre.toLowerCase() === item.area?.toLowerCase()
-                    );
-                    if (area) {
-                        data.areaId = area.id;
-                        data.gerenciaId = area.gerenciaId;
-                        data.perfilBase = item.perfil || null;
-                        await addDoc(collection(db, 'puestos'), data);
-                    }
-                }
-                successCount++;
+                });
+                existingPuestosMap.set(pKey, true);
+                puestosCreated++;
             }
 
-            alert(`✅ ${successCount} registros importados`);
+            const stats = {
+                gerencias: uniqueGerencias.length,
+                areas: uniqueAreas.length,
+                puestos: puestosCreated
+            };
+
+            alert(`✅ Importación completada:\n• Gerencias: ${stats.gerencias}\n• Áreas: ${stats.areas}\n• Puestos: ${stats.puestos}`);
             setShowBulkModal(false);
             setBulkData([]);
             loadData();
         } catch (error) {
             console.error('Error bulk uploading:', error);
-            alert('Error al importar');
+            alert('Error al importar: ' + (error instanceof Error ? error.message : 'Error desconocido'));
         } finally {
             setBulkUploading(false);
         }
     }
 
     function downloadTemplate() {
-        let csv = '';
-        if (activeTab === 'gerencias') {
-            csv = 'nombre\nOperaciones\nComercial\nTI';
-        } else if (activeTab === 'areas') {
-            csv = 'nombre,gerencia\nPrevención,Operaciones\nMarketing,Comercial';
-        } else {
-            csv = 'nombre,area,perfil\nSupervisor Seguridad,Prevención,Descripción del puesto...';
-        }
+        const csv = 'gerencia,area,puesto,perfil\nOperaciones,Prevención,Supervisor Seguridad,Encargado de supervisar la seguridad del local\nOperaciones,Prevención,Vigilante,Personal de vigilancia\nComercial,Marketing,Analista Digital,Especialista en marketing digital\nComercial,Ventas,Ejecutivo de Ventas,Responsable de ventas corporativas';
 
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `template_${activeTab}.csv`;
+        a.download = 'template_estructura_organizacional.csv';
         a.click();
     }
 
@@ -578,10 +644,16 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                     <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
                         <div className="border-b border-gray-200 px-6 py-4">
                             <h3 className="text-lg font-semibold text-gray-900">
-                                📤 Carga Masiva de {activeTab === 'gerencias' ? 'Gerencias' : activeTab === 'areas' ? 'Áreas' : 'Puestos'}
+                                📤 Carga Masiva de Estructura Organizacional
                             </h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Sube un CSV con columnas: gerencia, area, puesto, perfil
+                            </p>
                         </div>
                         <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                                💡 El sistema detectará duplicados automáticamente y solo creará los registros nuevos
+                            </div>
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={downloadTemplate}
