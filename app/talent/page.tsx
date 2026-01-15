@@ -12,6 +12,7 @@ import OrgStructure from '@/components/talent/OrgStructure';
 import CreateRQModal from '@/components/talent/CreateRQModal';
 import TalentUsers from '@/components/talent/TalentUsers';
 import ApprovalWorkflows from '@/components/talent/ApprovalWorkflows';
+import ApprovalDashboard from '@/components/talent/ApprovalDashboard';
 
 interface Job {
     id: string;
@@ -141,6 +142,7 @@ export default function TalentDashboard() {
 
     const tabs = [
         { id: 'rqs', label: 'Requerimientos', icon: '📝' },
+        { id: 'aprobar', label: 'Aprobar', icon: '✅' },
         { id: 'jobs', label: 'Vacantes', icon: '📋' },
         { id: 'candidates', label: 'Candidatos', icon: '👥' },
         { id: 'pipeline', label: 'Pipeline', icon: '🎯' },
@@ -299,6 +301,10 @@ export default function TalentDashboard() {
                             </div>
                         )}
                     </div>
+                )}
+
+                {activeTab === 'aprobar' && (
+                    <ApprovalDashboard holdingId={holdingId} userEmail={user?.email || ''} />
                 )}
 
                 {activeTab === 'jobs' && (
