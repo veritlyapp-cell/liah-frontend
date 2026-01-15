@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import {
     collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp
 } from 'firebase/firestore';
+import KillerQuestionsEditor, { KillerQuestion } from './KillerQuestionsEditor';
 
 interface RQ {
     id: string;
@@ -54,6 +55,7 @@ export default function PublishRQModal({
     const [salarioMin, setSalarioMin] = useState('');
     const [salarioMax, setSalarioMax] = useState('');
     const [mostrarSalario, setMostrarSalario] = useState(false);
+    const [killerQuestions, setKillerQuestions] = useState<KillerQuestion[]>([]);
 
     useEffect(() => {
         if (show && rq) {
@@ -62,6 +64,7 @@ export default function PublishRQModal({
             setDescripcion(rq.perfilContent);
             setRequisitos('');
             setBeneficios('');
+            setKillerQuestions([]);
         }
     }, [show, rq]);
 
@@ -125,6 +128,8 @@ export default function PublishRQModal({
                 vacantes: rq.cantidad,
                 fechaLimite: rq.fechaLimite || null,
                 urgente: rq.urgente,
+                // Killer Questions
+                killerQuestions,
                 // Link to RQ
                 rqId: rq.id,
                 rqCodigo: rq.codigo,
@@ -339,6 +344,14 @@ export default function PublishRQModal({
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Killer Questions Section */}
+                    <div className="border-t border-gray-200 pt-6">
+                        <KillerQuestionsEditor
+                            questions={killerQuestions}
+                            onChange={setKillerQuestions}
+                        />
                     </div>
                 </div>
 
