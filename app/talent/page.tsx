@@ -68,21 +68,25 @@ export default function TalentDashboard() {
     }
 
     async function handleSaveJob(jobData: any) {
+        console.log('[Talent] Saving job:', jobData);
         try {
             const jobsRef = collection(db, 'talent_jobs');
-            await addDoc(jobsRef, {
+            const docRef = await addDoc(jobsRef, {
                 ...jobData,
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
                 createdBy: user?.email
             });
 
+            console.log('[Talent] Job created with ID:', docRef.id);
             alert('✅ Vacante creada exitosamente');
             setShowCreateModal(false);
             loadJobs();
-        } catch (error) {
-            console.error('Error saving job:', error);
-            alert('Error guardando vacante');
+        } catch (error: any) {
+            console.error('[Talent] Error saving job:', error);
+            console.error('[Talent] Error code:', error?.code);
+            console.error('[Talent] Error message:', error?.message);
+            alert(`Error guardando vacante: ${error?.message || 'Error desconocido'}`);
         }
     }
 

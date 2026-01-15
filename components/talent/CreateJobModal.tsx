@@ -100,9 +100,11 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
                 holdingId
             };
 
-            onSave(jobData);
+            console.log('[CreateJobModal] Submitting job:', jobData);
+            await onSave(jobData);
+            console.log('[CreateJobModal] Job saved successfully');
         } catch (error) {
-            console.error('Error:', error);
+            console.error('[CreateJobModal] Error:', error);
             alert('Error creando vacante');
         } finally {
             setLoading(false);
