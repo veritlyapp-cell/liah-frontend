@@ -58,6 +58,11 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     const [formAreaId, setFormAreaId] = useState('');
     const [formPerfilBase, setFormPerfilBase] = useState('');
 
+    // Bulk upload
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkData, setBulkData] = useState<any[]>([]);
+    const [bulkUploading, setBulkUploading] = useState(false);
+
     useEffect(() => {
         loadData();
     }, [holdingId]);
@@ -217,6 +222,112 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
         }
     }
 
+    // CSV parsing
+    function parseCSV(text: string): any[] {
+        const lines = text.trim().split('\n');
+        if (lines.length < 2) return [];
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const data = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const obj: any = {};
+            headers.forEach((h, idx) => {
+                obj[h] = values[idx] || '';
+            });
+            if (obj.nombre) data.push(obj);
+        }
+        return data;
+    }
+
+    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            const parsed = parseCSV(text);
+            setBulkData(parsed);
+        };
+        reader.readAsText(file);
+    }
+
+    async function handleBulkUpload() {
+        if (bulkData.length === 0) {
+            alert('No hay datos para importar');
+            return;
+        }
+
+        setBulkUploading(true);
+        try {
+            let successCount = 0;
+
+            for (const item of bulkData) {
+                const data: any = {
+                    nombre: item.nombre,
+                    holdingId,
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now()
+                };
+
+                if (activeTab === 'gerencias') {
+                    await addDoc(collection(db, 'gerencias'), data);
+                } else if (activeTab === 'areas') {
+                    // Find gerencia by name
+                    const gerencia = gerencias.find(g =>
+                        g.nombre.toLowerCase() === item.gerencia?.toLowerCase()
+                    );
+                    if (gerencia) {
+                        data.gerenciaId = gerencia.id;
+                        await addDoc(collection(db, 'areas'), data);
+                    }
+                } else if (activeTab === 'puestos') {
+                    // Find area by name
+                    const area = areas.find(a =>
+                        a.nombre.toLowerCase() === item.area?.toLowerCase()
+                    );
+                    if (area) {
+                        data.areaId = area.id;
+                        data.gerenciaId = area.gerenciaId;
+                        data.perfilBase = item.perfil || null;
+                        await addDoc(collection(db, 'puestos'), data);
+                    }
+                }
+                successCount++;
+            }
+
+            alert(`✅ ${successCount} registros importados`);
+            setShowBulkModal(false);
+            setBulkData([]);
+            loadData();
+        } catch (error) {
+            console.error('Error bulk uploading:', error);
+            alert('Error al importar');
+        } finally {
+            setBulkUploading(false);
+        }
+    }
+
+    function downloadTemplate() {
+        let csv = '';
+        if (activeTab === 'gerencias') {
+            csv = 'nombre\nOperaciones\nComercial\nTI';
+        } else if (activeTab === 'areas') {
+            csv = 'nombre,gerencia\nPrevención,Operaciones\nMarketing,Comercial';
+        } else {
+            csv = 'nombre,area,perfil\nSupervisor Seguridad,Prevención,Descripción del puesto...';
+        }
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `template_${activeTab}.csv`;
+        a.click();
+    }
+
     const tabs = [
         { id: 'gerencias', label: 'Gerencias', icon: '🏢', count: gerencias.length },
         { id: 'areas', label: 'Áreas', icon: '📁', count: areas.length },
@@ -261,12 +372,20 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                         </button>
                     ))}
                 </div>
-                <button
-                    onClick={openCreate}
-                    className="px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-colors"
-                >
-                    + Agregar
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => { setBulkData([]); setShowBulkModal(true); }}
+                        className="px-4 py-2 border border-violet-600 text-violet-600 rounded-lg font-medium hover:bg-violet-50 transition-colors"
+                    >
+                        📤 Carga Masiva
+                    </button>
+                    <button
+                        onClick={openCreate}
+                        className="px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-colors"
+                    >
+                        + Agregar
+                    </button>
+                </div>
             </div>
 
             {/* Content */}
@@ -447,6 +566,93 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                 className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
                             >
                                 {editingItem ? 'Actualizar' : 'Crear'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Upload Modal */}
+            {showBulkModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+                        <div className="border-b border-gray-200 px-6 py-4">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                📤 Carga Masiva de {activeTab === 'gerencias' ? 'Gerencias' : activeTab === 'areas' ? 'Áreas' : 'Puestos'}
+                            </h3>
+                        </div>
+                        <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={downloadTemplate}
+                                    className="text-sm text-violet-600 hover:underline"
+                                >
+                                    📥 Descargar Template CSV
+                                </button>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Sube tu archivo CSV
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleFileChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+
+                            {bulkData.length > 0 && (
+                                <div>
+                                    <p className="text-sm font-medium text-gray-700 mb-2">
+                                        Vista previa ({bulkData.length} registros)
+                                    </p>
+                                    <div className="border rounded-lg overflow-x-auto max-h-48">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    {Object.keys(bulkData[0]).map(key => (
+                                                        <th key={key} className="px-3 py-2 text-left font-medium text-gray-600">
+                                                            {key}
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {bulkData.slice(0, 5).map((row, idx) => (
+                                                    <tr key={idx}>
+                                                        {Object.values(row).map((val, vidx) => (
+                                                            <td key={vidx} className="px-3 py-2 text-gray-900">
+                                                                {String(val).substring(0, 30)}
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {bulkData.length > 5 && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            ... y {bulkData.length - 5} más
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                            <button
+                                onClick={() => { setShowBulkModal(false); setBulkData([]); }}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleBulkUpload}
+                                disabled={bulkData.length === 0 || bulkUploading}
+                                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
+                            >
+                                {bulkUploading ? '⏳ Importando...' : `Importar ${bulkData.length} registros`}
                             </button>
                         </div>
                     </div>
