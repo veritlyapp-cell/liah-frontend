@@ -184,6 +184,7 @@ export default function AdminDashboard() {
                 subtitle={`${user?.displayName || user?.email?.split('@')[0] || 'Admin'} • Admin Empresa`}
                 holdingId={holdingId}
                 onConfigClick={() => setActiveTab('configuracion')}
+                showProductSwitcher={true}
             />
 
             <main className="max-w-7xl mx-auto px-4 py-8">

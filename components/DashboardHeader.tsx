@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import NotificationBell from '@/components/NotificationBell';
 import UserAvatarMenu from '@/components/UserAvatarMenu';
@@ -20,6 +21,7 @@ interface DashboardHeaderProps {
     storeId?: string; // For notification bell
     storeIds?: string[]; // For supervisor notification bell
     showLogout?: boolean;
+    showProductSwitcher?: boolean; // Show button to switch between Flow/Talent
     onConfigClick?: () => void;
 }
 
@@ -45,9 +47,11 @@ export default function DashboardHeader({
     storeId,
     storeIds,
     showLogout = true,
+    showProductSwitcher = false,
     onConfigClick
 }: DashboardHeaderProps) {
     const { user, claims, signOut } = useAuth();
+    const router = useRouter();
     const [holdingInfo, setHoldingInfo] = useState<HoldingInfo | null>(null);
     const [marcaInfo, setMarcaInfo] = useState<MarcaInfo | null>(null);
 
@@ -148,6 +152,16 @@ export default function DashboardHeader({
 
                     {/* Right: Notification Bell and User Menu */}
                     <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        {/* Product Switcher Button */}
+                        {showProductSwitcher && (
+                            <button
+                                onClick={() => router.push('/launcher')}
+                                className="px-3 py-1.5 text-sm bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors flex items-center gap-1"
+                            >
+                                🔄 Cambiar Producto
+                            </button>
+                        )}
+
                         {/* Notification Bell */}
                         <NotificationBell
                             marcaId={marcaId}
