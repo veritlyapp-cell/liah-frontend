@@ -9,12 +9,13 @@ import {
 
 /**
  * Tipos de aprobador:
+ * - hiring_manager: El usuario que crea el RQ (dinámico)
  * - area_manager: El jefe del área del RQ (dinámico)
  * - gerencia_manager: El jefe de la gerencia del RQ (dinámico)
  * - specific_user: Un usuario específico (estático)
  * - jefe_reclutamiento: El jefe de reclutamiento (dinámico por holding)
  */
-type ApproverType = 'area_manager' | 'gerencia_manager' | 'specific_user' | 'jefe_reclutamiento';
+type ApproverType = 'hiring_manager' | 'area_manager' | 'gerencia_manager' | 'specific_user' | 'jefe_reclutamiento';
 
 interface WorkflowStep {
     orden: number;
@@ -47,6 +48,7 @@ interface ApprovalWorkflowsProps {
 }
 
 const APPROVER_TYPES = [
+    { id: 'hiring_manager', label: 'Hiring Manager', icon: '📝', description: 'El usuario que creó el RQ (dinámico)' },
     { id: 'area_manager', label: 'Jefe de Área', icon: '📁', description: 'El jefe del área del puesto (dinámico)' },
     { id: 'gerencia_manager', label: 'Jefe de Gerencia', icon: '🏢', description: 'El jefe de la gerencia del puesto (dinámico)' },
     { id: 'jefe_reclutamiento', label: 'Jefe de Reclutamiento', icon: '🎯', description: 'El jefe de reclutamiento del holding (dinámico)' },
