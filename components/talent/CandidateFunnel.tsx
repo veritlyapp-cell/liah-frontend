@@ -6,6 +6,12 @@ import {
     collection, query, where, getDocs, getDoc, updateDoc, doc, Timestamp
 } from 'firebase/firestore';
 
+interface StageTransition {
+    stageId: string;
+    stageName: string;
+    enteredAt: any; // Timestamp
+}
+
 interface Application {
     id: string;
     jobId: string;
@@ -19,6 +25,8 @@ interface Application {
     status: string;
     matchScore?: number;
     funnelStage: string;
+    stageHistory?: StageTransition[]; // Track time in each stage
+    currentStageEnteredAt?: any; // When entered current stage
     createdAt: any;
     aiAnalysis?: {
         matchScore: number;
@@ -173,9 +181,20 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
     async function moveCandidate(candidateId: string, newStage: string) {
         setProcessing(true);
         try {
+            const { arrayUnion } = await import('firebase/firestore');
+            const newStageName = stages.find(s => s.id === newStage)?.nombre || newStage;
+
+            const stageTransition: StageTransition = {
+                stageId: newStage,
+                stageName: newStageName,
+                enteredAt: Timestamp.now()
+            };
+
             await updateDoc(doc(db, 'talent_applications', candidateId), {
                 funnelStage: newStage,
                 status: newStage === 'rejected' ? 'rejected' : newStage === 'hired' ? 'hired' : 'in_process',
+                currentStageEnteredAt: Timestamp.now(),
+                stageHistory: arrayUnion(stageTransition),
                 updatedAt: Timestamp.now()
             });
             loadData();
@@ -189,6 +208,26 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
     function openCandidateDetail(app: Application) {
         setSelectedCandidate(app);
         setShowCandidateModal(true);
+    }
+
+    function getDaysInStage(app: Application): number {
+        const enteredAt = app.currentStageEnteredAt || app.createdAt;
+        if (!enteredAt) return 0;
+
+        const enteredDate = enteredAt.seconds
+            ? new Date(enteredAt.seconds * 1000)
+            : new Date(enteredAt);
+        const now = new Date();
+        const diffTime = now.getTime() - enteredDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(0, diffDays);
+    }
+
+    function getDaysColor(days: number): string {
+        if (days <= 2) return 'text-green-600';
+        if (days <= 5) return 'text-yellow-600';
+        if (days <= 7) return 'text-orange-600';
+        return 'text-red-600';
     }
 
     function getMatchScoreColor(score: number | undefined): string {
@@ -349,8 +388,13 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                                         </div>
                                     )}
 
-                                    <div className="text-xs text-gray-400 mt-2">
-                                        {new Date(app.createdAt.seconds * 1000).toLocaleDateString()}
+                                    <div className="flex items-center justify-between mt-2 text-xs">
+                                        <span className="text-gray-400">
+                                            {new Date(app.createdAt.seconds * 1000).toLocaleDateString()}
+                                        </span>
+                                        <span className={`font-medium ${getDaysColor(getDaysInStage(app))}`}>
+                                            ⏱️ {getDaysInStage(app)}d
+                                        </span>
                                     </div>
                                 </div>
                             ))}
