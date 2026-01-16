@@ -64,6 +64,9 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
     const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
     const [showCandidateModal, setShowCandidateModal] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [showStagesConfig, setShowStagesConfig] = useState(false);
+    const [usingCustomStages, setUsingCustomStages] = useState(false);
+    const [savingStages, setSavingStages] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -72,18 +75,37 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
     async function loadData() {
         setLoading(true);
         try {
-            // Load custom funnel stages if configured
-            const configDoc = await getDoc(doc(db, 'funnel_config', holdingId));
-            if (configDoc.exists()) {
-                const configData = configDoc.data();
-                if (configData.stages && Array.isArray(configData.stages)) {
-                    // Add rejected stage if not present (it's always shown)
-                    const configStages = configData.stages as FunnelStage[];
-                    if (!configStages.find(s => s.id === 'rejected')) {
-                        configStages.push({ id: 'rejected', nombre: 'Rechazados', color: 'bg-red-100', orden: 99 });
-                    }
-                    setStages(configStages);
+            let loadedStages: FunnelStage[] | null = null;
+
+            // 1. First try to load job-specific funnel stages
+            const jobConfigDoc = await getDoc(doc(db, 'job_funnel_config', jobId));
+            if (jobConfigDoc.exists()) {
+                const jobConfigData = jobConfigDoc.data();
+                if (jobConfigData.stages && Array.isArray(jobConfigData.stages)) {
+                    loadedStages = jobConfigData.stages as FunnelStage[];
+                    setUsingCustomStages(true);
                 }
+            }
+
+            // 2. If no job-specific config, try holding-level default
+            if (!loadedStages) {
+                const holdingConfigDoc = await getDoc(doc(db, 'funnel_config', holdingId));
+                if (holdingConfigDoc.exists()) {
+                    const configData = holdingConfigDoc.data();
+                    if (configData.stages && Array.isArray(configData.stages)) {
+                        loadedStages = configData.stages as FunnelStage[];
+                    }
+                }
+                setUsingCustomStages(false);
+            }
+
+            // 3. Apply loaded stages or use defaults
+            if (loadedStages) {
+                // Ensure rejected stage is always present
+                if (!loadedStages.find(s => s.id === 'rejected')) {
+                    loadedStages.push({ id: 'rejected', nombre: 'Rechazados', color: 'bg-red-100', orden: 99 });
+                }
+                setStages(loadedStages);
             }
 
             // Load applications
@@ -104,6 +126,43 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
             console.error('Error loading data:', error);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function saveJobStages(newStages: FunnelStage[]) {
+        setSavingStages(true);
+        try {
+            const { setDoc, Timestamp: TS } = await import('firebase/firestore');
+            await setDoc(doc(db, 'job_funnel_config', jobId), {
+                stages: newStages,
+                jobId,
+                holdingId,
+                updatedAt: TS.now()
+            });
+            setStages(newStages);
+            setUsingCustomStages(true);
+            setShowStagesConfig(false);
+            alert('✅ Etapas guardadas para esta vacante');
+        } catch (error) {
+            console.error('Error saving job stages:', error);
+            alert('Error al guardar');
+        } finally {
+            setSavingStages(false);
+        }
+    }
+
+    async function resetToDefault() {
+        if (!confirm('¿Restaurar al funnel por defecto del holding? Los cambios se perderán.')) return;
+        setSavingStages(true);
+        try {
+            const { deleteDoc } = await import('firebase/firestore');
+            await deleteDoc(doc(db, 'job_funnel_config', jobId));
+            setUsingCustomStages(false);
+            loadData(); // Reload with holding default
+        } catch (error) {
+            console.error('Error resetting:', error);
+        } finally {
+            setSavingStages(false);
         }
     }
 
@@ -154,15 +213,83 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">Pipeline de Candidatos</h2>
-                    <p className="text-gray-600">{jobTitulo} • {applications.length} candidatos</p>
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-600">{jobTitulo} • {applications.length} candidatos</span>
+                        {usingCustomStages && (
+                            <span className="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-xs font-medium">
+                                Etapas personalizadas
+                            </span>
+                        )}
+                    </div>
                 </div>
-                <button
-                    onClick={loadData}
-                    className="px-4 py-2 text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50"
-                >
-                    🔄 Actualizar
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowStagesConfig(!showStagesConfig)}
+                        className="px-4 py-2 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                        🗂️ Personalizar Etapas
+                    </button>
+                    <button
+                        onClick={loadData}
+                        className="px-4 py-2 text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50"
+                    >
+                        🔄 Actualizar
+                    </button>
+                </div>
             </div>
+
+            {/* Inline Stages Configuration */}
+            {showStagesConfig && (
+                <div className="bg-white rounded-xl border border-violet-200 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-semibold text-gray-900">Personalizar Etapas de este Proceso</h3>
+                            <p className="text-sm text-gray-500">
+                                {usingCustomStages
+                                    ? 'Usando etapas personalizadas para esta vacante'
+                                    : 'Usando etapas por defecto del holding'}
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            {usingCustomStages && (
+                                <button
+                                    onClick={resetToDefault}
+                                    disabled={savingStages}
+                                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                >
+                                    ↩️ Restaurar Default
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowStagesConfig(false)}
+                                className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Quick Stage Editor */}
+                    <div className="flex gap-2 flex-wrap">
+                        {stages.filter(s => s.id !== 'rejected').map((stage, idx) => (
+                            <div
+                                key={stage.id}
+                                className={`${stage.color} px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2`}
+                            >
+                                <span>{stage.orden}. {stage.nombre}</span>
+                            </div>
+                        ))}
+                        <span className="bg-red-100 px-3 py-2 rounded-lg text-sm font-medium">
+                            99. Rechazados
+                        </span>
+                    </div>
+
+                    <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-800">
+                        💡 Para modificar etapas en detalle, ve a <strong>🗂️ Etapas Funnel</strong> en el menú principal.
+                        Luego regresa aquí y los cambios se aplicarán a esta vacante.
+                    </div>
+                </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-6 gap-4">
