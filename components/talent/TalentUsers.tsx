@@ -13,6 +13,8 @@ interface TalentUser {
     nombre: string;
     rol: 'admin' | 'jefe_reclutamiento' | 'recruiter' | 'hiring_manager' | 'approver';
     nivelAprobacion?: number;
+    puestoId?: string;
+    puestoNombre?: string;
     gerenciaId?: string;
     gerenciaNombre?: string;
     areaId?: string;
@@ -29,6 +31,13 @@ interface Gerencia {
 interface Area {
     id: string;
     nombre: string;
+    gerenciaId: string;
+}
+
+interface Puesto {
+    id: string;
+    nombre: string;
+    areaId: string;
     gerenciaId: string;
 }
 
@@ -49,6 +58,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
     const [users, setUsers] = useState<TalentUser[]>([]);
     const [gerencias, setGerencias] = useState<Gerencia[]>([]);
     const [areas, setAreas] = useState<Area[]>([]);
+    const [puestos, setPuestos] = useState<Puesto[]>([]);
 
     // Modal state
     const [showModal, setShowModal] = useState(false);
@@ -59,8 +69,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
     const [formNombre, setFormNombre] = useState('');
     const [formRol, setFormRol] = useState<string>('hiring_manager');
     const [formNivel, setFormNivel] = useState(1);
-    const [formGerenciaId, setFormGerenciaId] = useState('');
-    const [formAreaId, setFormAreaId] = useState('');
+    const [formPuestoId, setFormPuestoId] = useState('');
 
     useEffect(() => {
         loadData();
@@ -94,6 +103,18 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
             }));
             setAreas(loadedAreas);
 
+            // Load puestos
+            const puestosRef = collection(db, 'puestos');
+            const pQuery = query(puestosRef, where('holdingId', '==', holdingId));
+            const pSnap = await getDocs(pQuery);
+            const loadedPuestos = pSnap.docs.map(d => ({
+                id: d.id,
+                nombre: d.data().nombre,
+                areaId: d.data().areaId,
+                gerenciaId: d.data().gerenciaId
+            }));
+            setPuestos(loadedPuestos);
+
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -106,8 +127,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
         setFormNombre('');
         setFormRol('hiring_manager');
         setFormNivel(1);
-        setFormGerenciaId('');
-        setFormAreaId('');
+        setFormPuestoId('');
         setEditingUser(null);
     }
 
@@ -122,8 +142,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
         setFormNombre(user.nombre);
         setFormRol(user.rol);
         setFormNivel(user.nivelAprobacion || 1);
-        setFormGerenciaId(user.gerenciaId || '');
-        setFormAreaId(user.areaId || '');
+        setFormPuestoId(user.puestoId || '');
         setShowModal(true);
     }
 
@@ -134,18 +153,21 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
         }
 
         try {
-            const gerencia = gerencias.find(g => g.id === formGerenciaId);
-            const area = areas.find(a => a.id === formAreaId);
+            const puesto = puestos.find(p => p.id === formPuestoId);
+            const area = puesto ? areas.find(a => a.id === puesto.areaId) : null;
+            const gerencia = puesto ? gerencias.find(g => g.id === puesto.gerenciaId) : null;
 
             const userData = {
                 email: formEmail.toLowerCase().trim(),
                 nombre: formNombre.trim(),
                 rol: formRol,
                 nivelAprobacion: formRol === 'approver' ? formNivel : null,
-                gerenciaId: formGerenciaId || null,
-                gerenciaNombre: gerencia?.nombre || null,
-                areaId: formAreaId || null,
+                puestoId: formPuestoId || null,
+                puestoNombre: puesto?.nombre || null,
+                areaId: puesto?.areaId || null,
                 areaNombre: area?.nombre || null,
+                gerenciaId: puesto?.gerenciaId || null,
+                gerenciaNombre: gerencia?.nombre || null,
                 holdingId,
                 activo: true,
                 updatedAt: Timestamp.now()
@@ -280,8 +302,8 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                                         <button
                                             onClick={() => toggleActive(user)}
                                             className={`px-2 py-1 rounded-full text-xs font-medium ${user.activo
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-gray-100 text-gray-500'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-gray-100 text-gray-500'
                                                 }`}
                                         >
                                             {user.activo ? '✓ Activo' : 'Inactivo'}
@@ -350,8 +372,8 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                                             type="button"
                                             onClick={() => setFormRol(role.id)}
                                             className={`text-left p-3 rounded-lg border transition-colors ${formRol === role.id
-                                                    ? 'border-violet-500 bg-violet-50'
-                                                    : 'border-gray-200 hover:border-gray-300'
+                                                ? 'border-violet-500 bg-violet-50'
+                                                : 'border-gray-200 hover:border-gray-300'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2">
@@ -380,39 +402,26 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                             )}
 
                             {(formRol === 'hiring_manager' || formRol === 'approver') && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Gerencia</label>
-                                        <select
-                                            value={formGerenciaId}
-                                            onChange={(e) => {
-                                                setFormGerenciaId(e.target.value);
-                                                setFormAreaId('');
-                                            }}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                        >
-                                            <option value="">Todas</option>
-                                            {gerencias.map(g => (
-                                                <option key={g.id} value={g.id}>{g.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Área</label>
-                                        <select
-                                            value={formAreaId}
-                                            onChange={(e) => setFormAreaId(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                        >
-                                            <option value="">Todas</option>
-                                            {areas
-                                                .filter(a => !formGerenciaId || a.gerenciaId === formGerenciaId)
-                                                .map(a => (
-                                                    <option key={a.id} value={a.id}>{a.nombre}</option>
-                                                ))
-                                            }
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Puesto *</label>
+                                    <select
+                                        value={formPuestoId}
+                                        onChange={(e) => setFormPuestoId(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                    >
+                                        <option value="">Seleccionar puesto...</option>
+                                        {puestos.map(p => {
+                                            const area = areas.find(a => a.id === p.areaId);
+                                            return (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.nombre} ({area?.nombre || 'Sin área'})
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        El puesto determina automáticamente el área y gerencia del usuario
+                                    </p>
                                 </div>
                             )}
                         </div>
