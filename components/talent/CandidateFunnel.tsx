@@ -13,6 +13,7 @@ interface Application {
     email: string;
     telefono?: string;
     cvFileName?: string;
+    cvUrl?: string;
     killerQuestionsPassed: boolean;
     failedKillerQuestions?: string[];
     status: string;
@@ -262,7 +263,18 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                                 </div>
                                 <div className="bg-gray-50 rounded-lg p-3">
                                     <p className="text-xs text-gray-500">CV</p>
-                                    <p className="font-medium">{selectedCandidate.cvFileName || 'No adjuntó'}</p>
+                                    {selectedCandidate.cvUrl ? (
+                                        <a
+                                            href={selectedCandidate.cvUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-violet-600 hover:text-violet-800 font-medium underline"
+                                        >
+                                            📄 {selectedCandidate.cvFileName || 'Descargar CV'}
+                                        </a>
+                                    ) : (
+                                        <p className="font-medium text-gray-400">{selectedCandidate.cvFileName || 'No adjuntó'}</p>
+                                    )}
                                 </div>
                             </div>
 

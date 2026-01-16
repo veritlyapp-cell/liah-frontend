@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore';
+import { uploadCV } from '@/lib/storage/cv-upload';
 
 interface KillerQuestion {
     id: string;
@@ -181,6 +182,20 @@ export default function JobApplicationPage() {
             // Check killer questions
             const { passed, failedQuestions } = validateKillerQuestions();
 
+            // Upload CV to storage if provided
+            let cvUrl: string | null = null;
+            let cvPath: string | null = null;
+            if (cvFile) {
+                try {
+                    const uploadResult = await uploadCV(cvFile, job.holdingId, job.id, email.trim());
+                    cvUrl = uploadResult.url;
+                    cvPath = uploadResult.path;
+                } catch (uploadError) {
+                    console.error('Error uploading CV:', uploadError);
+                    // Continue without CV URL - not a blocking error
+                }
+            }
+
             // Prepare application data
             const applicationData = {
                 jobId: job.id,
@@ -190,7 +205,8 @@ export default function JobApplicationPage() {
                 email: email.trim().toLowerCase(),
                 telefono: telefono.trim() || null,
                 cvFileName: cvFile?.name || null,
-                // TODO: Upload CV to storage
+                cvUrl,
+                cvPath,
                 killerAnswers,
                 killerQuestionsPassed: passed,
                 failedKillerQuestions: failedQuestions,
