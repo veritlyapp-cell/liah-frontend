@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import {
-    collection, query, where, getDocs, updateDoc, doc, Timestamp
+    collection, query, where, getDocs, getDoc, updateDoc, doc, Timestamp
 } from 'firebase/firestore';
 
 interface Application {
@@ -66,12 +66,27 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        loadApplications();
-    }, [jobId]);
+        loadData();
+    }, [jobId, holdingId]);
 
-    async function loadApplications() {
+    async function loadData() {
         setLoading(true);
         try {
+            // Load custom funnel stages if configured
+            const configDoc = await getDoc(doc(db, 'funnel_config', holdingId));
+            if (configDoc.exists()) {
+                const configData = configDoc.data();
+                if (configData.stages && Array.isArray(configData.stages)) {
+                    // Add rejected stage if not present (it's always shown)
+                    const configStages = configData.stages as FunnelStage[];
+                    if (!configStages.find(s => s.id === 'rejected')) {
+                        configStages.push({ id: 'rejected', nombre: 'Rechazados', color: 'bg-red-100', orden: 99 });
+                    }
+                    setStages(configStages);
+                }
+            }
+
+            // Load applications
             const appsRef = collection(db, 'talent_applications');
             const appsQuery = query(appsRef, where('jobId', '==', jobId));
             const appsSnap = await getDocs(appsQuery);
@@ -86,7 +101,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
 
             setApplications(loadedApps);
         } catch (error) {
-            console.error('Error loading applications:', error);
+            console.error('Error loading data:', error);
         } finally {
             setLoading(false);
         }
@@ -104,7 +119,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                 status: newStage === 'rejected' ? 'rejected' : newStage === 'hired' ? 'hired' : 'in_process',
                 updatedAt: Timestamp.now()
             });
-            loadApplications();
+            loadData();
         } catch (error) {
             console.error('Error moving candidate:', error);
         } finally {
@@ -142,7 +157,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                     <p className="text-gray-600">{jobTitulo} • {applications.length} candidatos</p>
                 </div>
                 <button
-                    onClick={loadApplications}
+                    onClick={loadData}
                     className="px-4 py-2 text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50"
                 >
                     🔄 Actualizar

@@ -14,6 +14,7 @@ import TalentUsers from '@/components/talent/TalentUsers';
 import ApprovalWorkflows from '@/components/talent/ApprovalWorkflows';
 import ApprovalDashboard from '@/components/talent/ApprovalDashboard';
 import PublishRQModal from '@/components/talent/PublishRQModal';
+import FunnelStagesConfig from '@/components/talent/FunnelStagesConfig';
 
 interface Job {
     id: string;
@@ -151,6 +152,7 @@ export default function TalentDashboard() {
         { id: 'pipeline', label: 'Pipeline', icon: '🎯' },
         { id: 'estructura', label: 'Estructura Org', icon: '🏢' },
         { id: 'usuarios', label: 'Usuarios', icon: '👤' },
+        { id: 'etapas', label: 'Etapas Funnel', icon: '🗂️' },
         { id: 'config', label: 'Flujos', icon: '⚙️' },
         { id: 'analytics', label: 'Analytics', icon: '📊' },
     ];
@@ -423,6 +425,10 @@ export default function TalentDashboard() {
 
                 {activeTab === 'usuarios' && (
                     <TalentUsers holdingId={holdingId} />
+                )}
+
+                {activeTab === 'etapas' && (
+                    <FunnelStagesConfig holdingId={holdingId} />
                 )}
 
                 {activeTab === 'config' && (
