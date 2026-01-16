@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore';
 import { uploadCV } from '@/lib/storage/cv-upload';
+import JobPostingSchema from '@/components/seo/JobPostingSchema';
 
 interface KillerQuestion {
     id: string;
@@ -31,6 +32,10 @@ interface Job {
     killerQuestions: KillerQuestion[];
     holdingId: string;
     status: string;
+    holdingNombre?: string;
+    holdingLogo?: string;
+    ubicacion?: string;
+    createdAt?: any;
 }
 
 export default function JobApplicationPage() {
@@ -74,6 +79,20 @@ export default function JobApplicationPage() {
             if (jobData.status !== 'published') {
                 setError('Esta vacante ya no está disponible');
                 return;
+            }
+
+            // Fetch holding info for SEO schema
+            if (jobData.holdingId) {
+                try {
+                    const holdingDoc = await getDoc(doc(db, 'holdings', jobData.holdingId));
+                    if (holdingDoc.exists()) {
+                        const holdingData = holdingDoc.data();
+                        jobData.holdingNombre = holdingData.nombre;
+                        jobData.holdingLogo = holdingData.logoUrl;
+                    }
+                } catch (holdingErr) {
+                    console.error('Error loading holding:', holdingErr);
+                }
             }
 
             setJob(jobData);
@@ -319,202 +338,212 @@ export default function JobApplicationPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-100">
-            {/* Header */}
-            <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
-                <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold">L</span>
+        <>
+            {/* Google Jobs Schema */}
+            <JobPostingSchema
+                job={job}
+                companyName={job.holdingNombre || 'Empresa'}
+                companyLogo={job.holdingLogo}
+                location={job.ubicacion}
+            />
+
+            <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-100">
+                {/* Header */}
+                <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
+                    <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold">L</span>
+                            </div>
+                            <span className="font-semibold text-gray-900">Liah Careers</span>
                         </div>
-                        <span className="font-semibold text-gray-900">Liah Careers</span>
                     </div>
-                </div>
-            </header>
+                </header>
 
-            <main className="max-w-4xl mx-auto px-4 py-8">
-                <div className="grid md:grid-cols-3 gap-8">
-                    {/* Job Details */}
-                    <div className="md:col-span-2 space-y-6">
-                        <div className="bg-white rounded-2xl shadow-lg p-6">
-                            <h1 className="text-2xl font-bold text-gray-900 mb-2">{job.titulo}</h1>
+                <main className="max-w-4xl mx-auto px-4 py-8">
+                    <div className="grid md:grid-cols-3 gap-8">
+                        {/* Job Details */}
+                        <div className="md:col-span-2 space-y-6">
+                            <div className="bg-white rounded-2xl shadow-lg p-6">
+                                <h1 className="text-2xl font-bold text-gray-900 mb-2">{job.titulo}</h1>
 
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
-                                    {tipoContratoLabels[job.tipoContrato] || job.tipoContrato}
-                                </span>
-                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                                    {modalidadLabels[job.modalidad] || job.modalidad}
-                                </span>
-                                {job.mostrarSalario && job.salarioMin && (
-                                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                                        💰 S/ {job.salarioMin.toLocaleString()}{job.salarioMax ? ` - ${job.salarioMax.toLocaleString()}` : '+'}
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
+                                        {tipoContratoLabels[job.tipoContrato] || job.tipoContrato}
                                     </span>
-                                )}
-                            </div>
-
-                            <div className="prose prose-gray max-w-none">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Descripción</h3>
-                                <p className="text-gray-700 whitespace-pre-wrap">{job.descripcion}</p>
-
-                                {job.requisitos && (
-                                    <>
-                                        <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-2">Requisitos</h3>
-                                        <p className="text-gray-700 whitespace-pre-wrap">{job.requisitos}</p>
-                                    </>
-                                )}
-
-                                {job.beneficios && (
-                                    <>
-                                        <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-2">Beneficios</h3>
-                                        <p className="text-gray-700 whitespace-pre-wrap">{job.beneficios}</p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Application Form */}
-                    <div className="md:col-span-1">
-                        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
-                            <h2 className="text-lg font-bold text-gray-900 mb-4">Postúlate ahora</h2>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Nombre completo *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={nombre}
-                                        onChange={(e) => setNombre(e.target.value)}
-                                        required
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Email *
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        required
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Teléfono
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        value={telefono}
-                                        onChange={(e) => setTelefono(e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        CV (PDF, Word) {parsingCV && <span className="text-violet-600 animate-pulse ml-2">✨ Analizando...</span>}
-                                    </label>
-                                    <input
-                                        type="file"
-                                        accept=".pdf,.doc,.docx"
-                                        onChange={handleFileChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
-                                    />
-                                    {parsingCV && (
-                                        <p className="text-xs text-violet-500 mt-1">
-                                            IA está completando tus datos automáticamente...
-                                        </p>
+                                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                        {modalidadLabels[job.modalidad] || job.modalidad}
+                                    </span>
+                                    {job.mostrarSalario && job.salarioMin && (
+                                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                            💰 S/ {job.salarioMin.toLocaleString()}{job.salarioMax ? ` - ${job.salarioMax.toLocaleString()}` : '+'}
+                                        </span>
                                     )}
                                 </div>
 
-                                {/* Killer Questions */}
-                                {job.killerQuestions && job.killerQuestions.length > 0 && (
-                                    <div className="border-t border-gray-200 pt-4 mt-4">
-                                        <h3 className="font-medium text-gray-900 mb-3">Preguntas filtro</h3>
-                                        <div className="space-y-4">
-                                            {job.killerQuestions.map((q) => (
-                                                <div key={q.id}>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        {q.pregunta} *
-                                                    </label>
+                                <div className="prose prose-gray max-w-none">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Descripción</h3>
+                                    <p className="text-gray-700 whitespace-pre-wrap">{job.descripcion}</p>
 
-                                                    {q.tipo === 'yes_no' ? (
-                                                        <div className="flex gap-4">
-                                                            <label className="flex items-center gap-2">
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`kq_${q.id}`}
-                                                                    value="si"
-                                                                    checked={killerAnswers[q.id] === 'si'}
-                                                                    onChange={() => updateAnswer(q.id, 'si')}
-                                                                    required
-                                                                    className="text-violet-600"
-                                                                />
-                                                                <span>Sí</span>
-                                                            </label>
-                                                            <label className="flex items-center gap-2">
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`kq_${q.id}`}
-                                                                    value="no"
-                                                                    checked={killerAnswers[q.id] === 'no'}
-                                                                    onChange={() => updateAnswer(q.id, 'no')}
-                                                                    className="text-violet-600"
-                                                                />
-                                                                <span>No</span>
-                                                            </label>
-                                                        </div>
-                                                    ) : q.tipo === 'multiple_choice' ? (
-                                                        <select
-                                                            value={killerAnswers[q.id] || ''}
-                                                            onChange={(e) => updateAnswer(q.id, e.target.value)}
-                                                            required
-                                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                        >
-                                                            <option value="">Selecciona...</option>
-                                                            {q.opciones?.map((opt, i) => (
-                                                                <option key={i} value={opt}>{opt}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        <input
-                                                            type="text"
-                                                            value={killerAnswers[q.id] || ''}
-                                                            onChange={(e) => updateAnswer(q.id, e.target.value)}
-                                                            required
-                                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                        />
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                    {job.requisitos && (
+                                        <>
+                                            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-2">Requisitos</h3>
+                                            <p className="text-gray-700 whitespace-pre-wrap">{job.requisitos}</p>
+                                        </>
+                                    )}
 
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-                                >
-                                    {submitting ? '⏳ Enviando...' : '📨 Enviar Postulación'}
-                                </button>
-
-                                <p className="text-xs text-gray-500 text-center">
-                                    Al postularte aceptas nuestra política de privacidad
-                                </p>
+                                    {job.beneficios && (
+                                        <>
+                                            <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-2">Beneficios</h3>
+                                            <p className="text-gray-700 whitespace-pre-wrap">{job.beneficios}</p>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                        </form>
+                        </div>
+
+                        {/* Application Form */}
+                        <div className="md:col-span-1">
+                            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4">Postúlate ahora</h2>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Nombre completo *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={nombre}
+                                            onChange={(e) => setNombre(e.target.value)}
+                                            required
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Email *
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            required
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Teléfono
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            value={telefono}
+                                            onChange={(e) => setTelefono(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            CV (PDF, Word) {parsingCV && <span className="text-violet-600 animate-pulse ml-2">✨ Analizando...</span>}
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={handleFileChange}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
+                                        />
+                                        {parsingCV && (
+                                            <p className="text-xs text-violet-500 mt-1">
+                                                IA está completando tus datos automáticamente...
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Killer Questions */}
+                                    {job.killerQuestions && job.killerQuestions.length > 0 && (
+                                        <div className="border-t border-gray-200 pt-4 mt-4">
+                                            <h3 className="font-medium text-gray-900 mb-3">Preguntas filtro</h3>
+                                            <div className="space-y-4">
+                                                {job.killerQuestions.map((q) => (
+                                                    <div key={q.id}>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                            {q.pregunta} *
+                                                        </label>
+
+                                                        {q.tipo === 'yes_no' ? (
+                                                            <div className="flex gap-4">
+                                                                <label className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`kq_${q.id}`}
+                                                                        value="si"
+                                                                        checked={killerAnswers[q.id] === 'si'}
+                                                                        onChange={() => updateAnswer(q.id, 'si')}
+                                                                        required
+                                                                        className="text-violet-600"
+                                                                    />
+                                                                    <span>Sí</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`kq_${q.id}`}
+                                                                        value="no"
+                                                                        checked={killerAnswers[q.id] === 'no'}
+                                                                        onChange={() => updateAnswer(q.id, 'no')}
+                                                                        className="text-violet-600"
+                                                                    />
+                                                                    <span>No</span>
+                                                                </label>
+                                                            </div>
+                                                        ) : q.tipo === 'multiple_choice' ? (
+                                                            <select
+                                                                value={killerAnswers[q.id] || ''}
+                                                                onChange={(e) => updateAnswer(q.id, e.target.value)}
+                                                                required
+                                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                            >
+                                                                <option value="">Selecciona...</option>
+                                                                {q.opciones?.map((opt, i) => (
+                                                                    <option key={i} value={opt}>{opt}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <input
+                                                                type="text"
+                                                                value={killerAnswers[q.id] || ''}
+                                                                onChange={(e) => updateAnswer(q.id, e.target.value)}
+                                                                required
+                                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={submitting}
+                                        className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                    >
+                                        {submitting ? '⏳ Enviando...' : '📨 Enviar Postulación'}
+                                    </button>
+
+                                    <p className="text-xs text-gray-500 text-center">
+                                        Al postularte aceptas nuestra política de privacidad
+                                    </p>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            </main>
-        </div>
+                </main>
+            </div>
+        </>
     );
 }
