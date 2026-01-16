@@ -15,6 +15,7 @@ import ApprovalWorkflows from '@/components/talent/ApprovalWorkflows';
 import ApprovalDashboard from '@/components/talent/ApprovalDashboard';
 import PublishRQModal from '@/components/talent/PublishRQModal';
 import FunnelStagesConfig from '@/components/talent/FunnelStagesConfig';
+import TalentNotificationBell from '@/components/talent/TalentNotificationBell';
 
 interface Job {
     id: string;
@@ -191,6 +192,10 @@ export default function TalentDashboard() {
                         </div>
 
                         <div className="flex items-center gap-4">
+                            <TalentNotificationBell
+                                userEmail={user?.email || ''}
+                                holdingId={holdingId}
+                            />
                             <span className="text-sm text-gray-600">{user?.email}</span>
                             <button
                                 onClick={() => router.push('/launcher')}

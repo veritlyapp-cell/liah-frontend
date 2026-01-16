@@ -184,6 +184,9 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
             const { arrayUnion } = await import('firebase/firestore');
             const newStageName = stages.find(s => s.id === newStage)?.nombre || newStage;
 
+            // Find the candidate being moved
+            const candidate = applications.find(a => a.id === candidateId);
+
             const stageTransition: StageTransition = {
                 stageId: newStage,
                 stageName: newStageName,
@@ -197,6 +200,30 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId }: Candida
                 stageHistory: arrayUnion(stageTransition),
                 updatedAt: Timestamp.now()
             });
+
+            // Send rejection email if candidate is rejected
+            if (newStage === 'rejected' && candidate) {
+                try {
+                    // Get holding info for company name
+                    const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
+                    const companyName = holdingDoc.exists() ? holdingDoc.data().nombre : 'La empresa';
+
+                    await fetch('/api/talent/send-rejection-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            candidateName: candidate.nombre,
+                            candidateEmail: candidate.email,
+                            jobTitle: jobTitulo,
+                            companyName
+                        })
+                    });
+                    console.log('Rejection email sent to:', candidate.email);
+                } catch (emailError) {
+                    console.error('Failed to send rejection email:', emailError);
+                }
+            }
+
             loadData();
         } catch (error) {
             console.error('Error moving candidate:', error);
