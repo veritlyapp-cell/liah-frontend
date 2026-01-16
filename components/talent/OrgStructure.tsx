@@ -35,6 +35,10 @@ interface Puesto {
     gerenciaId: string;
     gerenciaNombre?: string;
     perfilBase?: string;
+    // User assigned to this position
+    ocupanteId?: string;
+    ocupanteNombre?: string;
+    ocupanteEmail?: string;
     holdingId: string;
 }
 
@@ -57,12 +61,12 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
     // Form fields
     const [formNombre, setFormNombre] = useState('');
-    const [formManagerId, setFormManagerId] = useState('');
     const [formGerenciaId, setFormGerenciaId] = useState('');
     const [formAreaId, setFormAreaId] = useState('');
     const [formPerfilBase, setFormPerfilBase] = useState('');
+    const [formOcupanteId, setFormOcupanteId] = useState('');
 
-    // Users for manager selection
+    // Users for occupant selection
     const [talentUsers, setTalentUsers] = useState<any[]>([]);
 
     // Bulk upload
@@ -132,10 +136,10 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
     function resetForm() {
         setFormNombre('');
-        setFormManagerId('');
         setFormGerenciaId('');
         setFormAreaId('');
         setFormPerfilBase('');
+        setFormOcupanteId('');
         setEditingItem(null);
     }
 
@@ -147,10 +151,10 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     function openEdit(item: any) {
         setEditingItem(item);
         setFormNombre(item.nombre);
-        setFormManagerId(item.managerId || '');
         setFormGerenciaId(item.gerenciaId || '');
         setFormAreaId(item.areaId || '');
         setFormPerfilBase(item.perfilBase || '');
+        setFormOcupanteId(item.ocupanteId || '');
         setShowCreateModal(true);
     }
 
@@ -162,12 +166,8 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
 
         try {
             if (activeTab === 'gerencias') {
-                const manager = talentUsers.find(u => u.id === formManagerId);
                 const data = {
                     nombre: formNombre,
-                    managerId: formManagerId || null,
-                    managerEmail: manager?.email || null,
-                    managerNombre: manager?.nombre || null,
                     holdingId,
                     updatedAt: Timestamp.now()
                 };
@@ -182,13 +182,9 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                     alert('Selecciona una gerencia');
                     return;
                 }
-                const manager = talentUsers.find(u => u.id === formManagerId);
                 const data = {
                     nombre: formNombre,
                     gerenciaId: formGerenciaId,
-                    managerId: formManagerId || null,
-                    managerEmail: manager?.email || null,
-                    managerNombre: manager?.nombre || null,
                     holdingId,
                     updatedAt: Timestamp.now()
                 };
@@ -204,11 +200,15 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                     return;
                 }
                 const selectedArea = areas.find(a => a.id === formAreaId);
+                const ocupante = talentUsers.find(u => u.id === formOcupanteId);
                 const data = {
                     nombre: formNombre,
                     areaId: formAreaId,
                     gerenciaId: selectedArea?.gerenciaId || '',
                     perfilBase: formPerfilBase || null,
+                    ocupanteId: formOcupanteId || null,
+                    ocupanteNombre: ocupante?.nombre || null,
+                    ocupanteEmail: ocupante?.email || null,
                     holdingId,
                     updatedAt: Timestamp.now()
                 };
@@ -543,7 +543,7 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Área</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gerencia</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ocupante</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Perfil</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
                             </tr>
@@ -554,8 +554,14 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                             ) : puestos.map((p) => (
                                 <tr key={p.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{p.nombre}</td>
-                                    <td className="px-6 py-4 text-gray-600">{p.areaNombre || '-'}</td>
-                                    <td className="px-6 py-4 text-gray-600">{p.gerenciaNombre || '-'}</td>
+                                    <td className="px-6 py-4 text-gray-600">{p.areaNombre || '-'} <span className="text-gray-400 text-xs">({p.gerenciaNombre})</span></td>
+                                    <td className="px-6 py-4">
+                                        {p.ocupanteNombre ? (
+                                            <span className="text-gray-900">{p.ocupanteNombre}</span>
+                                        ) : (
+                                            <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">Vacante</span>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4">
                                         {p.perfilBase ? (
                                             <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">✓ Con perfil</span>
@@ -609,25 +615,6 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                 </div>
                             )}
 
-                            {(activeTab === 'gerencias' || activeTab === 'areas') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Responsable/Jefe</label>
-                                    <select
-                                        value={formManagerId}
-                                        onChange={(e) => setFormManagerId(e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                    >
-                                        <option value="">Sin asignar</option>
-                                        {talentUsers.map(u => (
-                                            <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Este usuario recibirá las solicitudes de aprobación de RQs
-                                    </p>
-                                </div>
-                            )}
-
                             {activeTab === 'puestos' && (
                                 <>
                                     <div>
@@ -644,6 +631,22 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                         </select>
                                     </div>
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Usuario Asignado</label>
+                                        <select
+                                            value={formOcupanteId}
+                                            onChange={(e) => setFormOcupanteId(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                        >
+                                            <option value="">Sin asignar (vacante)</option>
+                                            {talentUsers.map(u => (
+                                                <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            La persona que ocupa este puesto. Si está vacante, déjalo sin asignar.
+                                        </p>
+                                    </div>
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Perfil Base (JD)</label>
                                         <textarea
                                             value={formPerfilBase}
@@ -656,8 +659,6 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                     </div>
                                 </>
                             )}
-
-                            {/* Email del jefe se configura después en gestión de usuarios */}
                         </div>
                         <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
                             <button
