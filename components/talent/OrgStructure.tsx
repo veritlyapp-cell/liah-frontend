@@ -38,18 +38,31 @@ interface Puesto {
     holdingId: string;
 }
 
+interface Sede {
+    id: string;
+    nombre: string;
+    direccion?: string;
+    ciudad?: string;
+    holdingId: string;
+}
+
 interface OrgStructureProps {
     holdingId: string;
 }
 
 export default function OrgStructure({ holdingId }: OrgStructureProps) {
-    const [activeTab, setActiveTab] = useState<'gerencias' | 'areas' | 'puestos'>('gerencias');
+    const [activeTab, setActiveTab] = useState<'gerencias' | 'areas' | 'puestos' | 'sedes'>('gerencias');
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false); // Prevent double-click
 
     // Data
     const [gerencias, setGerencias] = useState<Gerencia[]>([]);
     const [areas, setAreas] = useState<Area[]>([]);
     const [puestos, setPuestos] = useState<Puesto[]>([]);
+    const [sedes, setSedes] = useState<Sede[]>([]);
+
+    // Filters
+    const [filterGerenciaId, setFilterGerenciaId] = useState<string>('');
 
     // Create modals
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,6 +73,8 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     const [formGerenciaId, setFormGerenciaId] = useState('');
     const [formAreaId, setFormAreaId] = useState('');
     const [formPerfilBase, setFormPerfilBase] = useState('');
+    const [formDireccion, setFormDireccion] = useState('');
+    const [formCiudad, setFormCiudad] = useState('');
 
     // Bulk upload
     const [showBulkModal, setShowBulkModal] = useState(false);
@@ -73,14 +88,15 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
     async function loadData() {
         setLoading(true);
         try {
-            // Load Gerencias
+            // Load Gerencias (sorted alphabetically)
             const gerenciasRef = collection(db, 'gerencias');
             const gQuery = query(gerenciasRef, where('holdingId', '==', holdingId));
             const gSnap = await getDocs(gQuery);
             const loadedGerencias = gSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Gerencia[];
+            loadedGerencias.sort((a, b) => a.nombre.localeCompare(b.nombre));
             setGerencias(loadedGerencias);
 
-            // Load Areas
+            // Load Areas (sorted alphabetically)
             const areasRef = collection(db, 'areas');
             const aQuery = query(areasRef, where('holdingId', '==', holdingId));
             const aSnap = await getDocs(aQuery);
@@ -93,9 +109,10 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                     gerenciaNombre: gerencia?.nombre
                 };
             }) as Area[];
+            loadedAreas.sort((a, b) => a.nombre.localeCompare(b.nombre));
             setAreas(loadedAreas);
 
-            // Load Puestos
+            // Load Puestos (sorted alphabetically)
             const puestosRef = collection(db, 'puestos');
             const pQuery = query(puestosRef, where('holdingId', '==', holdingId));
             const pSnap = await getDocs(pQuery);
@@ -110,7 +127,16 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                     gerenciaNombre: gerencia?.nombre
                 };
             }) as Puesto[];
+            loadedPuestos.sort((a, b) => a.nombre.localeCompare(b.nombre));
             setPuestos(loadedPuestos);
+
+            // Load Sedes (sorted alphabetically)
+            const sedesRef = collection(db, 'sedes');
+            const sQuery = query(sedesRef, where('holdingId', '==', holdingId));
+            const sSnap = await getDocs(sQuery);
+            const loadedSedes = sSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Sede[];
+            loadedSedes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+            setSedes(loadedSedes);
 
         } catch (error) {
             console.error('Error loading org structure:', error);
@@ -124,6 +150,8 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
         setFormGerenciaId('');
         setFormAreaId('');
         setFormPerfilBase('');
+        setFormDireccion('');
+        setFormCiudad('');
         setEditingItem(null);
     }
 
@@ -138,15 +166,20 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
         setFormGerenciaId(item.gerenciaId || '');
         setFormAreaId(item.areaId || '');
         setFormPerfilBase(item.perfilBase || '');
+        setFormDireccion(item.direccion || '');
+        setFormCiudad(item.ciudad || '');
         setShowCreateModal(true);
     }
 
     async function handleSave() {
+        if (isSaving) return; // Prevent double-click
+
         if (!formNombre.trim()) {
             alert('El nombre es requerido');
             return;
         }
 
+        setIsSaving(true);
         try {
             if (activeTab === 'gerencias') {
                 const data = {
@@ -197,6 +230,20 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                 } else {
                     await addDoc(collection(db, 'puestos'), { ...data, createdAt: Timestamp.now() });
                 }
+            } else if (activeTab === 'sedes') {
+                const data = {
+                    nombre: formNombre,
+                    direccion: formDireccion || null,
+                    ciudad: formCiudad || null,
+                    holdingId,
+                    updatedAt: Timestamp.now()
+                };
+
+                if (editingItem) {
+                    await updateDoc(doc(db, 'sedes', editingItem.id), data);
+                } else {
+                    await addDoc(collection(db, 'sedes'), { ...data, createdAt: Timestamp.now() });
+                }
             }
 
             setShowCreateModal(false);
@@ -206,6 +253,8 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
         } catch (error) {
             console.error('Error saving:', error);
             alert('Error al guardar');
+        } finally {
+            setIsSaving(false);
         }
     }
 
@@ -397,14 +446,24 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
         { id: 'gerencias', label: 'Gerencias', icon: '🏢', count: gerencias.length },
         { id: 'areas', label: 'Áreas', icon: '📁', count: areas.length },
         { id: 'puestos', label: 'Puestos', icon: '💼', count: puestos.length },
+        { id: 'sedes', label: 'Sedes', icon: '📍', count: sedes.length },
     ];
 
     const getModalTitle = () => {
         const action = editingItem ? 'Editar' : 'Nueva';
         if (activeTab === 'gerencias') return `${action} Gerencia`;
         if (activeTab === 'areas') return `${action} Área`;
+        if (activeTab === 'sedes') return `${action} Sede`;
         return `${action} Puesto`;
     };
+
+    // Filtered data for display
+    const filteredAreas = filterGerenciaId
+        ? areas.filter(a => a.gerenciaId === filterGerenciaId)
+        : areas;
+    const filteredPuestos = filterGerenciaId
+        ? puestos.filter(p => p.gerenciaId === filterGerenciaId)
+        : puestos;
 
     if (loading) {
         return (
@@ -551,6 +610,35 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                         </tbody>
                     </table>
                 )}
+
+                {/* Sedes Tab */}
+                {activeTab === 'sedes' && (
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dirección</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ciudad</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {sedes.length === 0 ? (
+                                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No hay sedes. Agrega la primera.</td></tr>
+                            ) : sedes.map((s) => (
+                                <tr key={s.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 font-medium text-gray-900">{s.nombre}</td>
+                                    <td className="px-6 py-4 text-gray-600">{s.direccion || '-'}</td>
+                                    <td className="px-6 py-4 text-gray-600">{s.ciudad || '-'}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button onClick={() => openEdit(s)} className="text-violet-600 hover:text-violet-800 mr-3">Editar</button>
+                                        <button onClick={() => handleDelete(s.id, 'sedes')} className="text-red-600 hover:text-red-800">Eliminar</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             {/* Create/Edit Modal */}
@@ -616,6 +704,31 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                                     </div>
                                 </>
                             )}
+
+                            {activeTab === 'sedes' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                                        <input
+                                            type="text"
+                                            value={formDireccion}
+                                            onChange={(e) => setFormDireccion(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                            placeholder="Av. Ejemplo 123"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                                        <input
+                                            type="text"
+                                            value={formCiudad}
+                                            onChange={(e) => setFormCiudad(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                            placeholder="Lima"
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </div>
                         <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
                             <button
@@ -626,9 +739,10 @@ export default function OrgStructure({ holdingId }: OrgStructureProps) {
                             </button>
                             <button
                                 onClick={handleSave}
-                                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+                                disabled={isSaving}
+                                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {editingItem ? 'Actualizar' : 'Crear'}
+                                {isSaving ? 'Guardando...' : (editingItem ? 'Actualizar' : 'Crear')}
                             </button>
                         </div>
                     </div>

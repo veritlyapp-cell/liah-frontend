@@ -92,6 +92,7 @@ export interface Candidate {
     direccion: string;
 
     // Documentos
+    cvUrl?: string; // [NEW] Link al CV guardado en Storage
     dniImage?: string;  // URL Firebase Storage
     certificadoUnicoLaboral?: string;  // URL PDF
     documents?: Record<string, string>; // Otros documentos configurables por holding

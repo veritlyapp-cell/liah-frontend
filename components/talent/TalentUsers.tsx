@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { db, getSecondaryAuth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
     collection, query, where, getDocs, addDoc, updateDoc, deleteDoc,
     doc, Timestamp
@@ -11,7 +12,8 @@ interface TalentUser {
     id: string;
     email: string;
     nombre: string;
-    rol: 'admin' | 'jefe_reclutamiento' | 'recruiter' | 'hiring_manager' | 'approver';
+    rol: string; // Keep for backward compatibility
+    capacidades: string[]; // New: array of capabilities
     nivelAprobacion?: number;
     puestoId?: string;
     puestoNombre?: string;
@@ -45,12 +47,12 @@ interface TalentUsersProps {
     holdingId: string;
 }
 
-const ROLES = [
-    { id: 'admin', label: 'Administrador', icon: '👑', description: 'Acceso total + configuración' },
-    { id: 'jefe_reclutamiento', label: 'Jefe de Reclutamiento', icon: '🎯', description: 'Aprueba final + asigna recruiters' },
+const CAPACIDADES = [
+    { id: 'admin', label: 'Administrador', icon: '👑', description: 'Acceso total + configuración del sistema' },
+    { id: 'lider_reclutamiento', label: 'Líder Reclutamiento', icon: '🎯', description: 'Supervisa recruiters + aprueba final' },
     { id: 'recruiter', label: 'Recruiter', icon: '🔍', description: 'Publica vacantes + gestiona candidatos' },
-    { id: 'hiring_manager', label: 'Hiring Manager', icon: '📝', description: 'Crea RQs + revisa candidatos' },
-    { id: 'approver', label: 'Aprobador', icon: '✅', description: 'Aprueba RQs según nivel' },
+    { id: 'hiring_manager', label: 'Hiring Manager', icon: '📝', description: 'Crea RQs + revisa candidatos de su área' },
+    { id: 'approver', label: 'Aprobador', icon: '✅', description: 'Aprueba RQs según nivel jerárquico' },
 ];
 
 export default function TalentUsers({ holdingId }: TalentUsersProps) {
@@ -67,9 +69,19 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
     // Form fields
     const [formEmail, setFormEmail] = useState('');
     const [formNombre, setFormNombre] = useState('');
-    const [formRol, setFormRol] = useState<string>('hiring_manager');
+    const [formCapacidades, setFormCapacidades] = useState<string[]>(['hiring_manager']);
     const [formNivel, setFormNivel] = useState(1);
+    const [formGerenciaId, setFormGerenciaId] = useState('');
+    const [formAreaId, setFormAreaId] = useState('');
     const [formPuestoId, setFormPuestoId] = useState('');
+
+    function toggleCapacidad(capId: string) {
+        setFormCapacidades(prev =>
+            prev.includes(capId)
+                ? prev.filter(c => c !== capId)
+                : [...prev, capId]
+        );
+    }
 
     useEffect(() => {
         loadData();
@@ -125,8 +137,10 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
     function resetForm() {
         setFormEmail('');
         setFormNombre('');
-        setFormRol('hiring_manager');
+        setFormCapacidades(['hiring_manager']);
         setFormNivel(1);
+        setFormGerenciaId('');
+        setFormAreaId('');
         setFormPuestoId('');
         setEditingUser(null);
     }
@@ -140,8 +154,10 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
         setEditingUser(user);
         setFormEmail(user.email);
         setFormNombre(user.nombre);
-        setFormRol(user.rol);
+        setFormCapacidades(user.capacidades || [user.rol] || ['hiring_manager']);
         setFormNivel(user.nivelAprobacion || 1);
+        setFormGerenciaId(user.gerenciaId || '');
+        setFormAreaId(user.areaId || '');
         setFormPuestoId(user.puestoId || '');
         setShowModal(true);
     }
@@ -157,11 +173,45 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
             const area = puesto ? areas.find(a => a.id === puesto.areaId) : null;
             const gerencia = puesto ? gerencias.find(g => g.id === puesto.gerenciaId) : null;
 
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(formEmail.trim())) {
+                alert('Por favor ingresa un correo electrónico válido');
+                return;
+            }
+
+            const email = formEmail.toLowerCase().trim();
+            const DEFAULT_PASSWORD = 'Liah2026!';
+
+            // Create Firebase Auth user if new user
+            if (!editingUser) {
+                const secondaryAuth = getSecondaryAuth();
+                if (!secondaryAuth) {
+                    alert('Error: No se pudo inicializar Firebase Auth');
+                    return;
+                }
+
+                try {
+                    await createUserWithEmailAndPassword(secondaryAuth, email, DEFAULT_PASSWORD);
+                    console.log('✅ Firebase Auth user created:', email);
+                } catch (authError: any) {
+                    if (authError.code === 'auth/email-already-in-use') {
+                        // User already exists in Auth, just add to Firestore
+                        console.log('Usuario ya existe en Auth, agregando a Firestore...');
+                    } else {
+                        console.error('Error creating auth user:', authError);
+                        alert(`Error al crear cuenta: ${authError.message}`);
+                        return;
+                    }
+                }
+            }
+
             const userData = {
-                email: formEmail.toLowerCase().trim(),
+                email,
                 nombre: formNombre.trim(),
-                rol: formRol,
-                nivelAprobacion: formRol === 'approver' ? formNivel : null,
+                rol: formCapacidades[0] || 'hiring_manager',
+                capacidades: formCapacidades,
+                nivelAprobacion: formCapacidades.includes('approver') ? formNivel : null,
                 puestoId: formPuestoId || null,
                 puestoNombre: puesto?.nombre || null,
                 areaId: puesto?.areaId || null,
@@ -185,7 +235,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
             setShowModal(false);
             resetForm();
             loadData();
-            alert('✅ Usuario guardado');
+            alert(editingUser ? '✅ Usuario actualizado' : `✅ Usuario creado\n\nContraseña temporal: ${DEFAULT_PASSWORD}`);
         } catch (error) {
             console.error('Error saving user:', error);
             alert('Error al guardar');
@@ -214,7 +264,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
         }
     }
 
-    const getRolInfo = (rol: string) => ROLES.find(r => r.id === rol) || ROLES[3];
+    const getCapInfo = (capId: string) => CAPACIDADES.find(c => c.id === capId) || CAPACIDADES[3];
 
     if (loading) {
         return (
@@ -242,13 +292,13 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
 
             {/* Stats */}
             <div className="grid grid-cols-5 gap-4">
-                {ROLES.map(role => {
-                    const count = users.filter(u => u.rol === role.id && u.activo).length;
+                {CAPACIDADES.map(cap => {
+                    const count = users.filter(u => (u.capacidades?.includes(cap.id) || u.rol === cap.id) && u.activo).length;
                     return (
-                        <div key={role.id} className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                            <div className="text-2xl mb-1">{role.icon}</div>
+                        <div key={cap.id} className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+                            <div className="text-2xl mb-1">{cap.icon}</div>
                             <div className="text-2xl font-bold text-gray-900">{count}</div>
-                            <div className="text-xs text-gray-500">{role.label}</div>
+                            <div className="text-xs text-gray-500">{cap.label}</div>
                         </div>
                     );
                 })}
@@ -276,7 +326,7 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                                 </td>
                             </tr>
                         ) : users.map(user => {
-                            const roleInfo = getRolInfo(user.rol);
+                            const userCaps = user.capacidades || [user.rol];
                             return (
                                 <tr key={user.id} className={`hover:bg-gray-50 ${!user.activo ? 'opacity-50' : ''}`}>
                                     <td className="px-6 py-4">
@@ -284,15 +334,22 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                                         <div className="text-sm text-gray-500">{user.email}</div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-violet-100 text-violet-700 rounded-full text-sm">
-                                            {roleInfo.icon} {roleInfo.label}
-                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {userCaps.map(capId => {
+                                                const cap = getCapInfo(capId);
+                                                return (
+                                                    <span key={capId} className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-xs">
+                                                        {cap.icon} {cap.label}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">
                                         {user.areaNombre || user.gerenciaNombre || '-'}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {user.rol === 'approver' && user.nivelAprobacion ? (
+                                        {userCaps.includes('approver') && user.nivelAprobacion ? (
                                             <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
                                                 Nivel {user.nivelAprobacion}
                                             </span>
@@ -364,29 +421,38 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Rol *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Capacidades * (selecciona una o más)</label>
                                 <div className="grid grid-cols-1 gap-2">
-                                    {ROLES.map(role => (
+                                    {CAPACIDADES.map(cap => (
                                         <button
-                                            key={role.id}
+                                            key={cap.id}
                                             type="button"
-                                            onClick={() => setFormRol(role.id)}
-                                            className={`text-left p-3 rounded-lg border transition-colors ${formRol === role.id
+                                            onClick={() => toggleCapacidad(cap.id)}
+                                            className={`text-left p-3 rounded-lg border transition-colors ${formCapacidades.includes(cap.id)
                                                 ? 'border-violet-500 bg-violet-50'
                                                 : 'border-gray-200 hover:border-gray-300'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2">
-                                                <span>{role.icon}</span>
-                                                <span className="font-medium text-gray-900">{role.label}</span>
+                                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${formCapacidades.includes(cap.id)
+                                                    ? 'bg-violet-600 border-violet-600 text-white'
+                                                    : 'border-gray-300'
+                                                    }`}>
+                                                    {formCapacidades.includes(cap.id) && <span className="text-xs">✓</span>}
+                                                </div>
+                                                <span>{cap.icon}</span>
+                                                <span className="font-medium text-gray-900">{cap.label}</span>
                                             </div>
-                                            <p className="text-xs text-gray-500 mt-1">{role.description}</p>
+                                            <p className="text-xs text-gray-500 mt-1 ml-7">{cap.description}</p>
                                         </button>
                                     ))}
                                 </div>
+                                {formCapacidades.length === 0 && (
+                                    <p className="text-xs text-red-500 mt-1">Selecciona al menos una capacidad</p>
+                                )}
                             </div>
 
-                            {formRol === 'approver' && (
+                            {formCapacidades.includes('approver') && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nivel de Aprobación</label>
                                     <select
@@ -401,26 +467,65 @@ export default function TalentUsers({ holdingId }: TalentUsersProps) {
                                 </div>
                             )}
 
-                            {(formRol === 'hiring_manager' || formRol === 'approver') && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Puesto *</label>
-                                    <select
-                                        value={formPuestoId}
-                                        onChange={(e) => setFormPuestoId(e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                    >
-                                        <option value="">Seleccionar puesto...</option>
-                                        {puestos.map(p => {
-                                            const area = areas.find(a => a.id === p.areaId);
-                                            return (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.nombre} ({area?.nombre || 'Sin área'})
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        El puesto determina automáticamente el área y gerencia del usuario
+                            {(formCapacidades.includes('hiring_manager') || formCapacidades.includes('approver')) && (
+                                <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <h4 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
+                                        🏢 Ubicación Organizacional
+                                    </h4>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Gerencia</label>
+                                        <select
+                                            value={formGerenciaId}
+                                            onChange={(e) => {
+                                                setFormGerenciaId(e.target.value);
+                                                setFormAreaId('');
+                                                setFormPuestoId('');
+                                            }}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 bg-white"
+                                        >
+                                            <option value="">Seleccionar gerencia...</option>
+                                            {gerencias.map(g => (
+                                                <option key={g.id} value={g.id}>{g.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Área</label>
+                                        <select
+                                            value={formAreaId}
+                                            onChange={(e) => {
+                                                setFormAreaId(e.target.value);
+                                                setFormPuestoId('');
+                                            }}
+                                            disabled={!formGerenciaId}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                        >
+                                            <option value="">Seleccionar área...</option>
+                                            {areas.filter(a => a.gerenciaId === formGerenciaId).map(a => (
+                                                <option key={a.id} value={a.id}>{a.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Puesto *</label>
+                                        <select
+                                            value={formPuestoId}
+                                            onChange={(e) => setFormPuestoId(e.target.value)}
+                                            disabled={!formAreaId}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                        >
+                                            <option value="">Seleccionar puesto...</option>
+                                            {puestos.filter(p => p.areaId === formAreaId).map(p => (
+                                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <p className="text-[10px] text-gray-400 leading-tight">
+                                        * Selecciona secuencialmente: Gerencia {'>'} Área {'>'} Puesto para filtrar y encontrar el cargo deseado.
                                     </p>
                                 </div>
                             )}

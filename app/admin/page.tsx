@@ -17,7 +17,7 @@ import RQTrackingView from '@/components/admin/RQTrackingView';
 import AdminCandidatesView from '@/components/admin/AdminCandidatesView';
 import AdminRQAnalyticsView from '@/components/admin/AdminRQAnalyticsView';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
 import DocumentsConfigView from '@/components/admin/DocumentsConfigView';
 import AlertsConfigView from '@/components/admin/AlertsConfigView';
 import RoleMatrixConfig from '@/components/admin/RoleMatrixConfig';
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [selectedBrand, setSelectedBrand] = useState<any | null>(null);
     const [showEditBrandModal, setShowEditBrandModal] = useState(false);
-    const [holdingId, setHoldingId] = useState('ngr');
+    const [holdingId, setHoldingId] = useState<string>('');
 
     const [storeCounts, setStoreCounts] = useState<Record<string, number>>({});
     const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string } | null>(null);
@@ -63,22 +63,42 @@ export default function AdminDashboard() {
         async function loadUserHolding() {
             if (!user) return;
             try {
+                let foundHoldingId: string | null = null;
+
+                // First try user_assignments
                 const { getUserAssignment } = await import('@/lib/firestore/user-assignments');
                 const assignment = await getUserAssignment(user.uid);
                 if (assignment?.holdingId) {
-                    setHoldingId(assignment.holdingId);
+                    foundHoldingId = assignment.holdingId;
+                }
 
-                    const holdingDoc = await getDoc(doc(db, 'holdings', assignment.holdingId));
+                // If not found, try talent_users (for users who are talent admins)
+                if (!foundHoldingId && user.email) {
+                    const talentUsersRef = collection(db, 'talent_users');
+                    const q = query(talentUsersRef, where('email', '==', user.email.toLowerCase()));
+                    const snap = await getDocs(q);
+                    if (!snap.empty) {
+                        const talentUser = snap.docs[0].data();
+                        if (talentUser.holdingId) {
+                            foundHoldingId = talentUser.holdingId;
+                        }
+                    }
+                }
+
+                if (foundHoldingId) {
+                    setHoldingId(foundHoldingId);
+
+                    const holdingDoc = await getDoc(doc(db, 'holdings', foundHoldingId));
                     if (holdingDoc.exists()) {
                         const data = holdingDoc.data();
                         setHoldingInfo({
-                            nombre: data.nombre || assignment.holdingId,
+                            nombre: data.nombre || foundHoldingId,
                             plan: data.plan || 'full_stack',
                             logo: data.logo
                         });
                     } else {
                         setHoldingInfo({
-                            nombre: assignment.holdingId,
+                            nombre: foundHoldingId,
                             plan: 'full_stack',
                             logo: undefined
                         });

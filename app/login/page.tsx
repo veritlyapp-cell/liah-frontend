@@ -31,7 +31,6 @@ export default function LoginPage() {
                 case 'client_admin':
                 case 'admin':
                 case 'gerente':
-                    // Redirect to launcher so user can choose between Flow/Talent
                     router.push('/launcher');
                     break;
                 case 'jefe_marca':
@@ -42,13 +41,20 @@ export default function LoginPage() {
                     break;
                 case 'brand_recruiter':
                 case 'recruiter':
-                    router.push('/recruiter');
+                    router.push('/launcher');
                     break;
                 case 'store_manager':
                     router.push('/store-manager');
                     break;
+                // Talent users
+                case 'lider_reclutamiento':
+                case 'hiring_manager':
+                case 'approver':
+                    router.push('/talent');
+                    break;
                 default:
-                    router.push('/');
+                    // Any unknown role goes to talent dashboard
+                    router.push('/talent');
             }
         }
     }, [user, claims, authLoading, router]);

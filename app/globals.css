@@ -122,6 +122,100 @@ body {
   line-height: 1.6;
 }
 
+/* ====================================
+   Global Container & Section Classes
+   Matching NGR/Employer Portal Style
+   ==================================== */
+
+/* Main container - centered with consistent padding */
+.container-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Container with more padding for large screens */
+.container-padded {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (min-width: 640px) {
+  .container-padded {
+    padding: 0 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-padded {
+    padding: 0 48px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .container-padded {
+    padding: 0 64px;
+  }
+}
+
+/* Section spacing - vertical rhythm */
+.section-spacing {
+  padding-top: 80px;
+  padding-bottom: 80px;
+}
+
+@media (min-width: 768px) {
+  .section-spacing {
+    padding-top: 100px;
+    padding-bottom: 100px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-spacing {
+    padding-top: 120px;
+    padding-bottom: 120px;
+  }
+}
+
+/* Large section spacing for hero/CTA sections */
+.section-spacing-lg {
+  padding-top: 100px;
+  padding-bottom: 100px;
+}
+
+@media (min-width: 768px) {
+  .section-spacing-lg {
+    padding-top: 120px;
+    padding-bottom: 120px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-spacing-lg {
+    padding-top: 140px;
+    padding-bottom: 140px;
+  }
+}
+
+/* Grid gap utilities for consistent spacing */
+.grid-gap-main {
+  gap: 40px;
+}
+
+@media (min-width: 768px) {
+  .grid-gap-main {
+    gap: 60px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-gap-main {
+    gap: 80px;
+  }
+}
+
 /* Utility Classes */
 .gradient-primary {
   background: var(--gradient-primary);

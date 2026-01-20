@@ -12,7 +12,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface UserClaims {
-    role?: 'super_admin' | 'client_admin' | 'admin' | 'gerente' | 'jefe_marca' | 'supervisor' | 'brand_recruiter' | 'recruiter' | 'store_manager';
+    role?: 'super_admin' | 'client_admin' | 'admin' | 'gerente' | 'jefe_marca' | 'supervisor' | 'brand_recruiter' | 'recruiter' | 'store_manager' | 'lider_reclutamiento' | 'hiring_manager' | 'approver';
     tenant_id?: string | null;
     holdingId?: string | null;
     marcaId?: string | null;
@@ -20,6 +20,7 @@ interface UserClaims {
     authorized_entities?: string[] | null;
     entity_id?: string | null;
     authorized_stores?: string[] | null;
+    capacidades?: string[];
 }
 
 interface AuthContextType {
@@ -39,20 +40,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     // Helper function to get role from Firestore
-    async function getRoleFromFirestore(userId: string): Promise<UserClaims | null> {
+    async function getRoleFromFirestore(userId: string, userEmail?: string): Promise<UserClaims | null> {
         try {
             if (!db) {
                 console.error('❌ Firestore not initialized');
                 return null;
             }
+
+            // First, try userAssignments collection (for Flow users)
             const assignmentsRef = collection(db, 'userAssignments');
-            // Search by userId only, then check active status in code (supports both 'active' and 'isActive' fields)
             const q = query(assignmentsRef, where('userId', '==', userId));
             const snapshot = await getDocs(q);
 
             if (!snapshot.empty) {
                 const userData = snapshot.docs[0].data();
-                // Check if user is active (support both field names for backward compatibility)
                 const isUserActive = userData.isActive === true || userData.active === true;
                 if (!isUserActive) {
                     console.log('⚠️ User found but not active:', userId);
@@ -69,7 +70,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     authorized_stores: userData.assignedStores?.map((s: any) => s.tiendaId) || null
                 };
             }
-            console.log('⚠️ No userAssignment found for userId:', userId);
+
+            // If not found, try talent_users collection (for Talent users)
+            if (userEmail) {
+                console.log('🔍 Checking talent_users for:', userEmail);
+                const talentRef = collection(db, 'talent_users');
+                const talentQ = query(talentRef, where('email', '==', userEmail.toLowerCase()));
+                const talentSnap = await getDocs(talentQ);
+
+                if (!talentSnap.empty) {
+                    const talentData = talentSnap.docs[0].data();
+                    if (!talentData.activo) {
+                        console.log('⚠️ Talent user found but not active:', userEmail);
+                        return null;
+                    }
+
+                    // Map capacidades to role for proper redirect
+                    const capacidades = talentData.capacidades || [talentData.rol];
+                    let role: any = 'hiring_manager'; // Default
+
+                    // Priority: admin > lider_reclutamiento > recruiter > hiring_manager
+                    if (capacidades.includes('admin')) role = 'admin';
+                    else if (capacidades.includes('lider_reclutamiento')) role = 'lider_reclutamiento';
+                    else if (capacidades.includes('recruiter')) role = 'recruiter';
+                    else if (capacidades.includes('hiring_manager')) role = 'hiring_manager';
+
+                    console.log('✅ Found talent_user:', userEmail, 'role:', role);
+                    return {
+                        role,
+                        tenant_id: talentData.holdingId || null,
+                        holdingId: talentData.holdingId || null,
+                        marcaId: null,
+                        storeId: null,
+                        authorized_entities: null,
+                        entity_id: null,
+                        authorized_stores: null,
+                        capacidades
+                    };
+                }
+            }
+
+            console.log('⚠️ No user found in userAssignments or talent_users');
             return null;
         } catch (error) {
             console.error('Error fetching role from Firestore:', error);
@@ -95,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Si no hay role en custom claims, buscar en Firestore
                 if (!userClaims.role) {
                     console.log('No custom claims found, checking Firestore...');
-                    const firestoreClaims = await getRoleFromFirestore(user.uid);
+                    const firestoreClaims = await getRoleFromFirestore(user.uid, user.email || undefined);
                     if (firestoreClaims) {
                         userClaims = firestoreClaims;
                         console.log('✅ Role loaded from Firestore:', userClaims.role);
@@ -123,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Si no hay role en custom claims, buscar en Firestore
             if (!userClaims.role) {
                 console.log('No custom claims on login, checking Firestore...');
-                const firestoreClaims = await getRoleFromFirestore(userCredential.user.uid);
+                const firestoreClaims = await getRoleFromFirestore(userCredential.user.uid, userCredential.user.email || undefined);
                 if (firestoreClaims) {
                     userClaims = firestoreClaims;
                     console.log('✅ Role loaded from Firestore:', userClaims.role);
@@ -150,14 +191,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     break;
                 case 'brand_recruiter':
                 case 'recruiter':
-                    router.push('/recruiter');
+                    // Redirect to launcher to handle Flow vs Talent vs Hybrid
+                    router.push('/launcher');
                     break;
                 case 'store_manager':
                     router.push('/store-manager');
                     break;
+                // Talent users - redirect to Talent dashboard
+                case 'lider_reclutamiento':
+                case 'hiring_manager':
+                case 'approver':
+                    router.push('/talent');
+                    break;
                 default:
-                    console.warn('⚠️ Unknown role:', userClaims.role, '- redirecting to /');
-                    router.push('/');
+                    console.warn('⚠️ Unknown role:', userClaims.role, '- redirecting to /talent');
+                    router.push('/talent');
             }
         } catch (error: any) {
             console.error('Login error:', error);

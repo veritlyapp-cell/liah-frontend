@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import CandidateDetailModal from './CandidateDetailModal';
 
 interface Candidate {
     id: string;
@@ -14,6 +15,7 @@ interface Candidate {
     jobId: string;
     appliedAt: any;
     kqPassed: boolean;
+    culValidationStatus?: string;
 }
 
 interface CandidateListProps {
@@ -26,6 +28,7 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'screening' | 'rejected'>('all');
     const [recovering, setRecovering] = useState<string | null>(null);
+    const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
     useEffect(() => {
         loadCandidates();
@@ -36,17 +39,24 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
             const candidatesRef = collection(db, 'talent_candidates');
             let q = query(
                 candidatesRef,
-                where('holdingId', '==', holdingId),
-                orderBy('appliedAt', 'desc')
+                where('holdingId', '==', holdingId)
             );
 
             const snapshot = await getDocs(q);
             const loadedCandidates = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            })) as Candidate[];
+            })) as any[];
 
-            setCandidates(jobId ? loadedCandidates.filter(c => c.jobId === jobId) : loadedCandidates);
+            // Sort client-side to avoid index issues
+            loadedCandidates.sort((a, b) => {
+                const dateA = a.appliedAt?.seconds || 0;
+                const dateB = b.appliedAt?.seconds || 0;
+                return dateB - dateA;
+            });
+
+            const finalCandidates = loadedCandidates as Candidate[];
+            setCandidates(jobId ? finalCandidates.filter(c => c.jobId === jobId) : finalCandidates);
         } catch (error) {
             console.error('Error loading candidates:', error);
         } finally {
@@ -101,13 +111,21 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
                 </span>
                 {matchScore !== null && status === 'SCREENING' && (
                     <span className={`text-xs font-bold ${matchScore >= 70 ? 'text-green-600' :
-                            matchScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                        matchScore >= 50 ? 'text-amber-600' : 'text-red-600'
                         }`}>
                         {matchScore}%
                     </span>
                 )}
             </div>
         );
+    };
+
+    const getCulBadge = (status?: string) => {
+        if (!status || status === 'pending') return <span className="text-gray-400">⏳ No validado</span>;
+        if (status === 'approved_ai') return <span className="text-green-600 font-medium">✅ OK</span>;
+        if (status === 'rejected_ai' || status === 'rejected_invalid_doc') return <span className="text-red-600 font-medium">❌ Error</span>;
+        if (status === 'pending_review') return <span className="text-amber-600 font-medium">⚠️ Manual</span>;
+        return <span className="text-gray-500">{status}</span>;
     };
 
     const filteredCandidates = candidates.filter(c => {
@@ -148,8 +166,8 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
                         key={f.id}
                         onClick={() => setFilter(f.id as any)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.id
-                                ? 'bg-violet-100 text-violet-700'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-violet-100 text-violet-700'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         {f.label} ({f.count})
@@ -166,6 +184,7 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
                             <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Contacto</th>
                             <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Estado</th>
                             <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">KQ</th>
+                            <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">CUL</th>
                             <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Acciones</th>
                         </tr>
                     </thead>
@@ -187,9 +206,15 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
                                         {candidate.kqPassed ? '✓ Pasó' : '✗ Falló'}
                                     </span>
                                 </td>
+                                <td className="px-6 py-4 text-xs">
+                                    {getCulBadge(candidate.culValidationStatus)}
+                                </td>
                                 <td className="px-6 py-4">
                                     <div className="flex gap-2">
-                                        <button className="text-violet-600 hover:text-violet-800 text-sm font-medium">
+                                        <button
+                                            onClick={() => setSelectedCandidate(candidate)}
+                                            className="text-violet-600 hover:text-violet-800 text-sm font-medium"
+                                        >
                                             Ver perfil
                                         </button>
                                         {candidate.status === 'AUTO_REJECTED' && (
@@ -208,6 +233,13 @@ export default function CandidateList({ holdingId, jobId }: CandidateListProps) 
                     </tbody>
                 </table>
             </div>
+
+            {selectedCandidate && (
+                <CandidateDetailModal
+                    candidate={selectedCandidate}
+                    onClose={() => setSelectedCandidate(null)}
+                />
+            )}
         </div>
     );
 }

@@ -69,13 +69,26 @@ export default function SuperAdminDashboard() {
         const q = query(holdingsRef, orderBy('createdAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const loadedHoldings = snapshot.docs.map(doc => ({
-                ...doc.data(),
-                firestoreId: doc.id
-            }));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setHoldings(loadedHoldings as any);
-            console.log('✅ Holdings cargados desde Firestore:', loadedHoldings.length);
+            const seenIds = new Set();
+            const uniqueHoldings: any[] = [];
+
+            snapshot.docs.forEach(doc => {
+                const data = doc.data() as any;
+                const hId = data.id || doc.id;
+
+                if (!seenIds.has(hId)) {
+                    seenIds.add(hId);
+                    uniqueHoldings.push({
+                        ...data,
+                        firestoreId: doc.id
+                    });
+                } else {
+                    console.warn('⚠️ Duplicate holding skipping:', hId, doc.id);
+                }
+            });
+
+            setHoldings(uniqueHoldings);
+            console.log('✅ Holdings únicos cargados:', uniqueHoldings.length);
         }, (error) => {
             console.error('Error cargando holdings:', error);
         });
@@ -423,7 +436,7 @@ export default function SuperAdminDashboard() {
                         {/* Holdings List */}
                         <div className="space-y-3">
                             {holdings.map(holding => (
-                                <div key={holding.id} className="glass-card rounded-xl p-6">
+                                <div key={holding.firestoreId} className="glass-card rounded-xl p-6">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-4">
                                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold">

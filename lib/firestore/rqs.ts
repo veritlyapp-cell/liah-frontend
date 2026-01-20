@@ -11,7 +11,8 @@ import {
     orderBy,
     Timestamp,
     onSnapshot,
-    writeBatch
+    writeBatch,
+    runTransaction
 } from 'firebase/firestore';
 import { getApprovalConfig, getNextApprovalLevel } from './approval-config';
 import type { JobProfile } from './job-profiles';
@@ -139,6 +140,7 @@ export interface RQ {
     createdByRole?: 'store_manager' | 'supervisor'; // Who created the RQ
     approvalFlow?: 'standard' | 'short'; // standard = SM->Sup->JM, short = Sup->JM (when Supervisor creates)
     categoria?: 'operativo' | 'gerencial'; // NEW: for filtering and analytics
+    confidencial?: boolean; // NEW: secret recruitment
     createdAt: any;
     updatedAt: any;
 }
@@ -150,31 +152,64 @@ export interface RQ {
 async function generateRQNumber(marcaId: string): Promise<string> {
     const marcaCode = getMarcaCode(marcaId);
     const prefix = `RQ-${marcaCode}-`;
+    const counterRef = doc(db, 'counters', `rqs_${marcaId}`);
 
-    // Obtener todos los RQs de esta marca y filtrar en cliente
-    const rqsRef = collection(db, 'rqs');
-    const q = query(
-        rqsRef,
-        where('marcaId', '==', marcaId)
-        // Sin orderBy ni range queries para evitar índice compuesto
-    );
+    try {
+        const nextNumber = await runTransaction(db, async (transaction) => {
+            const counterDoc = await transaction.get(counterRef);
+            let currentNumber = 0;
 
-    const snapshot = await getDocs(q);
+            if (counterDoc.exists()) {
+                currentNumber = counterDoc.data().lastNumber || 0;
+            } else {
+                // Si no existe el contador, buscar el número más alto actual para inicializarlo
+                const rqsRef = collection(db, 'rqs');
+                const q = query(rqsRef, where('marcaId', '==', marcaId));
+                const snapshot = await getDocs(q);
 
-    // Encontrar el número más alto filtrando en cliente
-    let maxNumber = 0;
-    snapshot.forEach(doc => {
-        const rqNumber = doc.data().rqNumber as string;
-        if (rqNumber && rqNumber.startsWith(prefix)) {
-            const numberPart = parseInt(rqNumber.split('-')[2] || '0');
-            if (numberPart > maxNumber) {
-                maxNumber = numberPart;
+                let foundMax = 0;
+                snapshot.forEach(doc => {
+                    const rqNumber = doc.data().rqNumber as string;
+                    if (rqNumber && rqNumber.startsWith(prefix)) {
+                        const numberPart = parseInt(rqNumber.split('-')[2] || '0');
+                        if (numberPart > foundMax) {
+                            foundMax = numberPart;
+                        }
+                    }
+                });
+                currentNumber = foundMax;
             }
-        }
-    });
 
-    const nextNumber = (maxNumber + 1).toString().padStart(5, '0');
-    return `${prefix}${nextNumber}`;
+            const next = currentNumber + 1;
+            transaction.set(counterRef, {
+                lastNumber: next,
+                updatedAt: Timestamp.now(),
+                marcaId: marcaId,
+                type: 'rqs'
+            }, { merge: true });
+
+            return next;
+        });
+
+        return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+    } catch (error) {
+        console.error('Error in generateRQNumber:', error);
+        // Fallback to legacy max selection if transaction fails
+        const rqsRef = collection(db, 'rqs');
+        const q = query(rqsRef, where('marcaId', '==', marcaId));
+        const snapshot = await getDocs(q);
+        let maxNumber = 0;
+        snapshot.forEach(doc => {
+            const rqNumber = doc.data().rqNumber as string;
+            if (rqNumber && rqNumber.startsWith(prefix)) {
+                const numberPart = parseInt(rqNumber.split('-')[2] || '0');
+                if (numberPart > maxNumber) {
+                    maxNumber = numberPart;
+                }
+            }
+        });
+        return `${prefix}${(maxNumber + 1).toString().padStart(5, '0')}`;
+    }
 }
 
 /**

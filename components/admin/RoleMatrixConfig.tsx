@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface RoleMatrixConfigProps {
@@ -64,10 +64,10 @@ export default function RoleMatrixConfig({ holdingId }: RoleMatrixConfigProps) {
 
         setSaving(true);
         try {
-            await updateDoc(doc(db, 'holdings', holdingId), {
+            await setDoc(doc(db, 'holdings', holdingId), {
                 roleMatrix,
                 candidateApprovalFlow: approvalFlow
-            });
+            }, { merge: true });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (error) {
@@ -249,8 +249,8 @@ export default function RoleMatrixConfig({ holdingId }: RoleMatrixConfigProps) {
                         onClick={handleSave}
                         disabled={saving}
                         className={`px-6 py-2 rounded-lg font-semibold transition-all ${saved
-                                ? 'bg-green-500 text-white'
-                                : 'bg-purple-600 hover:bg-purple-700 text-white'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-purple-600 hover:bg-purple-700 text-white'
                             } disabled:opacity-50`}
                     >
                         {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar Configuración'}

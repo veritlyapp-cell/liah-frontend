@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { getAllUserAssignments } from '@/lib/firestore/user-assignment-actions';
 import type { UserAssignment } from '@/lib/firestore/user-assignments';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
 import BulkImportUsersModal from './BulkImportUsersModal';
@@ -91,9 +91,20 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
         if (!confirmed) return;
 
         try {
+            // Get auth token for API authorization
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                alert('❌ No estás autenticado. Por favor, vuelve a iniciar sesión.');
+                return;
+            }
+            const idToken = await currentUser.getIdToken();
+
             const response = await fetch('/api/admin/delete-user', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
                 body: JSON.stringify({ userId, email })
             });
 

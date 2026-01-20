@@ -128,6 +128,36 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
         c.applications?.some(app => app.hiredStatus === 'not_hired')
     );
 
+    const exportToCSV = () => {
+        if (pending.length === 0) return;
+
+        const headers = ['Nombre', 'Apellido Paterno', 'Apellido Materno', 'DNI', 'Email', 'Telefono', 'Puesto', 'Modalidad', 'Tienda'];
+        const rows = pending.map(c => {
+            const app = c.applications?.find(a => (a.tiendaId === storeId || a.marcaId === marcaId) && a.status === 'approved');
+            return [
+                c.nombre,
+                c.apellidoPaterno,
+                c.apellidoMaterno,
+                c.dni,
+                c.email,
+                c.telefono,
+                app?.posicion || '',
+                app?.modalidad || '',
+                app?.tiendaNombre || ''
+            ].join(',');
+        });
+
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `ingresos_pendientes_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="space-y-6">
             {/* Stats */}
@@ -149,7 +179,17 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
             {/* Pending Candidates (Always Visible) */}
             {pending.length > 0 && (
                 <div>
-                    <h3 className="text-lg font-semibold mb-3">⏳ Candidatos Seleccionados - Pendientes de Ingreso</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <span>⏳</span> Candidatos Seleccionados - Pendientes de Ingreso
+                        </h3>
+                        <button
+                            onClick={exportToCSV}
+                            className="text-sm px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
+                        >
+                            📥 Exportar CSV para Ingreso
+                        </button>
+                    </div>
                     <div className="space-y-3">
                         {pending.map(candidate => {
                             const aptoApp = candidate.applications?.find(app => (app.tiendaId === storeId || app.marcaId === marcaId) && app.status === 'approved');
@@ -192,7 +232,15 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                 <div><span className="font-medium">Teléfono:</span> {candidate.telefono}</div>
                                                 <div><span className="font-medium">Posición:</span> {aptoApp.posicion}</div>
                                                 <div><span className="font-medium">Modalidad:</span> {aptoApp.modalidad || 'Full Time'}</div>
-                                                {aptoApp.turno && <div><span className="font-medium">Turno:</span> {aptoApp.turno}</div>}
+                                                <div>
+                                                    {candidate.cvUrl ? (
+                                                        <a href={candidate.cvUrl} target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline font-medium">
+                                                            📄 Ver CV
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 italic">Sin CV adjunto</span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {!canConfirmIngreso && (
@@ -262,17 +310,35 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
 
                             return (
                                 <div key={candidate.id} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <span className="font-medium text-gray-900">
-                                                {candidate.nombre} {candidate.apellidoPaterno}
-                                            </span>
-                                            <span className="text-sm text-gray-600 ml-3">
-                                                {hiredApp.posicion} - {hiredApp.modalidad}
-                                            </span>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-medium text-gray-900">
+                                                    {candidate.nombre} {candidate.apellidoPaterno} {candidate.apellidoMaterno}
+                                                </span>
+                                                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-bold">INGRESÓ</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600 mt-2">
+                                                <div><span className="font-medium">Puesto:</span> {hiredApp.posicion}</div>
+                                                <div><span className="font-medium">DNI:</span> {candidate.dni}</div>
+                                                <div><span className="font-medium">Email:</span> {candidate.email}</div>
+                                                <div><span className="font-medium">Teléfono:</span> {candidate.telefono}</div>
+                                            </div>
                                         </div>
-                                        <div className="text-sm text-gray-600">
-                                            Ingresó: {hiredApp.startDate?.toDate?.().toLocaleDateString() || 'N/A'}
+                                        <div className="flex flex-col items-end gap-2 text-right">
+                                            <div className="text-sm text-gray-600">
+                                                Fecha de Ingreso: <strong>{hiredApp.startDate?.toDate?.().toLocaleDateString() || 'N/A'}</strong>
+                                            </div>
+                                            {candidate.cvUrl && (
+                                                <a
+                                                    href={candidate.cvUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs font-medium text-violet-600 hover:text-violet-800 flex items-center gap-1"
+                                                >
+                                                    📄 Ver CV PDF
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

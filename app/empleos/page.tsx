@@ -259,7 +259,7 @@ function EmpleosContent() {
 
             {/* ==================== FEATURES SECTION ==================== */}
             <section style={{
-                padding: '120px 24px',
+                padding: '120px 48px',
                 backgroundColor: '#FAFAFA'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -355,7 +355,7 @@ function EmpleosContent() {
             </section>
 
             {/* ==================== TWO-COLUMN STORY SECTION ==================== */}
-            <section style={{ padding: '120px 24px', backgroundColor: '#fff' }}>
+            <section style={{ padding: '120px 48px', backgroundColor: '#fff' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{
                         display: 'grid',
@@ -461,7 +461,7 @@ function EmpleosContent() {
 
             {/* ==================== BRANDS POSTULA SECTION ==================== */}
             <section style={{
-                padding: '120px 24px',
+                padding: '120px 48px',
                 backgroundColor: '#FAFAFA'
             }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>

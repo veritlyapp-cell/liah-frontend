@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
 interface CreateUserModalProps {
@@ -23,11 +23,30 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
 
     useEffect(() => {
         const fetchHoldings = async () => {
-            const snap = await getDocs(collection(db, 'holdings'));
-            // Filter only active holdings
-            const allHoldings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const activeHoldings = allHoldings.filter((h: any) => h.activo !== false);
-            setHoldings(activeHoldings);
+            try {
+                const snap = await getDocs(collection(db, 'holdings'));
+                const seenIds = new Set();
+                const uniqueHoldings: any[] = [];
+
+                snap.docs.forEach(doc => {
+                    const data = doc.data() as any;
+                    const hId = data.id || doc.id;
+
+                    if (!seenIds.has(hId) && data.activo !== false) {
+                        seenIds.add(hId);
+                        uniqueHoldings.push({
+                            id: doc.id,
+                            ...data,
+                            logicalId: hId // Keep track of the logical ID
+                        });
+                    }
+                });
+
+                setHoldings(uniqueHoldings);
+                console.log('✅ Holdings únicos cargados para modal:', uniqueHoldings.length);
+            } catch (error) {
+                console.error('Error fetching holdings:', error);
+            }
         };
         fetchHoldings();
     }, []);
@@ -54,11 +73,21 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
         setSaving(true);
 
         try {
+            // Get the current user's ID token for authorization
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                alert('❌ No estás autenticado. Por favor, vuelve a iniciar sesión.');
+                setSaving(false);
+                return;
+            }
+            const idToken = await currentUser.getIdToken();
+
             // Llamar a la API para crear el usuario
             const response = await fetch('/api/admin/create-user', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
                 },
                 body: JSON.stringify({
                     email,

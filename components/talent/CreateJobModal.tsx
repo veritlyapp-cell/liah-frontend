@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface CreateJobModalProps {
     show: boolean;
@@ -11,10 +13,10 @@ interface CreateJobModalProps {
 
 /**
  * Create Job Modal - For creating new job positions in Liah Talent
- * Includes AI-powered JD generation
+ * Includes AI-powered JD generation and full publication fields
  */
 export default function CreateJobModal({ show, holdingId, onCancel, onSave }: CreateJobModalProps) {
-    const [step, setStep] = useState<'profile' | 'jd' | 'kq' | 'approval'>('profile');
+    const [step, setStep] = useState<'profile' | 'details' | 'jd' | 'kq' | 'funnel'>('profile');
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState(false);
 
@@ -23,6 +25,17 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
     const [departamento, setDepartamento] = useState('');
     const [sede, setSede] = useState('');
     const [descripcionBase, setDescripcionBase] = useState('');
+
+    // Detailed fields (matching PublishRQModal)
+    const [requisitos, setRequisitos] = useState('');
+    const [beneficios, setBeneficios] = useState('');
+    const [tipoContrato, setTipoContrato] = useState('tiempo_completo');
+    const [modalidad, setModalidad] = useState('presencial');
+    const [tipoSede, setTipoSede] = useState<'tienda' | 'administrativo'>('tienda');
+    const [salarioMin, setSalarioMin] = useState('');
+    const [salarioMax, setSalarioMax] = useState('');
+    const [mostrarSalario, setMostrarSalario] = useState(false);
+
     const [jdContent, setJdContent] = useState('');
     const [killerQuestions, setKillerQuestions] = useState<Array<{
         question: string;
@@ -30,7 +43,27 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
         expectedAnswer?: string;
         isCritical: boolean;
     }>>([]);
-    const [approvers, setApprovers] = useState<string[]>([]);
+    const [funnelId, setFunnelId] = useState('default');
+
+    useEffect(() => {
+        if (show) {
+            loadHoldingConfig();
+        }
+    }, [show]);
+
+    async function loadHoldingConfig() {
+        try {
+            const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
+            if (holdingDoc.exists()) {
+                const config = holdingDoc.data().publishConfig;
+                if (config && config.beneficiosEstandar) {
+                    setBeneficios(config.beneficiosEstandar.join('\n'));
+                }
+            }
+        } catch (error) {
+            console.error('Error loading holding config:', error);
+        }
+    }
 
     if (!show) return null;
 
@@ -42,13 +75,19 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
 
         setGenerating(true);
         try {
+            // Fetch latest config to pass to IA
+            const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
+            const publishConfig = holdingDoc.exists() ? holdingDoc.data().publishConfig : null;
+
             const response = await fetch('/api/talent/generate-jd', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     titulo,
-                    descripcionBase,
-                    jdsSimilares: [] // TODO: implement RAG search
+                    descripcionBase: descripcionBase || `Perfil para el puesto de ${titulo}.`,
+                    jdsSimilares: [],
+                    holdingId,
+                    publishConfig
                 })
             });
 
@@ -90,13 +129,21 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
         setLoading(true);
         try {
             const jobData = {
-                titulo,
+                titulo: titulo.trim(),
                 departamento,
                 sede,
-                jd_content: jdContent,
+                descripcion: jdContent, // Mapping jdContent to descripcion for consistency
+                requisitos: requisitos.trim() || null,
+                beneficios: beneficios.trim() || null,
+                tipoContrato,
+                modalidad,
+                tipoSede,
+                salarioMin: salarioMin ? parseInt(salarioMin) : null,
+                salarioMax: salarioMax ? parseInt(salarioMax) : null,
+                mostrarSalario,
                 killerQuestions,
-                approvers,
-                status: 'draft',
+                funnelId,
+                status: 'published', // Manual jobs are published by default
                 holdingId
             };
 
@@ -113,9 +160,10 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
 
     const steps = [
         { id: 'profile', label: 'Perfil', num: 1 },
-        { id: 'jd', label: 'Job Description', num: 2 },
-        { id: 'kq', label: 'Preguntas Filtro', num: 3 },
-        { id: 'approval', label: 'Aprobadores', num: 4 },
+        { id: 'details', label: 'Detalles', num: 2 },
+        { id: 'jd', label: 'Job Description', num: 3 },
+        { id: 'kq', label: 'Preguntas Filtro', num: 4 },
+        { id: 'funnel', label: 'Funnel / Proceso', num: 5 },
     ];
 
     return (
@@ -164,7 +212,7 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
                                     type="text"
                                     value={titulo}
                                     onChange={(e) => setTitulo(e.target.value)}
-                                    placeholder="Senior Software Engineer"
+                                    placeholder="Ej: Supervisor de Tienda"
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500"
                                 />
                             </div>
@@ -172,254 +220,198 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Departamento
+                                        Gerencia / Área
                                     </label>
-                                    <select
+                                    <input
+                                        type="text"
                                         value={departamento}
                                         onChange={(e) => setDepartamento(e.target.value)}
+                                        placeholder="Ej: Operaciones"
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        <option value="tecnologia">Tecnología</option>
-                                        <option value="marketing">Marketing</option>
-                                        <option value="finanzas">Finanzas</option>
-                                        <option value="operaciones">Operaciones</option>
-                                        <option value="rrhh">Recursos Humanos</option>
-                                    </select>
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Sede
+                                        Sede / Localidad
                                     </label>
-                                    <select
+                                    <input
+                                        type="text"
                                         value={sede}
                                         onChange={(e) => setSede(e.target.value)}
+                                        placeholder="Ej: Lima - Miraflores"
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        <option value="lima">Lima - Sede Central</option>
-                                        <option value="arequipa">Arequipa</option>
-                                        <option value="remoto">Remoto</option>
-                                    </select>
+                                    />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Descripción Base (opcional)
+                                    Descripción Base o Perfil
                                 </label>
                                 <textarea
                                     value={descripcionBase}
                                     onChange={(e) => setDescripcionBase(e.target.value)}
-                                    placeholder="Describe brevemente el rol, la IA generará un JD completo..."
+                                    placeholder="Describe brevemente el rol para que la IA genere el contenido completo..."
                                     rows={4}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500"
                                 />
                             </div>
+                        </div>
+                    )}
 
-                            {/* PDF Upload Option */}
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-violet-400 transition-colors">
-                                <input
-                                    type="file"
-                                    accept=".pdf,.doc,.docx,.txt"
-                                    className="hidden"
-                                    id="jd-upload"
-                                    onChange={async (e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-
-                                        // For now, just extract text from simple files
-                                        // TODO: Add proper PDF parsing with pdf.js
-                                        try {
-                                            if (file.type === 'text/plain') {
-                                                const text = await file.text();
-                                                setDescripcionBase(prev => prev + '\n\n--- Contenido del archivo ---\n' + text);
-                                            } else {
-                                                // For PDF/DOC, just note the file name
-                                                setDescripcionBase(prev => prev + `\n\n[Archivo adjunto: ${file.name}]`);
-                                                alert('📎 Archivo adjunto. Para mejor interpretación, copia el contenido del documento manualmente.');
-                                            }
-                                        } catch (error) {
-                                            console.error('Error reading file:', error);
-                                            alert('Error leyendo archivo');
-                                        }
-                                    }}
-                                />
-                                <label htmlFor="jd-upload" className="cursor-pointer">
-                                    <div className="text-4xl mb-2">📄</div>
-                                    <p className="font-medium text-gray-900">Subir Documento</p>
-                                    <p className="text-sm text-gray-500 mt-1">PDF, Word o TXT (para extraer info)</p>
-                                </label>
+                    {/* Step 2: Details */}
+                    {step === 'details' && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Contrato</label>
+                                    <select
+                                        value={tipoContrato}
+                                        onChange={(e) => setTipoContrato(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                                    >
+                                        <option value="tiempo_completo">Tiempo Completo</option>
+                                        <option value="medio_tiempo">Medio Tiempo</option>
+                                        <option value="temporal">Temporal</option>
+                                        <option value="practicas">Prácticas</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Modalidad</label>
+                                    <select
+                                        value={modalidad}
+                                        onChange={(e) => setModalidad(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                                    >
+                                        <option value="presencial">Presencial</option>
+                                        <option value="remoto">Remoto</option>
+                                        <option value="hibrido">Híbrido</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                                <p className="text-violet-900 text-sm">
-                                    💡 <strong>Tip:</strong> Proporciona algunos detalles o sube un documento de referencia, y la IA generará un Job Description profesional basado en perfiles exitosos similares.
-                                </p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Sede</label>
+                                    <select
+                                        value={tipoSede}
+                                        onChange={(e) => setTipoSede(e.target.value as any)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                                    >
+                                        <option value="tienda">🏪 Tienda / Operativo</option>
+                                        <option value="administrativo">🏢 Administrativo</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Salario (Opcional)</label>
+                                    <div className="flex gap-2">
+                                        <input type="number" placeholder="Min" value={salarioMin} onChange={e => setSalarioMin(e.target.value)} className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg text-sm" />
+                                        <input type="number" placeholder="Max" value={salarioMax} onChange={e => setSalarioMax(e.target.value)} className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg text-sm" />
+                                    </div>
+                                    <label className="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                                        <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} />
+                                        Mostrar en publicación
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Requisitos</label>
+                                <textarea
+                                    value={requisitos}
+                                    onChange={(e) => setRequisitos(e.target.value)}
+                                    rows={3}
+                                    placeholder="- Experiencia mínima..."
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Beneficios</label>
+                                <textarea
+                                    value={beneficios}
+                                    onChange={(e) => setBeneficios(e.target.value)}
+                                    rows={3}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                                />
                             </div>
                         </div>
                     )}
 
-                    {/* Step 2: JD */}
+                    {/* Step 3: JD */}
                     {step === 'jd' && (
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="font-semibold text-gray-900">Job Description</h3>
+                                    <h3 className="font-semibold text-gray-900">Contenido del Anuncio</h3>
                                     <p className="text-sm text-gray-600">Generado por IA, puedes editarlo</p>
                                 </div>
                                 <button
                                     onClick={handleGenerateJD}
                                     disabled={generating}
-                                    className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                    className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 disabled:opacity-50"
                                 >
-                                    {generating ? (
-                                        <><span className="animate-spin">⏳</span> Generando...</>
-                                    ) : (
-                                        <>🔄 Regenerar con IA</>
-                                    )}
+                                    {generating ? '⏳ Generando...' : '🔄 Regenerar con IA'}
                                 </button>
                             </div>
 
                             <textarea
                                 value={jdContent}
                                 onChange={(e) => setJdContent(e.target.value)}
-                                rows={15}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
-                                placeholder="El Job Description aparecerá aquí..."
+                                rows={12}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl font-mono text-sm"
                             />
                         </div>
                     )}
 
-                    {/* Step 3: Killer Questions */}
+                    {/* Step 4: Killer Questions */}
                     {step === 'kq' && (
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="font-semibold text-gray-900">Preguntas Filtro (Killer Questions)</h3>
-                                    <p className="text-sm text-gray-600">Preguntas para filtrar candidatos automáticamente</p>
+                                    <h3 className="font-semibold text-gray-900">Preguntas Filtro</h3>
                                 </div>
-                                <button
-                                    onClick={addKillerQuestion}
-                                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
-                                >
-                                    + Agregar Pregunta
-                                </button>
+                                <button onClick={addKillerQuestion} className="px-4 py-2 bg-violet-600 text-white rounded-lg">+ Agregar</button>
                             </div>
 
-                            {killerQuestions.length === 0 ? (
-                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                                    <div className="text-4xl mb-3">❓</div>
-                                    <p className="text-gray-600">No hay preguntas filtro aún</p>
-                                    <p className="text-sm text-gray-500 mt-1">Las preguntas críticas rechazan automáticamente candidatos</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {killerQuestions.map((kq, index) => (
-                                        <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white">
-                                            <div className="flex items-start gap-4">
-                                                <div className="flex-1 space-y-3">
-                                                    <input
-                                                        type="text"
-                                                        value={kq.question}
-                                                        onChange={(e) => updateKillerQuestion(index, { question: e.target.value })}
-                                                        placeholder="¿Tienes disponibilidad para trabajar en turnos rotativos?"
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                                    />
-                                                    <div className="flex items-center gap-4">
-                                                        <select
-                                                            value={kq.type}
-                                                            onChange={(e) => updateKillerQuestion(index, { type: e.target.value as any })}
-                                                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                                        >
-                                                            <option value="yes_no">Sí/No</option>
-                                                            <option value="numeric">Numérico (mínimo)</option>
-                                                            <option value="text">Texto libre</option>
-                                                        </select>
-                                                        {kq.type === 'yes_no' && (
-                                                            <select
-                                                                value={kq.expectedAnswer}
-                                                                onChange={(e) => updateKillerQuestion(index, { expectedAnswer: e.target.value })}
-                                                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                                            >
-                                                                <option value="Sí">Esperado: Sí</option>
-                                                                <option value="No">Esperado: No</option>
-                                                            </select>
-                                                        )}
-                                                        {kq.type === 'numeric' && (
-                                                            <input
-                                                                type="number"
-                                                                value={kq.expectedAnswer}
-                                                                onChange={(e) => updateKillerQuestion(index, { expectedAnswer: e.target.value })}
-                                                                placeholder="Mínimo"
-                                                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                                            />
-                                                        )}
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={kq.isCritical}
-                                                                onChange={(e) => updateKillerQuestion(index, { isCritical: e.target.checked })}
-                                                                className="w-4 h-4 text-red-600 rounded"
-                                                            />
-                                                            <span className={`text-sm ${kq.isCritical ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
-                                                                ⚠️ Crítica
-                                                            </span>
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => removeKillerQuestion(index)}
-                                                    className="text-red-500 hover:text-red-700 p-2"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </div>
+                            {killerQuestions.map((kq, index) => (
+                                <div key={index} className="border border-gray-200 rounded-xl p-4 bg-white relative">
+                                    <button onClick={() => removeKillerQuestion(index)} className="absolute top-4 right-4 text-red-400">🗑️</button>
+                                    <div className="grid gap-3 pr-8">
+                                        <input
+                                            type="text"
+                                            value={kq.question}
+                                            onChange={(e) => updateKillerQuestion(index, { question: e.target.value })}
+                                            placeholder="Pregunta..."
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        />
+                                        <div className="flex gap-4">
+                                            <select value={kq.type} onChange={e => updateKillerQuestion(index, { type: e.target.value as any })} className="text-sm border rounded-lg px-2">
+                                                <option value="yes_no">Sí/No</option>
+                                                <option value="numeric">Numérico</option>
+                                            </select>
+                                            <label className="flex items-center gap-2 text-xs">
+                                                <input type="checkbox" checked={kq.isCritical} onChange={e => updateKillerQuestion(index, { isCritical: e.target.checked })} />
+                                                Es Crítica
+                                            </label>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-                            )}
-
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                                <p className="text-amber-900 text-sm">
-                                    ⚠️ <strong>Preguntas Críticas:</strong> Si el candidato falla una pregunta crítica, será rechazado automáticamente SIN usar tokens de IA (ahorro de costos).
-                                </p>
-                            </div>
+                            ))}
                         </div>
                     )}
 
-                    {/* Step 4: Approvers */}
-                    {step === 'approval' && (
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="font-semibold text-gray-900">Flujo de Aprobación</h3>
-                                <p className="text-sm text-gray-600">Define quién debe aprobar esta vacante antes de publicarla</p>
-                            </div>
+                    {/* Step 5: Funnel */}
+                    {step === 'funnel' && (
+                        <div className="space-y-6 text-center py-8">
+                            <div className="text-5xl mb-4">🚀</div>
+                            <h3 className="text-xl font-bold">¡Todo listo para publicar!</h3>
+                            <p className="text-gray-600">Al crear la vacante, estará activa inmediatamente en el portal.</p>
 
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <p className="text-blue-900 text-sm">
-                                    📋 El flujo de aprobación será: <strong>Draft → Pendiente → Aprobado → Publicado</strong>
-                                </p>
-                            </div>
-
-                            <div className="space-y-3">
-                                <p className="text-sm font-medium text-gray-700">Aprobadores (en orden):</p>
-                                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                                    <p className="text-gray-600 text-sm text-center py-4">
-                                        🔧 Configuración de aprobadores próximamente
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Summary */}
-                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mt-6">
-                                <h4 className="font-semibold text-gray-900 mb-3">Resumen de la Vacante</h4>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div><span className="text-gray-500">Título:</span> <strong>{titulo || '-'}</strong></div>
-                                    <div><span className="text-gray-500">Departamento:</span> <strong>{departamento || '-'}</strong></div>
-                                    <div><span className="text-gray-500">Sede:</span> <strong>{sede || '-'}</strong></div>
-                                    <div><span className="text-gray-500">Preguntas Filtro:</span> <strong>{killerQuestions.length}</strong></div>
-                                </div>
+                            <div className="bg-gray-50 p-4 rounded-xl text-left max-w-md mx-auto mt-6">
+                                <p className="text-sm"><strong>Puesto:</strong> {titulo}</p>
+                                <p className="text-sm"><strong>Lugar:</strong> {sede}</p>
+                                <p className="text-sm"><strong>Contrato:</strong> {tipoContrato.replace('_', ' ')}</p>
                             </div>
                         </div>
                     )}
@@ -427,71 +419,42 @@ export default function CreateJobModal({ show, holdingId, onCancel, onSave }: Cr
 
                 {/* Footer */}
                 <div className="border-t border-gray-200 px-6 py-4 flex justify-between bg-gray-50">
-                    <button
-                        onClick={onCancel}
-                        disabled={loading}
-                        className="px-6 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-100 transition-colors"
-                    >
-                        Cancelar
-                    </button>
+                    <button onClick={onCancel} className="px-6 py-2 border rounded-xl">Cancelar</button>
 
                     <div className="flex gap-3">
                         {step !== 'profile' && (
-                            <button
-                                onClick={() => {
-                                    const idx = steps.findIndex(s => s.id === step);
-                                    if (idx > 0) setStep(steps[idx - 1].id as any);
-                                }}
-                                className="px-6 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-100 transition-colors"
-                            >
-                                ← Anterior
-                            </button>
+                            <button onClick={() => {
+                                const idx = steps.findIndex(s => s.id === step);
+                                if (idx > 0) setStep(steps[idx - 1].id as any);
+                            }} className="px-6 py-2 border rounded-xl">Anterior</button>
                         )}
 
-                        {step === 'profile' && (
-                            <button
-                                onClick={() => jdContent ? setStep('jd') : handleGenerateJD()}
-                                disabled={!titulo || generating}
-                                className="px-6 py-2 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {generating ? (
-                                    <><span className="animate-spin">⏳</span> Generando JD...</>
-                                ) : (
-                                    <>🤖 Generar JD con IA</>
-                                )}
-                            </button>
-                        )}
-
-                        {step === 'jd' && (
-                            <button
-                                onClick={() => setStep('kq')}
-                                disabled={!jdContent}
-                                className="px-6 py-2 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors disabled:opacity-50"
-                            >
-                                Siguiente →
-                            </button>
-                        )}
-
-                        {step === 'kq' && (
-                            <button
-                                onClick={() => setStep('approval')}
-                                className="px-6 py-2 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors"
-                            >
-                                Siguiente →
-                            </button>
-                        )}
-
-                        {step === 'approval' && (
+                        {step === 'funnel' ? (
                             <button
                                 onClick={handleSubmit}
-                                disabled={loading || !titulo || !jdContent}
-                                className="px-6 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+                                disabled={loading}
+                                className="px-8 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold hover:opacity-90 disabled:opacity-50"
                             >
-                                {loading ? (
-                                    <><span className="animate-spin">⏳</span> Guardando...</>
-                                ) : (
-                                    <>✓ Crear Vacante (Borrador)</>
-                                )}
+                                {loading ? 'Publicando...' : '🚀 Crear y Publicar'}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    if (step === 'profile') {
+                                        if (!titulo) return alert('Ingresa un título');
+                                        setStep('details');
+                                    } else if (step === 'details') {
+                                        if (jdContent) setStep('jd'); else handleGenerateJD();
+                                    } else if (step === 'jd') {
+                                        setStep('kq');
+                                    } else if (step === 'kq') {
+                                        setStep('funnel');
+                                    }
+                                }}
+                                disabled={generating}
+                                className="px-8 py-2 bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700"
+                            >
+                                {generating ? 'Generando...' : 'Siguiente →'}
                             </button>
                         )}
                     </div>

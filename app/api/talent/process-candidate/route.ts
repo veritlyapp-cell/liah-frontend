@@ -61,9 +61,15 @@ export async function POST(req: NextRequest) {
 
         console.log(`[Talent AI] Match score: ${analysis.matchScore}%`);
 
+        // NOTE: Auto-rejection disabled per user request
+        // Candidates go to screening with visible score so recruiters can manually batch-reject
+        const newStatus = 'SCREENING';
+
         // Update candidate with analysis results
         await updateDoc(candidateRef, {
-            status: 'SCREENING',
+            status: newStatus,
+            currentStage: 'applied', // Start in 'applied' (Postulantes) stage
+            funnelStage: 'applied',
             matchScore: analysis.matchScore,
             aiAnalysis: analysis,
             analyzedAt: Timestamp.now()
@@ -74,7 +80,7 @@ export async function POST(req: NextRequest) {
             data: {
                 candidateId,
                 matchScore: analysis.matchScore,
-                status: 'SCREENING'
+                status: newStatus
             }
         });
 

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, Timestamp, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { uploadCV } from '@/lib/storage/cv-upload';
 import JobPostingSchema from '@/components/seo/JobPostingSchema';
 
@@ -38,15 +38,36 @@ interface Job {
     createdAt?: any;
 }
 
+// Holding branding configs
+const HOLDING_CONFIGS: Record<string, {
+    name: string;
+    logo: string;
+    colors: { primary: string; primaryDeep: string; accent: string; light: string }
+}> = {
+    'llamagas': {
+        name: 'Llamagas',
+        logo: '/logos/llamagas-full-logo.png',
+        colors: { primary: '#572483', primaryDeep: '#3D1C5C', accent: '#FFB800', light: '#E0CFF2' }
+    },
+    'ngr': {
+        name: 'NGR',
+        logo: '/logos/ngr-logo.png',
+        colors: { primary: '#1A1A1A', primaryDeep: '#0A0A0A', accent: '#FF6B35', light: '#A0A0A0' }
+    }
+};
+
 export default function JobApplicationPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const jobId = params?.jobId as string;
+    const inviteId = searchParams?.get('inviteId');
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [job, setJob] = useState<Job | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [brandColors, setBrandColors] = useState({ primary: '#7c3aed', primaryDeep: '#5b21b6', accent: '#7c3aed', light: '#ede9fe' });
 
     // Form fields
     const [nombre, setNombre] = useState('');
@@ -58,12 +79,38 @@ export default function JobApplicationPage() {
     const [cvText, setCvText] = useState<string | null>(null);
     const [parsingCV, setParsingCV] = useState(false);
     const [killerAnswers, setKillerAnswers] = useState<Record<string, string>>({});
+    const [salaryExpectation, setSalaryExpectation] = useState<number | null>(null);
+    const [salaryNegotiable, setSalaryNegotiable] = useState(false);
 
     useEffect(() => {
         if (jobId) {
             loadJob();
         }
-    }, [jobId]);
+        if (inviteId) {
+            loadInvitation();
+        }
+    }, [jobId, inviteId]);
+
+    // Dynamic page title
+    useEffect(() => {
+        if (job) {
+            document.title = `${job.titulo} - ${job.holdingNombre || 'Empleo'}`;
+        }
+    }, [job]);
+
+    async function loadInvitation() {
+        try {
+            const appDoc = await getDoc(doc(db, 'talent_applications', inviteId));
+            if (appDoc.exists()) {
+                const data = appDoc.data();
+                setNombre(data.nombre || '');
+                setEmail(data.email || '');
+                setTelefono(data.telefono || '');
+            }
+        } catch (err) {
+            console.error('Error loading invitation:', err);
+        }
+    }
 
     async function loadJob() {
         setLoading(true);
@@ -81,17 +128,35 @@ export default function JobApplicationPage() {
                 return;
             }
 
-            // Fetch holding info for SEO schema
+            // Fetch holding info for SEO schema and branding
             if (jobData.holdingId) {
+                const holdingSlug = jobData.holdingId.toLowerCase();
+                const predefinedConfig = HOLDING_CONFIGS[holdingSlug];
+
+                // Set brand colors from predefined config
+                if (predefinedConfig?.colors) {
+                    setBrandColors(predefinedConfig.colors);
+                }
+
+                // Try to fetch from Firestore first
                 try {
                     const holdingDoc = await getDoc(doc(db, 'holdings', jobData.holdingId));
                     if (holdingDoc.exists()) {
                         const holdingData = holdingDoc.data();
-                        jobData.holdingNombre = holdingData.nombre;
-                        jobData.holdingLogo = holdingData.logoUrl;
+                        jobData.holdingNombre = holdingData.nombre || predefinedConfig?.name;
+                        jobData.holdingLogo = holdingData.logoUrl || predefinedConfig?.logo;
+                    } else if (predefinedConfig) {
+                        // Use predefined config as fallback
+                        jobData.holdingNombre = predefinedConfig.name;
+                        jobData.holdingLogo = predefinedConfig.logo;
                     }
                 } catch (holdingErr) {
                     console.error('Error loading holding:', holdingErr);
+                    // Use predefined config on error
+                    if (predefinedConfig) {
+                        jobData.holdingNombre = predefinedConfig.name;
+                        jobData.holdingLogo = predefinedConfig.logo;
+                    }
                 }
             }
 
@@ -198,6 +263,20 @@ export default function JobApplicationPage() {
 
         setSubmitting(true);
         try {
+            // Check for duplicate application
+            const existingQuery = query(
+                collection(db, 'talent_applications'),
+                where('email', '==', email.trim().toLowerCase()),
+                where('jobId', '==', job.id)
+            );
+            const existingSnap = await getDocs(existingQuery);
+
+            if (!existingSnap.empty) {
+                setSubmitting(false);
+                alert('Ya has postulado a esta vacante anteriormente. Revisa tu correo para más información.');
+                return;
+            }
+
             // Check killer questions
             const { passed, failedQuestions } = validateKillerQuestions();
 
@@ -215,7 +294,6 @@ export default function JobApplicationPage() {
                 }
             }
 
-            // Prepare application data
             const applicationData = {
                 jobId: job.id,
                 jobTitulo: job.titulo,
@@ -226,6 +304,8 @@ export default function JobApplicationPage() {
                 cvFileName: cvFile?.name || null,
                 cvUrl,
                 cvPath,
+                salaryExpectation: salaryExpectation || null,
+                salaryNegotiable: salaryNegotiable,
                 killerAnswers,
                 killerQuestionsPassed: passed,
                 failedKillerQuestions: failedQuestions,
@@ -233,14 +313,24 @@ export default function JobApplicationPage() {
                 status: passed ? 'new' : 'rejected_kq',
                 matchScore: null, // Will be set by AI analysis if KQ passed
                 funnelStage: passed ? 'applied' : 'rejected',
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now()
+                updatedAt: Timestamp.now(),
+                isInvitation: !!inviteId, // Keep track if it was an invitation
+                ...(inviteId ? {} : { createdAt: Timestamp.now() }) // Only add createdAt if new
             };
 
-            const docRef = await addDoc(collection(db, 'talent_applications'), applicationData);
+            let applicationId = inviteId;
+
+            if (inviteId) {
+                // Update existing invitation
+                await updateDoc(doc(db, 'talent_applications', inviteId), applicationData);
+            } else {
+                // Create new application
+                const docRef = await addDoc(collection(db, 'talent_applications'), applicationData);
+                applicationId = docRef.id;
+            }
 
             // If passed KQ, run AI Matching
-            if (passed) {
+            if (passed && applicationId) {
                 try {
                     const matchResp = await fetch('/api/talent/match-candidate', {
                         method: 'POST',
@@ -262,7 +352,7 @@ export default function JobApplicationPage() {
 
                     if (matchResp.ok) {
                         const { data: matchData } = await matchResp.json();
-                        await updateDoc(doc(db, 'talent_applications', docRef.id), {
+                        await updateDoc(doc(db, 'talent_applications', applicationId), {
                             matchScore: matchData.matchScore,
                             aiAnalysis: matchData,
                             updatedAt: Timestamp.now()
@@ -271,6 +361,23 @@ export default function JobApplicationPage() {
                 } catch (matchErr) {
                     console.error('Error during AI matching:', matchErr);
                 }
+            }
+
+            // Send confirmation email to candidate
+            try {
+                await fetch('/api/talent/send-application-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        applicationId,
+                        candidateName: nombre.trim(),
+                        candidateEmail: email.trim().toLowerCase(),
+                        jobTitle: job.titulo,
+                        holdingId: job.holdingId
+                    })
+                });
+            } catch (emailErr) {
+                console.error('Error sending confirmation email:', emailErr);
             }
 
             setSubmitted(true);
@@ -347,35 +454,89 @@ export default function JobApplicationPage() {
                 location={job.ubicacion}
             />
 
-            <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-100">
-                {/* Header */}
-                <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
-                    <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold">L</span>
-                            </div>
-                            <span className="font-semibold text-gray-900">Liah Careers</span>
-                        </div>
+            <div style={{ minHeight: '100vh', background: `linear-gradient(135deg, ${brandColors.light}20 0%, white 100%)` }}>
+                {/* Header - Dynamic holding branding */}
+                <header style={{
+                    backgroundColor: brandColors.primary,
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                }}>
+                    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <a
+                            href={`/empleos/${job.holdingId?.toLowerCase() || 'llamagas'}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 16, textDecoration: 'none', cursor: 'pointer' }}
+                        >
+                            {job.holdingLogo && (
+                                <img
+                                    src={job.holdingLogo}
+                                    alt={job.holdingNombre || 'Logo'}
+                                    style={{ height: 50, objectFit: 'contain' }}
+                                />
+                            )}
+                            <span style={{ fontSize: 22, fontWeight: 700, color: brandColors.accent }}>{job.holdingNombre || 'Careers'}</span>
+                        </a>
+
+                        {/* Share button - Web Share API */}
+                        <button
+                            onClick={async () => {
+                                const shareData = {
+                                    title: `${job.titulo} - ${job.holdingNombre}`,
+                                    text: `¡Mira esta oportunidad laboral en ${job.holdingNombre}! ${job.titulo}`,
+                                    url: window.location.href
+                                };
+
+                                if (navigator.share) {
+                                    try {
+                                        await navigator.share(shareData);
+                                    } catch (err) {
+                                        // User cancelled or error
+                                        console.log('Share cancelled');
+                                    }
+                                } else {
+                                    // Fallback: copy to clipboard
+                                    navigator.clipboard.writeText(window.location.href);
+                                    alert('¡Link copiado al portapapeles!');
+                                }
+                            }}
+                            style={{
+                                padding: '10px 20px',
+                                backgroundColor: brandColors.accent,
+                                border: 'none',
+                                borderRadius: 8,
+                                color: brandColors.primaryDeep,
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                            }}
+                        >
+                            🔗 Compartir
+                        </button>
                     </div>
                 </header>
 
-                <main className="max-w-4xl mx-auto px-4 py-8">
-                    <div className="grid md:grid-cols-3 gap-8">
-                        {/* Job Details */}
-                        <div className="md:col-span-2 space-y-6">
-                            <div className="bg-white rounded-2xl shadow-lg p-6">
-                                <h1 className="text-2xl font-bold text-gray-900 mb-2">{job.titulo}</h1>
+                <main style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 24px 80px' }}>
+                    {/* Mobile-first: stacked, Desktop: 2:1 grid (job description 2fr : form 1fr) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Job Details - Takes 2 columns on desktop */}
+                        <div className="lg:col-span-2 space-y-6">
+                            <div style={{ backgroundColor: 'white', borderRadius: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.1)', padding: 32 }}>
+                                <h1 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 700, color: '#111827', marginBottom: 16 }}>{job.titulo}</h1>
 
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    <span className="px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
                                         {tipoContratoLabels[job.tipoContrato] || job.tipoContrato}
                                     </span>
-                                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                    <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                                         {modalidadLabels[job.modalidad] || job.modalidad}
                                     </span>
                                     {job.mostrarSalario && job.salarioMin && (
-                                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                        <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                                             💰 S/ {job.salarioMin.toLocaleString()}{job.salarioMax ? ` - ${job.salarioMax.toLocaleString()}` : '+'}
                                         </span>
                                     )}
@@ -383,33 +544,33 @@ export default function JobApplicationPage() {
 
                                 <div className="prose prose-gray max-w-none">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Descripción</h3>
-                                    <p className="text-gray-700 whitespace-pre-wrap">{job.descripcion}</p>
+                                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{job.descripcion}</p>
 
                                     {job.requisitos && (
                                         <>
                                             <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-2">Requisitos</h3>
-                                            <p className="text-gray-700 whitespace-pre-wrap">{job.requisitos}</p>
+                                            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{job.requisitos}</p>
                                         </>
                                     )}
 
                                     {job.beneficios && (
                                         <>
                                             <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-2">Beneficios</h3>
-                                            <p className="text-gray-700 whitespace-pre-wrap">{job.beneficios}</p>
+                                            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{job.beneficios}</p>
                                         </>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Application Form */}
-                        <div className="md:col-span-1">
-                            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
-                                <h2 className="text-lg font-bold text-gray-900 mb-4">Postúlate ahora</h2>
+                        {/* Application Form - Takes 1 column on desktop */}
+                        <div className="lg:col-span-1">
+                            <form onSubmit={handleSubmit} style={{ backgroundColor: '#f9fafb', borderRadius: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.1)', padding: 32, position: 'sticky', top: 100, border: '1px solid #e5e7eb' }}>
+                                <h2 style={{ fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 24 }}>Postúlate ahora</h2>
 
-                                <div className="space-y-4">
+                                <div className="space-y-5">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Nombre completo *
                                         </label>
                                         <input
@@ -417,12 +578,12 @@ export default function JobApplicationPage() {
                                             value={nombre}
                                             onChange={(e) => setNombre(e.target.value)}
                                             required
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                            className="w-full px-4 py-3 min-h-[48px] border border-gray-300 rounded-xl focus:ring-2 focus:ring-violet-500 bg-white"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Email *
                                         </label>
                                         <input
@@ -430,30 +591,32 @@ export default function JobApplicationPage() {
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             required
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                            className="w-full px-4 py-3 min-h-[48px] border border-gray-300 rounded-xl focus:ring-2 focus:ring-violet-500 bg-white"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Teléfono
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Teléfono *
                                         </label>
                                         <input
                                             type="tel"
                                             value={telefono}
                                             onChange={(e) => setTelefono(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                            required
+                                            className="w-full px-4 py-3 min-h-[48px] border border-gray-300 rounded-xl focus:ring-2 focus:ring-violet-500 bg-white"
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            CV (PDF, Word) {parsingCV && <span className="text-violet-600 animate-pulse ml-2">✨ Analizando...</span>}
+                                            CV (PDF, Word) * {parsingCV && <span className="text-violet-600 animate-pulse ml-2">✨ Analizando...</span>}
                                         </label>
                                         <input
                                             type="file"
                                             accept=".pdf,.doc,.docx"
                                             onChange={handleFileChange}
+                                            required
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
                                         />
                                         {parsingCV && (
@@ -461,6 +624,35 @@ export default function JobApplicationPage() {
                                                 IA está completando tus datos automáticamente...
                                             </p>
                                         )}
+                                    </div>
+
+                                    {/* Salary Expectations - Fixed question */}
+                                    <div className="border-t border-gray-200 pt-4 mt-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            💰 Expectativas Salariales (S/) *
+                                        </label>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <input
+                                                    type="number"
+                                                    value={salaryExpectation || ''}
+                                                    onChange={(e) => setSalaryExpectation(e.target.value ? parseInt(e.target.value) : null)}
+                                                    placeholder="Ej: 3500"
+                                                    min={0}
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                                                />
+                                            </div>
+                                            <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={salaryNegotiable}
+                                                    onChange={(e) => setSalaryNegotiable(e.target.checked)}
+                                                    className="w-4 h-4 text-violet-600 rounded"
+                                                />
+                                                Negociable
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Killer Questions */}
@@ -530,12 +722,26 @@ export default function JobApplicationPage() {
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                        style={{
+                                            width: '100%',
+                                            padding: '16px',
+                                            minHeight: 48,
+                                            background: `linear-gradient(135deg, ${brandColors.primary} 0%, ${brandColors.primaryDeep} 100%)`,
+                                            color: 'white',
+                                            borderRadius: 12,
+                                            fontWeight: 600,
+                                            fontSize: 18,
+                                            border: 'none',
+                                            cursor: submitting ? 'not-allowed' : 'pointer',
+                                            opacity: submitting ? 0.5 : 1,
+                                            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+                                            transition: 'transform 0.2s, opacity 0.2s'
+                                        }}
                                     >
                                         {submitting ? '⏳ Enviando...' : '📨 Enviar Postulación'}
                                     </button>
 
-                                    <p className="text-xs text-gray-500 text-center">
+                                    <p className="text-xs text-gray-500 text-center mt-4">
                                         Al postularte aceptas nuestra política de privacidad
                                     </p>
                                 </div>

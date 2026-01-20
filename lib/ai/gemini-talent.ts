@@ -99,19 +99,30 @@ export const TALENT_PROMPTS = {
 Eres un experto reclutador senior con 20 años de experiencia evaluando candidatos corporativos.
 
 ## TU TAREA
-Analizar la compatibilidad entre un CV y un Job Description (JD).
+Analizar la compatibilidad entre un CV y un Job Description (JD), considerando también las respuestas del candidato a las preguntas filtro.
 
 ## INPUT
-### Job Description:
+### Job Description (Perfil del Puesto):
 {JD_CONTENT}
 
-### CV del Candidato:
+### CV del Candidato (o datos extraídos):
 {CV_CONTENT}
+
+### Respuestas a Killer Questions:
+{KILLER_RESPUESTAS}
+
+## REGLAS DE EVALUACIÓN:
+1. Analiza experiencia, habilidades y formación frente a los requisitos.
+2. Si el candidato FALLA en un requisito obligatorio (ej: no tiene licencia requerida, no cumple disponibilidad), el matchScore debe ser < 30%.
+3. Sé objetivo y basa tu análisis en evidencia.
 
 ## OUTPUT (JSON estricto)
 {
   "matchScore": <número 0-100>,
-  "summary_rationale": "<2-3 oraciones explicando el match>",
+  "summary_rationale": "<resumen ejecutivo de 2-3 oraciones>",
+  "puntosFuertes": ["Fortaleza 1", "Fortaleza 2"],
+  "puntosDebiles": ["Gap 1", "Gap 2"],
+  "recomendacion": "Entrevistar / En espera / Descartar",
   "skill_breakdown": {
     "technical": {
       "score": <0-100>,
@@ -120,59 +131,65 @@ Analizar la compatibilidad entre un CV y un Job Description (JD).
     },
     "experience": {
       "score": <0-100>,
-      "years_required": <número>,
       "years_found": <número>,
       "relevant_roles": ["rol1", "rol2"]
-    },
-    "education": {
-      "score": <0-100>,
-      "required": "<requisito del JD>",
-      "found": "<lo que tiene el candidato>"
     }
-  },
-  "red_flags": ["<alertas>"],
-  "green_flags": ["<aspectos destacados>"]
+  }
 }
-
-## SCORING GUIDELINES
-- 85-100: Excelente match, cumple o excede todos los requisitos
-- 70-84: Buen match, cumple requisitos principales
-- 50-69: Match parcial, faltan algunas competencias
-- 30-49: Match bajo, gaps significativos
-- 0-29: No apto para el puesto
-
-## IMPORTANTE
-- Sé objetivo y basado en evidencia del CV
-- No inventes información no presente
-- Considera transferable skills
-- Penaliza si faltan requisitos "obligatorios"
 `,
 
     JD_GENERATION: `
-Eres un experto en redacción de Job Descriptions corporativos para empresas líderes.
+Genera una publicación de empleo profesional y atractiva para la siguiente posición.
 
-## TU TAREA
-Generar un JD profesional y atractivo basado en el perfil proporcionado.
+## REGLAS IMPORTANTES:
+1. NO uses introducciones como "Como experto...", "Aquí está el JD...", etc.
+2. Empieza DIRECTAMENTE con el contenido de la publicación
+3. El primer párrafo debe empezar con: "En {HOLDING_NAME} estamos en búsqueda de..."
+4. Usa el nombre de la empresa real, no genérico
+5. Tono: {TONO}
+6. Slogan: {SLOGAN}
+7. Instrucciones adicionales: {INSTRUCCIONES_IA}
 
 ## INPUT
+### Empresa:
+{HOLDING_NAME}
+
 ### Título del Puesto:
 {TITULO}
 
-### Descripción Base:
+### Perfil/Requisitos Base:
 {DESCRIPCION_BASE}
 
-### JDs Exitosos Similares (referencia):
+### Beneficios Estándar:
+{BENEFICIOS_ESTANDAR}
+
+### JDs de Referencia (opcional):
 {JDS_SIMILARES}
 
-## OUTPUT
-Genera un JD optimizado que incluya:
-1. **Resumen del puesto** (2-3 líneas atractivas)
-2. **Responsabilidades principales** (5-8 bullets)
-3. **Requisitos obligatorios** (4-6 bullets)
-4. **Requisitos deseables** (3-4 bullets)
-5. **Beneficios** (4-6 bullets)
+## OUTPUT (FORMATO EXACTO)
+Genera el texto de la publicación con estas secciones:
 
-Tono: Profesional pero accesible. Evita jerga excesiva.
+**Resumen del puesto** (2-3 líneas que enganchen al candidato)
+
+**¿Qué harás?**
+• [Responsabilidad 1]
+• [Responsabilidad 2]
+• [5-8 bullets en total]
+
+**¿Qué buscamos?**
+• [Requisito obligatorio 1]
+• [Requisito obligatorio 2]
+• [4-6 bullets]
+
+**Deseable:**
+• [Requisito deseable 1]
+• [3-4 bullets]
+
+**¿Qué ofrecemos?**
+• [Beneficio 1]
+• [4-6 bullets, incluye los beneficios estándar si son relevantes]
+
+IMPORTANTE: Genera SOLO el contenido de la publicación, sin comentarios adicionales.
 `,
 
     CANDIDATE_SUMMARY: `
@@ -221,12 +238,17 @@ export interface CVMatchResult {
 /**
  * Analyze CV against JD
  */
-export async function analyzeCVMatch(cvContent: string, jdContent: string): Promise<CVMatchResult> {
+export async function analyzeCVMatch(
+    cvContent: string,
+    jdContent: string,
+    killerAnswers?: any
+): Promise<any> {
     const model = getTalentModelPro();
 
     const prompt = TALENT_PROMPTS.CV_MATCHING
         .replace('{JD_CONTENT}', jdContent)
-        .replace('{CV_CONTENT}', cvContent);
+        .replace('{CV_CONTENT}', cvContent)
+        .replace('{KILLER_RESPUESTAS}', killerAnswers ? JSON.stringify(killerAnswers) : 'No proporcionadas');
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
@@ -234,22 +256,38 @@ export async function analyzeCVMatch(cvContent: string, jdContent: string): Prom
     // Parse JSON response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+        console.error('AI Raw Response:', text);
         throw new Error('Invalid AI response format');
     }
 
-    return JSON.parse(jsonMatch[0]) as CVMatchResult;
+    return JSON.parse(jsonMatch[0]);
 }
 
 /**
  * Generate optimized JD
  */
-export async function generateJD(titulo: string, descripcionBase: string, jdsSimilares: string[]): Promise<string> {
+export async function generateJD(
+    titulo: string,
+    descripcionBase: string,
+    jdsSimilares: string[],
+    holdingName?: string,
+    publishConfig?: any
+): Promise<string> {
     const model = getTalentModelProText();
 
+    let tono = 'Profesional pero cercano, atractivo para candidatos';
+    if (publishConfig?.tono === 'formal') tono = 'Corporativo, serio y muy profesional';
+    if (publishConfig?.tono === 'dinamico') tono = 'Energético, moderno y ágil';
+
     const prompt = TALENT_PROMPTS.JD_GENERATION
+        .replace(/{HOLDING_NAME}/g, holdingName || 'Nuestra empresa')
         .replace('{TITULO}', titulo)
         .replace('{DESCRIPCION_BASE}', descripcionBase)
-        .replace('{JDS_SIMILARES}', jdsSimilares.join('\n---\n'));
+        .replace('{TONO}', tono)
+        .replace('{SLOGAN}', publishConfig?.slogan || '')
+        .replace('{INSTRUCCIONES_IA}', publishConfig?.instruccionesIA || 'Sigue los estándares de la industria')
+        .replace('{BENEFICIOS_ESTANDAR}', publishConfig?.beneficiosEstandar?.join(', ') || 'No especificados')
+        .replace('{JDS_SIMILARES}', jdsSimilares.join('\n---\n') || 'No hay JDs de referencia');
 
     const result = await model.generateContent(prompt);
     return result.response.text();

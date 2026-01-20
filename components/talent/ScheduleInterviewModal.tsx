@@ -10,6 +10,7 @@ import {
     createInterviewEvent,
     downloadICS
 } from '@/lib/calendar/calendar-utils';
+import { notifyInterviewScheduled } from '@/lib/notifications/notification-service';
 
 interface ScheduleInterviewModalProps {
     show: boolean;
@@ -46,6 +47,8 @@ export default function ScheduleInterviewModal({
     const [saving, setSaving] = useState(false);
     const [hasGoogleCalendar, setHasGoogleCalendar] = useState(false);
     const [showCalendarOptions, setShowCalendarOptions] = useState(false);
+    const [bookingLink, setBookingLink] = useState<string | null>(null);
+    const [generatingLink, setGeneratingLink] = useState(false);
 
     useEffect(() => {
         if (show) {
@@ -123,19 +126,61 @@ export default function ScheduleInterviewModal({
                 } catch (calError) {
                     console.error('Calendar event error:', calError);
                 }
-            } else {
-                // Show calendar options
-                setShowCalendarOptions(true);
-                return;
             }
 
-            onScheduled();
-            onClose();
+            // Notify candidate
+            try {
+                await notifyInterviewScheduled(
+                    holdingId,
+                    candidateEmail,
+                    candidateName,
+                    jobTitle,
+                    startTime,
+                    interviewerName || userEmail
+                );
+            } catch (notifyError) {
+                console.error('Failed to notify candidate:', notifyError);
+            }
+
+            if (!hasGoogleCalendar) {
+                setShowCalendarOptions(true);
+            } else {
+                onScheduled();
+                onClose();
+            }
         } catch (error) {
             console.error('Error scheduling interview:', error);
             alert('Error al agendar entrevista');
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function generateBookingRequest() {
+        setGeneratingLink(true);
+        try {
+            const bookingRef = await addDoc(collection(db, 'interview_booking_requests'), {
+                candidateId,
+                candidateName,
+                candidateEmail,
+                jobId,
+                jobTitle,
+                holdingId,
+                interviewerId: userId,
+                interviewerName: interviewerName || userEmail,
+                interviewerEmail: userEmail,
+                status: 'pending',
+                createdAt: Timestamp.now(),
+                expiresAt: Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) // 7 days
+            });
+
+            const url = `${window.location.origin}/talent/book/${bookingRef.id}`;
+            setBookingLink(url);
+        } catch (error) {
+            console.error('Error generating booking link:', error);
+            alert('Error al generar link');
+        } finally {
+            setGeneratingLink(false);
         }
     }
 
@@ -259,20 +304,56 @@ export default function ScheduleInterviewModal({
                         )}
 
                         {/* Actions */}
-                        <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button
-                                onClick={onClose}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={saveInterview}
-                                disabled={saving || !date}
-                                className="px-6 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {saving ? '⏳ Guardando...' : '📅 Agendar Entrevista'}
-                            </button>
+                        <div className="flex flex-col gap-3 pt-4 border-t">
+                            <div className="flex justify-between items-center">
+                                <button
+                                    onClick={generateBookingRequest}
+                                    disabled={generatingLink || bookingLink !== null}
+                                    className="text-sm font-medium text-violet-600 hover:text-violet-800 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                    {generatingLink ? '⏳ Generando...' : bookingLink ? '✅ Link Generado' : '🔗 Generar Link de Autogestión'}
+                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={onClose}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={saveInterview}
+                                        disabled={saving || !date}
+                                        className="px-6 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {saving ? '⏳ Guardando...' : '📅 Agendar Manual'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {bookingLink && (
+                                <div className="bg-violet-50 p-3 rounded-xl border border-violet-100 animate-in fade-in slide-in-from-top-2">
+                                    <p className="text-xs text-violet-700 font-medium mb-1">Copia este link y envíalo al candidato:</p>
+                                    <div className="flex gap-2">
+                                        <input
+                                            readOnly
+                                            value={bookingLink}
+                                            className="flex-1 bg-white border border-violet-200 rounded px-2 py-1 text-xs font-mono"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(bookingLink);
+                                                alert('Copiado al portapapeles');
+                                            }}
+                                            className="bg-violet-600 text-white px-3 py-1 rounded text-xs"
+                                        >
+                                            Copiar
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-violet-500 mt-2 italic">
+                                        * El candidato elegirá el horario según tu disponibilidad.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ) : (

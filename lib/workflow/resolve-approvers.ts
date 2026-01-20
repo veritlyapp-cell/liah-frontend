@@ -4,7 +4,7 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 /**
  * Tipos de aprobador en un workflow step
  */
-type ApproverType = 'hiring_manager' | 'area_manager' | 'gerencia_manager' | 'specific_user' | 'jefe_reclutamiento';
+type ApproverType = 'hiring_manager' | 'area_manager' | 'gerencia_manager' | 'specific_user' | 'lider_reclutamiento' | 'jefe_reclutamiento';
 
 interface WorkflowStep {
     orden: number;
@@ -42,10 +42,26 @@ interface RQContext {
  */
 export async function resolveWorkflowApprovers(
     workflowSteps: WorkflowStep[],
-    rqContext: RQContext
+    rqContext: RQContext,
+    manualApprover?: { email: string; nombre: string }
 ): Promise<ResolvedApprover[]> {
     const resolvedApprovers: ResolvedApprover[] = [];
     const seenEmails = new Set<string>();
+
+    // If there is a manual approver selected, we add it as Step 0 (or Step 1 shifted)
+    // Actually, usually it's better to just put it as the first step of the resolved list
+    if (manualApprover && manualApprover.email) {
+        resolvedApprovers.push({
+            stepOrden: 1,
+            stepNombre: 'Aprobación Superior Directo',
+            approverType: 'specific_user',
+            userId: '',
+            email: manualApprover.email,
+            nombre: manualApprover.nombre,
+            skipped: false
+        });
+        seenEmails.add(manualApprover.email.toLowerCase());
+    }
 
     // Load area and gerencia to get their managers
     let areaManagerEmail: string | null = null;
@@ -81,11 +97,12 @@ export async function resolveWorkflowApprovers(
         }
     }
 
-    // Get jefe de reclutamiento (user with rol = 'jefe_reclutamiento' in the holding)
+    // Get jefe de reclutamiento (user with rol = 'jefe_reclutamiento' or capacidad = 'lider_reclutamiento' in the holding)
     let jefeReclutamientoEmail: string | null = null;
     let jefeReclutamientoNombre: string | null = null;
     try {
         const usersRef = collection(db, 'talent_users');
+        // Try rol first
         const jrQuery = query(
             usersRef,
             where('holdingId', '==', rqContext.holdingId),
@@ -97,6 +114,20 @@ export async function resolveWorkflowApprovers(
             const jrUser = jrSnap.docs[0].data();
             jefeReclutamientoEmail = jrUser.email;
             jefeReclutamientoNombre = jrUser.nombre;
+        } else {
+            // Try capacidad second
+            const capQuery = query(
+                usersRef,
+                where('holdingId', '==', rqContext.holdingId),
+                where('capacidades', 'array-contains', 'lider_reclutamiento'),
+                where('activo', '==', true)
+            );
+            const capSnap = await getDocs(capQuery);
+            if (!capSnap.empty) {
+                const jrUser = capSnap.docs[0].data();
+                jefeReclutamientoEmail = jrUser.email;
+                jefeReclutamientoNombre = jrUser.nombre;
+            }
         }
     } catch (e) {
         console.error('Error loading jefe reclutamiento:', e);
@@ -110,7 +141,6 @@ export async function resolveWorkflowApprovers(
 
         switch (step.approverType) {
             case 'hiring_manager':
-                // The person who created the RQ
                 email = rqContext.createdByEmail;
                 nombre = rqContext.createdByNombre || email;
                 break;
@@ -126,6 +156,7 @@ export async function resolveWorkflowApprovers(
                 break;
 
             case 'jefe_reclutamiento':
+            case 'lider_reclutamiento':
                 email = jefeReclutamientoEmail;
                 nombre = jefeReclutamientoNombre || email;
                 break;
@@ -137,13 +168,15 @@ export async function resolveWorkflowApprovers(
                 break;
         }
 
+        const isRecruitmentLeader = step.approverType === 'jefe_reclutamiento' || step.approverType === 'lider_reclutamiento';
+
         // Check if we have a valid approver
-        if (!email) {
+        if (!email && !isRecruitmentLeader) {
             // No approver configured for this dynamic type - skip step
             resolvedApprovers.push({
-                stepOrden: step.orden,
+                stepOrden: 0, // Will be fixed later
                 stepNombre: step.nombre,
-                approverType: step.approverType,
+                approverType: step.approverType as any,
                 userId: '',
                 email: '',
                 nombre: `[No configurado: ${step.approverType}]`,
@@ -154,10 +187,11 @@ export async function resolveWorkflowApprovers(
         }
 
         // Check if this email was already seen (duplicate)
-        const emailLower = email.toLowerCase();
-        const skipped = seenEmails.has(emailLower);
+        // CRITICAL: Recruitment Leaders (jefe_reclutamiento/lider_reclutamiento) should NEVER be skipped
+        // even if they were seen before, because their task is technically distinct (recruiter assignment)
+        const emailLower = email?.toLowerCase() || '';
+        const skipped = !!emailLower && seenEmails.has(emailLower) && !isRecruitmentLeader;
 
-        // Find which previous step had the same email
         let skipReason: string | undefined;
         if (skipped) {
             const previousStep = resolvedApprovers.find(
@@ -168,19 +202,25 @@ export async function resolveWorkflowApprovers(
             }
         }
 
-        seenEmails.add(emailLower);
+        if (emailLower) seenEmails.add(emailLower);
 
         resolvedApprovers.push({
-            stepOrden: step.orden,
+            stepOrden: 0, // Will be fixed later
             stepNombre: step.nombre,
-            approverType: step.approverType,
+            approverType: step.approverType as any,
             userId: userId || '',
-            email,
-            nombre: nombre || email,
+            email: email || '',
+            nombre: nombre || (isRecruitmentLeader ? 'Líder de Reclutamiento' : email || ''),
             skipped,
             skipReason
         });
     }
+
+    // FINAL RE-ORDERING: Ensure stepOrden is unique and sequential starting from 1
+    // Account for the manual approver already in the list if it exists
+    resolvedApprovers.forEach((ra, index) => {
+        ra.stepOrden = index + 1;
+    });
 
     return resolvedApprovers;
 }

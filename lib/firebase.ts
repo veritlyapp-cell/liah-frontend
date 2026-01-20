@@ -43,6 +43,17 @@ export const auth = app ? getAuth(app) : null as any;
 export const db = app ? getFirestore(app) : null as any;
 export const storage = app ? getStorage(app) : null as any;
 
+// Secondary app for creating new users without logging out current admin
+let secondaryApp: any = null;
+export function getSecondaryAuth() {
+    if (!secondaryApp && firebaseConfig.apiKey) {
+        const apps = getApps();
+        secondaryApp = apps.find(a => a.name === 'secondary') ||
+            initializeApp(firebaseConfig, 'secondary');
+    }
+    return secondaryApp ? getAuth(secondaryApp) : null;
+}
+
 console.log('[Firebase] db initialized:', db ? 'YES' : 'NO');
 
 export default app;

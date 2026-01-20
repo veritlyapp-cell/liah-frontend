@@ -25,43 +25,82 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
     // Fetch holding config to determine product access
     useEffect(() => {
         async function fetchHoldingConfig() {
-            if (!user || accessFlow !== undefined || accessTalent !== undefined) {
-                setLoading(false);
-                return;
-            }
+            if (!user?.email) return;
 
+            setLoading(true);
             try {
-                // Get user assignment
-                const assignmentsRef = collection(db, 'userAssignments');
-                const q = query(assignmentsRef, where('email', '==', user.email));
-                const snap = await getDocs(q);
+                let foundHoldingId: string | null = null;
 
-                if (!snap.empty) {
-                    const assignment = snap.docs[0].data();
-                    const holdingId = assignment.holdingId;
+                // Step 1: Find user's holdingId from any collection
+                // Try user_assignments first
+                const assignmentsRef = collection(db, 'user_assignments');
+                const flowQuery = query(assignmentsRef, where('email', '==', user.email));
+                const flowSnap = await getDocs(flowQuery);
 
-                    if (holdingId) {
-                        // Get holding config
-                        const holdingsRef = collection(db, 'holdings');
-                        const holdingSnap = await getDocs(holdingsRef);
-                        const holdingDoc = holdingSnap.docs.find(d => d.id === holdingId || d.data().id === holdingId);
+                if (!flowSnap.empty) {
+                    foundHoldingId = flowSnap.docs[0].data().holdingId;
+                }
 
-                        if (holdingDoc) {
-                            const config = holdingDoc.data().config || {};
-                            setHasFlow(config.hasLiahFlow !== false);
-                            setHasTalent(config.hasLiahTalent === true);
-                        }
+                // If not found, try talent_users
+                if (!foundHoldingId) {
+                    const talentRef = collection(db, 'talent_users');
+                    const talentQuery = query(talentRef, where('email', '==', user.email.toLowerCase()));
+                    const talentSnap = await getDocs(talentQuery);
+
+                    if (!talentSnap.empty) {
+                        foundHoldingId = talentSnap.docs[0].data().holdingId;
                     }
                 }
+
+                console.log('🛡️ Launcher: Found holdingId:', foundHoldingId);
+
+                if (!foundHoldingId) {
+                    console.warn('⚠️ No holdingId found for user:', user.email);
+                    setHasFlow(false);
+                    setHasTalent(false);
+                    return;
+                }
+
+                // Step 2: Fetch holding config to determine product access
+                const { getDoc, doc } = await import('firebase/firestore');
+                const holdingDoc = await getDoc(doc(db, 'holdings', foundHoldingId));
+
+                if (holdingDoc.exists()) {
+                    const holdingData = holdingDoc.data();
+                    const config = holdingData.config || {};
+
+                    // Read product access from holding config
+                    // Default: hasLiahFlow = true, hasLiahTalent = false (for backward compatibility)
+                    const flowAccess = config.hasLiahFlow !== false;
+                    const talentAccess = config.hasLiahTalent === true;
+
+                    setHasFlow(flowAccess);
+                    setHasTalent(talentAccess);
+
+                    console.log('🛡️ Launcher: Product access from holding config:', {
+                        holdingId: foundHoldingId,
+                        hasLiahFlow: flowAccess,
+                        hasLiahTalent: talentAccess
+                    });
+                } else {
+                    // Holding not found, default to Flow only
+                    console.warn('⚠️ Holding document not found:', foundHoldingId);
+                    setHasFlow(true);
+                    setHasTalent(false);
+                }
+
             } catch (error) {
-                console.error('Error fetching holding config:', error);
+                console.error('Error fetching access control:', error);
+                // On error, allow both as fallback
+                setHasFlow(true);
+                setHasTalent(true);
             } finally {
                 setLoading(false);
             }
         }
 
         fetchHoldingConfig();
-    }, [user, accessFlow, accessTalent]);
+    }, [user]);
 
     const products = [
         {
@@ -86,6 +125,13 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
 
     const enabledProducts = products.filter(p => p.enabled);
 
+    // If only one product, redirect directly (inside useEffect to avoid render side effects)
+    useEffect(() => {
+        if (!loading && enabledProducts.length === 1) {
+            router.push(enabledProducts[0].path);
+        }
+    }, [loading, enabledProducts.length, router]);
+
     // If loading, show spinner
     if (loading) {
         return (
@@ -95,10 +141,16 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
         );
     }
 
-    // If only one product, redirect directly
+    // While redirecting or if only one product
     if (enabledProducts.length === 1) {
-        router.push(enabledProducts[0].path);
-        return null;
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-center p-6">
+                <div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500 mx-auto mb-4" />
+                    <p className="text-white/60">Redirigiendo...</p>
+                </div>
+            </div>
+        );
     }
 
     // If no products enabled

@@ -5,13 +5,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getCandidatesByMarca, getFilteredCandidates, getPositionsByMarca, getStoresByMarca } from '@/lib/firestore/recruiter-queries';
 import type { Candidate } from '@/lib/firestore/candidates';
 import RecruiterCandidatesView from '@/components/RecruiterCandidatesView';
+import DashboardHeader from '@/components/DashboardHeader';
 import FiltersSidebar from '@/components/FiltersSidebar';
 import ConfigurationView from '@/components/ConfigurationView';
 import RQTrackingView from '@/components/admin/RQTrackingView';
-import DashboardHeader from '@/components/DashboardHeader';
+import EmailTemplatesConfig from '@/components/admin/EmailTemplatesConfig';
+import { useRouter } from 'next/navigation';
 
 export default function RecruiterDashboard() {
     const { user } = useAuth();
+    const router = useRouter();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -28,6 +31,7 @@ export default function RecruiterDashboard() {
     const [marcas, setMarcas] = useState<{ id: string; nombre: string }[]>([]);
     const [selectedMarca, setSelectedMarca] = useState<string>('all');
     const [loadingAssignment, setLoadingAssignment] = useState(true);
+    const [holdingId, setHoldingId] = useState<string>('');
 
     // Load user assignment to get marcas
     useEffect(() => {
@@ -60,6 +64,9 @@ export default function RecruiterDashboard() {
                 }
 
                 setMarcas(loadedMarcas);
+                if (assignment?.holdingId) {
+                    setHoldingId(assignment.holdingId);
+                }
                 console.log('✅ Recruiter marcas loaded:', loadedMarcas.length);
             } catch (error) {
                 console.error('Error loading assignment:', error);
@@ -180,8 +187,29 @@ export default function RecruiterDashboard() {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="text-center">
-                    <div className="text-4xl mb-4">⏳</div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4" />
                     <p className="text-gray-600">Cargando candidatos...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (marcas.length === 0 && !loadingAssignment) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center max-w-md">
+                    <div className="text-6xl mb-4">🏪</div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Sin Marcas Asignadas</h2>
+                    <p className="text-gray-600 mb-6">
+                        No hemos encontrado marcas asociadas a tu cuenta de Flow.
+                        Si crees que esto es un error, contacta a tu administrador.
+                    </p>
+                    <button
+                        onClick={() => router.push('/launcher')}
+                        className="w-full py-3 px-4 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors"
+                    >
+                        Volver al Selector
+                    </button>
                 </div>
             </div>
         );
@@ -376,7 +404,8 @@ export default function RecruiterDashboard() {
 
             {
                 activeTab === 'configuracion' && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+                        {holdingId && <EmailTemplatesConfig holdingId={holdingId} />}
                         <ConfigurationView />
                     </div>
                 )

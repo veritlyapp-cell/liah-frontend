@@ -35,10 +35,18 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const holdingSlug = searchParams.get('holding') || 'ngr';
 
-        // Get all RQs in recruiting status
+        // Count vacancies from talent_jobs (New System)
+        const talentJobsRef = collection(db, 'talent_jobs');
+        const qTalent = query(talentJobsRef, where('status', '==', 'published'));
+
+        // Also keep legacy rqs support for now if they exist
         const rqsRef = collection(db, 'rqs');
-        const q = query(rqsRef, where('status', '==', 'recruiting'));
-        const snapshot = await getDocs(q);
+        const qLegacy = query(rqsRef, where('status', '==', 'recruiting'));
+
+        const [snapTalent, snapLegacy] = await Promise.all([
+            getDocs(qTalent),
+            getDocs(qLegacy)
+        ]);
 
         // Count vacancies by marca
         const vacanciesByMarca: Record<string, {
@@ -49,11 +57,12 @@ export async function GET(request: NextRequest) {
 
         let totalVacantes = 0;
 
-        snapshot.docs.forEach(doc => {
+        // Process New System Jobs
+        snapTalent.docs.forEach(doc => {
             const data = doc.data();
-            const marcaId = data.marcaId || 'unknown';
-            const marcaNombre = data.marcaNombre || 'Sin marca';
-            const vacantes = data.vacantes || 1;
+            const marcaId = data.marcaId || data.holdingId || 'unknown';
+            const marcaNombre = data.marcaNombre || data.holdingId || 'Sin marca';
+            const vacantes = parseInt(data.vacantes) || 1;
 
             if (!vacanciesByMarca[marcaId]) {
                 vacanciesByMarca[marcaId] = {
@@ -62,7 +71,24 @@ export async function GET(request: NextRequest) {
                     vacantesCount: 0
                 };
             }
+            vacanciesByMarca[marcaId].vacantesCount += vacantes;
+            totalVacantes += vacantes;
+        });
 
+        // Process Legacy RQs
+        snapLegacy.docs.forEach(doc => {
+            const data = doc.data();
+            const marcaId = data.marcaId || 'unknown';
+            const marcaNombre = data.marcaNombre || 'Sin marca';
+            const vacantes = parseInt(data.vacantes) || 1;
+
+            if (!vacanciesByMarca[marcaId]) {
+                vacanciesByMarca[marcaId] = {
+                    marcaId,
+                    marcaNombre,
+                    vacantesCount: 0
+                };
+            }
             vacanciesByMarca[marcaId].vacantesCount += vacantes;
             totalVacantes += vacantes;
         });

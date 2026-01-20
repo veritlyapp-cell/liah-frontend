@@ -54,8 +54,6 @@ export default function AlertsConfigView({ holdingId }: AlertsConfigProps) {
         setSaving(true);
         try {
             const holdingRef = doc(db, 'holdings', holdingId);
-            const holdingDoc = await getDoc(holdingRef);
-
             const updateData = {
                 rqAlertsEnabled: settings.rqAlertsEnabled,
                 rqAlertDays: settings.rqAlertDays,
@@ -63,14 +61,7 @@ export default function AlertsConfigView({ holdingId }: AlertsConfigProps) {
                 updatedAt: new Date()
             };
 
-            if (holdingDoc.exists()) {
-                await updateDoc(holdingRef, updateData);
-            } else {
-                await setDoc(holdingRef, {
-                    ...updateData,
-                    createdAt: new Date()
-                });
-            }
+            await setDoc(holdingRef, updateData, { merge: true });
 
             alert('✅ Configuración de alertas guardada');
         } catch (error) {

@@ -67,8 +67,8 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-32">
-          <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+        <div className="container-main relative z-10 py-32">
+          <div className="grid lg:grid-cols-2 gap-20 lg:gap-32 items-center">
             {/* Left: Content */}
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-8">
@@ -136,9 +136,9 @@ export default function LandingPage() {
       </section>
 
       {/* ==================== FEATURES TWO-COLUMN SECTION ==================== */}
-      <section className="py-32 lg:py-40 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-20 lg:gap-32 items-center">
+      <section className="section-spacing bg-white">
+        <div className="container-main">
+          <div className="grid lg:grid-cols-2 gap-24 lg:gap-40 items-center">
             {/* Left: Content */}
             <div>
               <div className="inline-flex items-center gap-2 bg-violet-100 px-4 py-2 rounded-full mb-8">
@@ -189,7 +189,7 @@ export default function LandingPage() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-fuchsia-500/20 rounded-full blur-3xl" />
 
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+        <div className="container-main relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 lg:gap-20">
             {stats.map((stat, idx) => (
               <div key={idx} className="text-center">
@@ -202,9 +202,9 @@ export default function LandingPage() {
       </section>
 
       {/* ==================== HOW IT WORKS - TWO COLUMN ==================== */}
-      <section className="py-32 lg:py-40 bg-gray-50" id="demo">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-20 lg:gap-32 items-center">
+      <section className="section-spacing bg-gray-50" id="demo">
+        <div className="container-main">
+          <div className="grid lg:grid-cols-2 gap-24 lg:gap-40 items-center">
             {/* Left: Visual */}
             <div className="order-2 lg:order-1 bg-white rounded-3xl p-8 shadow-xl border border-gray-100">
               <div className="space-y-6">
@@ -258,13 +258,13 @@ export default function LandingPage() {
       </section>
 
       {/* ==================== FINAL CTA ==================== */}
-      <section className="py-32 lg:py-40 bg-gradient-to-br from-violet-600 via-violet-700 to-indigo-800 relative overflow-hidden">
+      <section className="section-spacing-lg bg-gradient-to-br from-violet-600 via-violet-700 to-indigo-800 relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-fuchsia-500/20 rounded-full blur-3xl" />
         </div>
 
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center relative z-10">
+        <div className="container-main text-center relative z-10" style={{ maxWidth: '900px' }}>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8 leading-tight">
             ¿Listo para revolucionar tu reclutamiento?
           </h2>
@@ -287,7 +287,7 @@ export default function LandingPage() {
 
       {/* ==================== FOOTER ==================== */}
       <footer className="py-16 bg-gray-900">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="container-main">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <img src="/logos/liah-logo.png" alt="LIAH" style={{ height: '40px', objectFit: 'contain' }} />
             <p className="text-gray-400 text-sm">

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, setDoc } from 'firebase/firestore';
 
 interface CreateHoldingModalProps {
     show: boolean;
@@ -45,9 +45,10 @@ export default function CreateHoldingModal({ show, onCancel, onSave }: CreateHol
                 updatedAt: Timestamp.now()
             };
 
-            const docRef = await addDoc(holdingsRef, holdingData);
+            const holdingRef = doc(db, 'holdings', id);
+            await setDoc(holdingRef, holdingData);
 
-            console.log('✅ Empresa creada en Firestore:', docRef.id);
+            console.log('✅ Empresa creada en Firestore:', id);
             alert(`✅ Empresa "${nombre}" creada exitosamente en Firestore!`);
 
             onSave(holdingData);

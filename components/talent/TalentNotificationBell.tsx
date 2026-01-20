@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot, updateDoc, doc, Timestamp } from 'firebase/firestore';
 
@@ -22,6 +23,7 @@ interface TalentNotificationBellProps {
 }
 
 export default function TalentNotificationBell({ userEmail, holdingId }: TalentNotificationBellProps) {
+    const router = useRouter();
     const [notifications, setNotifications] = useState<TalentNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -30,20 +32,30 @@ export default function TalentNotificationBell({ userEmail, holdingId }: TalentN
         if (!userEmail || !holdingId) return;
 
         // Real-time listener for notifications
+        // Simplified query to avoid needing a composite index
+        // We filter by recipientEmail first, then filter holdingId client-side
         const notificationsRef = collection(db, 'notifications');
         const q = query(
             notificationsRef,
             where('recipientEmail', '==', userEmail.toLowerCase()),
-            where('holdingId', '==', holdingId),
-            orderBy('createdAt', 'desc'),
-            limit(20)
+            limit(100)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const loadedNotifications = snapshot.docs.map(d => ({
+            const allNotifications = snapshot.docs.map(d => ({
                 id: d.id,
                 ...d.data()
-            })) as TalentNotification[];
+            })) as (TalentNotification & { holdingId?: string })[];
+
+            // Filter by holdingId and sort manually client-side
+            const loadedNotifications = allNotifications
+                .filter(n => n.holdingId === holdingId)
+                .sort((a, b) => {
+                    const dateA = a.createdAt?.seconds || 0;
+                    const dateB = b.createdAt?.seconds || 0;
+                    return dateB - dateA;
+                })
+                .slice(0, 20);
 
             setNotifications(loadedNotifications);
             setUnreadCount(loadedNotifications.filter(n => !n.read).length);
@@ -79,12 +91,12 @@ export default function TalentNotificationBell({ userEmail, holdingId }: TalentN
         }
     }
 
-    function handleNotificationClick(notification: TalentNotification) {
-        markAsRead(notification.id);
+    async function handleNotificationClick(notification: TalentNotification) {
+        await markAsRead(notification.id);
         setShowDropdown(false);
 
         if (notification.data?.link) {
-            window.location.href = notification.data.link;
+            router.push(notification.data.link);
         }
     }
 
@@ -114,6 +126,9 @@ export default function TalentNotificationBell({ userEmail, holdingId }: TalentN
             'new_application': '📩',
             'rq_approved': '✅',
             'rq_rejected': '❌',
+            'rq_assigned': '👤',
+            'rq_step_approved': '⏭️',
+            'rq_pending_approval': '⏳',
             'reminder': '⏰'
         };
         return icons[type] || '📢';

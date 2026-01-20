@@ -129,6 +129,11 @@ export default function RQCard({
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-gray-900">{rq.posicion}</h3>
+                        {rq.confidencial && (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded flex items-center gap-1">
+                                🔒 CONFIDENCIAL
+                            </span>
+                        )}
                         {rq.instanceNumber > 1 && (
                             <span className="text-xs bg-violet-100 text-violet-600 px-2 py-0.5 rounded">
                                 #{rq.instanceNumber}

@@ -5,7 +5,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 // // import { autoCreateUserAction } from '@/lib/actions/user-actions';
 import { createUserAssignment } from '@/lib/firestore/user-assignment-actions';
 import type { UserAssignment } from '@/lib/firestore/user-assignments';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 
 interface CreateUserModalProps {
     holdingId: string;
@@ -194,10 +194,22 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                 };
             }
 
+            // Get auth token for API authorization
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                alert('❌ No estás autenticado. Por favor, vuelve a iniciar sesión.');
+                setLoading(false);
+                return;
+            }
+            const idToken = await currentUser.getIdToken();
+
             // Call the API route
             const response = await fetch('/api/admin/create-user', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
                 body: JSON.stringify(payload),
             });
 

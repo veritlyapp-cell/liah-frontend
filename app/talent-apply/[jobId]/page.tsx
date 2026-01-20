@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, addDoc, Timestamp } from 'firebase/firestore';
+import { uploadCUL } from '@/lib/storage/cul-upload';
 
 interface Job {
     id: string;
@@ -26,7 +27,7 @@ export default function TalentApplyPage() {
     const params = useParams();
     const jobId = params.jobId as string;
 
-    const [step, setStep] = useState<'info' | 'kq' | 'cv' | 'done'>('info');
+    const [step, setStep] = useState<'info' | 'kq' | 'cul' | 'cv' | 'done'>('info');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [job, setJob] = useState<Job | null>(null);
@@ -38,6 +39,8 @@ export default function TalentApplyPage() {
     const [telefono, setTelefono] = useState('');
     const [linkedin, setLinkedin] = useState('');
     const [kqAnswers, setKqAnswers] = useState<Record<number, string>>({});
+    const [culFile, setCulFile] = useState<File | null>(null);
+    const [dni, setDni] = useState('');
 
     useEffect(() => {
         async function loadJob() {
@@ -114,10 +117,34 @@ export default function TalentApplyPage() {
                 autoRejectedReason: autoRejected ? `Falló KQ crítica: ${failedKQ}` : null,
                 appliedAt: Timestamp.now(),
                 matchScore: null,
-                aiAnalysis: null
+                aiAnalysis: null,
+                culUrl: null,
+                culValidationStatus: 'pending',
+                dni
             };
 
-            await addDoc(collection(db, 'talent_candidates'), candidateData);
+            const candidateDoc = await addDoc(collection(db, 'talent_candidates'), candidateData);
+            const candidateId = candidateDoc.id;
+
+            // Handle CUL Upload and Validation
+            if (culFile) {
+                try {
+                    const { url } = await uploadCUL(culFile, job.holdingId, job.id, email);
+
+                    // Trigger AI validation
+                    await fetch('/api/talent/auto-validate-cul', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            candidateId,
+                            culUrl: url,
+                            candidateDni: dni
+                        })
+                    });
+                } catch (culErr) {
+                    console.error('Error in CUL process:', culErr);
+                }
+            }
 
             setStep('done');
         } catch (err) {
@@ -181,7 +208,7 @@ export default function TalentApplyPage() {
                                     {i + 1}
                                 </span>
                                 <span className={`text-sm ${step === s ? 'text-violet-700 font-medium' : 'text-gray-500'}`}>
-                                    {s === 'info' ? 'Datos' : s === 'kq' ? 'Preguntas' : 'CV'}
+                                    {s === 'info' ? 'Datos' : s === 'kq' ? 'Preguntas' : s === 'cul' ? 'CUL' : 'CV'}
                                 </span>
                             </div>
                         ))}
@@ -224,6 +251,16 @@ export default function TalentApplyPage() {
                                 />
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input
+                                    type="tel"
+                                    value={telefono}
+                                    onChange={(e) => setTelefono(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-violet-500"
+                                    placeholder="+51 999 999 999"
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn</label>
                                 <input
                                     type="url"
@@ -233,9 +270,21 @@ export default function TalentApplyPage() {
                                     placeholder="https://linkedin.com/in/tu-perfil"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">DNI / CE (Para validación CUL) *</label>
+                                <input
+                                    type="text"
+                                    maxLength={12}
+                                    value={dni}
+                                    onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-violet-500"
+                                    placeholder="Tu número de documento"
+                                    required
+                                />
+                            </div>
                             <button
-                                onClick={() => setStep(job.killerQuestions?.length ? 'kq' : 'cv')}
-                                disabled={!nombre || !email}
+                                onClick={() => setStep(job.killerQuestions?.length ? 'kq' : 'cul')}
+                                disabled={!nombre || !email || !dni}
                                 className="w-full py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 disabled:opacity-50"
                             >
                                 Siguiente →
@@ -246,7 +295,7 @@ export default function TalentApplyPage() {
                     {/* Step 2: Killer Questions */}
                     {step === 'kq' && job.killerQuestions && (
                         <div className="space-y-6">
-                            {job.killerQuestions.map((kq, idx) => (
+                            {job.killerQuestions.map((kq: any, idx: number) => (
                                 <div key={idx} className="space-y-2">
                                     <label className="block text-sm font-medium text-gray-900">
                                         {kq.question}
@@ -257,8 +306,8 @@ export default function TalentApplyPage() {
                                             <button
                                                 onClick={() => setKqAnswers({ ...kqAnswers, [idx]: 'Sí' })}
                                                 className={`px-6 py-2 rounded-lg font-medium ${kqAnswers[idx] === 'Sí'
-                                                        ? 'bg-violet-600 text-white'
-                                                        : 'bg-gray-100 text-gray-700'
+                                                    ? 'bg-violet-600 text-white'
+                                                    : 'bg-gray-100 text-gray-700'
                                                     }`}
                                             >
                                                 Sí
@@ -266,8 +315,8 @@ export default function TalentApplyPage() {
                                             <button
                                                 onClick={() => setKqAnswers({ ...kqAnswers, [idx]: 'No' })}
                                                 className={`px-6 py-2 rounded-lg font-medium ${kqAnswers[idx] === 'No'
-                                                        ? 'bg-violet-600 text-white'
-                                                        : 'bg-gray-100 text-gray-700'
+                                                    ? 'bg-violet-600 text-white'
+                                                    : 'bg-gray-100 text-gray-700'
                                                     }`}
                                             >
                                                 No
@@ -300,6 +349,47 @@ export default function TalentApplyPage() {
                                     ← Anterior
                                 </button>
                                 <button
+                                    onClick={() => setStep('cul')}
+                                    className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700"
+                                >
+                                    Siguiente →
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 2.5: CUL Upload */}
+                    {step === 'cul' && (
+                        <div className="space-y-6">
+                            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-sm">
+                                💡 <strong>Certificado Único Laboral (CUL):</strong> Es un documento gratuito del Ministerio de Trabajo que unifica tus antecedentes y experiencia. <a href="https://www.empleosperu.gob.pe/CertificadoUnicoLaboral/" target="_blank" className="font-bold underline">Obtenlo aquí</a>
+                            </div>
+
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50 relative">
+                                <div className="text-4xl mb-3">🛡️</div>
+                                <p className="font-medium text-gray-900">Sube tu CUL (CERTIJOVEN / CERTIADULTO)</p>
+                                <p className="text-xs text-gray-500 mt-1">El documento será validado automáticamente por IA</p>
+                                <input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    onChange={(e) => setCulFile(e.target.files?.[0] || null)}
+                                    className="mt-4 w-full cursor-pointer"
+                                />
+                                {culFile && (
+                                    <div className="mt-4 p-2 bg-green-100 text-green-700 text-xs rounded-lg flex items-center justify-center gap-2">
+                                        ✓ Archivo seleccionado: {culFile.name}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setStep(job.killerQuestions?.length ? 'kq' : 'info')}
+                                    className="flex-1 py-3 border border-gray-300 rounded-xl font-medium"
+                                >
+                                    ← Anterior
+                                </button>
+                                <button
                                     onClick={() => setStep('cv')}
                                     className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700"
                                 >
@@ -324,7 +414,7 @@ export default function TalentApplyPage() {
                             </div>
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => setStep(job.killerQuestions?.length ? 'kq' : 'info')}
+                                    onClick={() => setStep('cul')}
                                     className="flex-1 py-3 border border-gray-300 rounded-xl font-medium"
                                 >
                                     ← Anterior
