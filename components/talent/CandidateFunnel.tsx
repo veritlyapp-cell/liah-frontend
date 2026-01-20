@@ -324,7 +324,8 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                 }
             }
 
-            // Internal notification for stage change
+            // Internal notification for stage change - REMOVED to reduce noise
+            /*
             if (candidate && user?.email) {
                 notifyStageChange(
                     holdingId,
@@ -336,6 +337,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                     candidateId
                 ).catch(err => console.error('Notification error:', err));
             }
+            */
 
             loadData();
         } catch (error) {

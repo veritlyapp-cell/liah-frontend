@@ -180,3 +180,25 @@ export async function notifyRQRejected(
         }
     });
 }
+
+/**
+ * Triggeer email notification via API
+ */
+export async function sendNotificationEmail(params: {
+    type: 'rq_pending_approval' | 'rq_approved' | 'rq_assigned' | 'rq_rejected';
+    recipientEmail: string;
+    recipientName?: string;
+    data: any;
+}) {
+    try {
+        const response = await fetch('/api/talent/send-notification-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error triggering email notification:', error);
+        return { error };
+    }
+}

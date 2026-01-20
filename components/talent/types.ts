@@ -14,4 +14,6 @@ export interface Job {
     holdingId?: string;
     rqId?: string;
     rqCodigo?: string;
+    assignedRecruiterEmail?: string;
+    assignedRecruiterNombre?: string;
 }

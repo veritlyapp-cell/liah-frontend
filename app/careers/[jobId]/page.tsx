@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, addDoc, collection, Timestamp, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, updateDoc, doc, Timestamp, addDoc } from 'firebase/firestore';
+import { notifyNewApplication } from '@/lib/notifications/notification-service';
 import { uploadCV } from '@/lib/storage/cv-upload';
 import JobPostingSchema from '@/components/seo/JobPostingSchema';
 
@@ -36,6 +37,8 @@ interface Job {
     holdingLogo?: string;
     ubicacion?: string;
     createdAt?: any;
+    assignedRecruiterEmail?: string;
+    assignedRecruiterNombre?: string;
 }
 
 // Holding branding configs
@@ -99,6 +102,7 @@ export default function JobApplicationPage() {
     }, [job]);
 
     async function loadInvitation() {
+        if (!inviteId) return;
         try {
             const appDoc = await getDoc(doc(db, 'talent_applications', inviteId));
             if (appDoc.exists()) {
@@ -378,6 +382,22 @@ export default function JobApplicationPage() {
                 });
             } catch (emailErr) {
                 console.error('Error sending confirmation email:', emailErr);
+            }
+
+            // Internal Notification for Recruiter
+            if (passed && job.assignedRecruiterEmail) {
+                try {
+                    await notifyNewApplication(
+                        job.holdingId,
+                        job.assignedRecruiterEmail,
+                        nombre.trim(),
+                        job.titulo,
+                        jobId,
+                        // We might have matchScore from previous AI analysis step
+                    );
+                } catch (notifyErr) {
+                    console.error('Error sending recruiter notification:', notifyErr);
+                }
             }
 
             setSubmitted(true);

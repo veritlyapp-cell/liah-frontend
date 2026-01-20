@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import {
     collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, arrayUnion
 } from 'firebase/firestore';
+import { sendNotificationEmail } from '@/lib/notifications/notification-service';
 
 interface ResolvedApprover {
     stepOrden: number;
@@ -34,6 +35,7 @@ interface RQ {
     resolvedApprovers: ResolvedApprover[];
     aprobaciones: any[];
     assignedRecruiterEmail?: string;
+    assignedRecruiterNombre?: string;
     createdBy: string;
     createdAt: any;
 }
@@ -298,6 +300,19 @@ export default function ApprovalDashboard({ holdingId, userEmail, userCapacidade
                         createdAt: Timestamp.now(),
                         data: { rqId: selectedRQ.id, link: '/talent' }
                     });
+
+                    // EMAIL 2: Recruiter Assigned
+                    sendNotificationEmail({
+                        type: 'rq_assigned',
+                        recipientEmail: assignedRecruiter.email.toLowerCase(),
+                        recipientName: assignedRecruiter.nombre,
+                        data: {
+                            rqId: selectedRQ.id,
+                            rqCodigo: selectedRQ.codigo,
+                            puestoNombre: selectedRQ.puestoNombre,
+                            creatorName: selectedRQ.createdBy
+                        }
+                    });
                 }
 
                 // 3. Notify Next Approver if step changed and email exists
@@ -311,6 +326,36 @@ export default function ApprovalDashboard({ holdingId, userEmail, userCapacidade
                         read: false,
                         createdAt: Timestamp.now(),
                         data: { rqId: selectedRQ.id, link: '/talent' }
+                    });
+
+                    // EMAIL 3: Next Approver
+                    sendNotificationEmail({
+                        type: 'rq_pending_approval',
+                        recipientEmail: nextStep.email.toLowerCase(),
+                        recipientName: nextStep.nombre,
+                        data: {
+                            rqId: selectedRQ.id,
+                            rqCodigo: selectedRQ.codigo,
+                            puestoNombre: selectedRQ.puestoNombre,
+                            creatorName: selectedRQ.createdBy,
+                            gerenciaNombre: selectedRQ.gerenciaNombre,
+                            areaNombre: selectedRQ.areaNombre,
+                            cantidad: selectedRQ.cantidad
+                        }
+                    });
+                }
+
+                // 4. Notify about FULL APPROVAL
+                if (newStatus === 'approved') {
+                    sendNotificationEmail({
+                        type: 'rq_approved',
+                        recipientEmail: selectedRQ.createdBy.toLowerCase(),
+                        data: {
+                            rqId: selectedRQ.id,
+                            rqCodigo: selectedRQ.codigo,
+                            puestoNombre: selectedRQ.puestoNombre,
+                            assignedRecruiterName: assignedRecruiter?.nombre || selectedRQ.assignedRecruiterNombre
+                        }
                     });
                 }
             } catch (notifyError) {
@@ -356,6 +401,23 @@ export default function ApprovalDashboard({ holdingId, userEmail, userCapacidade
                 aprobaciones: arrayUnion(aprobacion),
                 updatedAt: Timestamp.now()
             });
+
+            // Trigger Email Notification for Rejection
+            try {
+                sendNotificationEmail({
+                    type: 'rq_rejected',
+                    recipientEmail: selectedRQ.createdBy.toLowerCase(),
+                    data: {
+                        rqId: selectedRQ.id,
+                        rqCodigo: selectedRQ.codigo,
+                        puestoNombre: selectedRQ.puestoNombre,
+                        reason: rejectionReason,
+                        rejectedByName: userEmail
+                    }
+                });
+            } catch (err) {
+                console.error('Error sending rejection email:', err);
+            }
 
             setShowDetailModal(false);
             loadPendingRQs();

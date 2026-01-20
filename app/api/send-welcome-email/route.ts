@@ -28,6 +28,8 @@ export async function POST(request: Request) {
             'supervisor': 'Supervisor',
             'store_manager': 'Gerente de Tienda',
             'recruiter': 'Recruiter',
+            'hiring_manager': 'Hiring Manager',
+            'approver': 'Aprobador',
             'super_admin': 'Super Administrador'
         };
 
