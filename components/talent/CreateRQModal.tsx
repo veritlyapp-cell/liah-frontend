@@ -351,9 +351,7 @@ export default function CreateRQModal({
                 updatedAt: Timestamp.now()
             };
 
-            console.log('🚀 [CreateRQModal] Submitting RQ data:', rqData);
-
-            console.log('🚀 [CreateRQModal] Submitting RQ data:', rqData);
+            console.log('🚀 [CreateRQModal] DEBUG SUBMIT V4 (20:10):', rqData);
 
             await onSave(rqData);
             console.log('✅ [CreateRQModal] RQ Saved successfully');
@@ -361,8 +359,8 @@ export default function CreateRQModal({
         } catch (error: any) {
             console.error('❌ [CreateRQModal] CRITICAL ERROR:', error);
             // Deep inspection of the error
-            const errorDetail = error.message || error.code || JSON.stringify(error);
-            alert(`🚨 ERROR TÉCNICO AL CREAR RQ:\n\nDetalle: ${errorDetail}\n\nPor favor reporta este mensaje.`);
+            const errorDetail = error.message || error.code || JSON.stringify(error) || 'Error sin mensaje';
+            alert(`🚨 REPORTE DE ERROR (VERSION 22:10):\n\n${errorDetail}\n\nPor favor reporta esto.`);
         } finally {
             setLoading(false);
         }
