@@ -18,6 +18,7 @@ interface CreateRQModalProps {
     show: boolean;
     holdingId: string;
     creatorEmail: string;
+    creatorNombre?: string;
     userGerenciaId?: string; // Auto-filter puestos by user's gerencia
     onCancel: () => void;
     onSave: (rq: any) => Promise<void>;
@@ -33,6 +34,7 @@ export default function CreateRQModal({
     show,
     holdingId,
     creatorEmail,
+    creatorNombre,
     userGerenciaId,
     onCancel,
     onSave
@@ -296,13 +298,28 @@ export default function CreateRQModal({
                         areaId: selectedPuesto?.areaId || '',
                         gerenciaId: selectedPuesto?.gerenciaId || '',
                         createdByEmail: creatorEmail,
-                        createdByNombre: creatorEmail // TODO: get from user profile
+                        createdByNombre: creatorNombre || creatorEmail
                     },
                     manualApproverUser ? {
                         email: manualApproverUser.email,
                         nombre: manualApproverUser.nombre
                     } : undefined
                 );
+            } else {
+                console.warn('⚠️ No default workflow found for holding:', holdingId);
+                // Even without workflow, we use the manual approver as step 1
+                const manualApproverUser = potentialApprovers.find(u => u.id === selectedApproverId);
+                if (manualApproverUser) {
+                    resolvedApprovers = [{
+                        stepOrden: 1,
+                        stepNombre: 'Aprobación Superior Directo',
+                        approverType: 'specific_user' as any,
+                        userId: manualApproverUser.id || '',
+                        email: manualApproverUser.email,
+                        nombre: manualApproverUser.nombre,
+                        skipped: false
+                    }];
+                }
             }
 
             // Find the first non-skipped step
@@ -336,9 +353,9 @@ export default function CreateRQModal({
 
             await onSave(rqData);
             resetForm();
-        } catch (error) {
-            console.error('Error creating RQ:', error);
-            alert('Error al crear el requerimiento');
+        } catch (error: any) {
+            console.error('❌ Error creating RQ:', error);
+            alert(`Error al crear el requerimiento: ${error.message || 'Error desconocido'}`);
         } finally {
             setLoading(false);
         }

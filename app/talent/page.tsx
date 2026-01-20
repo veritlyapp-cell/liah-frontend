@@ -1009,6 +1009,7 @@ function TalentDashboardContent() {
                 show={showRQModal}
                 holdingId={holdingId}
                 creatorEmail={user?.email || ''}
+                creatorNombre={currentTalentUser?.nombre}
                 userGerenciaId={currentTalentUser?.gerenciaId}
                 onCancel={() => setShowRQModal(false)}
                 onSave={handleSaveRQ}
