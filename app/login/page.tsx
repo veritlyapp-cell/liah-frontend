@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -19,6 +19,8 @@ export default function LoginPage() {
 
     const { signIn, user, claims, loading: authLoading } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isTimeout = searchParams.get('reason') === 'timeout';
 
     // Auto-redirect if already logged in
     useEffect(() => {
@@ -129,6 +131,15 @@ export default function LoginPage() {
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl animate-fade-in">
                             <p className="text-sm text-red-600 text-center">{error}</p>
+                        </div>
+                    )}
+
+                    {/* Timeout Alert */}
+                    {isTimeout && !error && (
+                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl animate-fade-in">
+                            <p className="text-sm text-amber-600 text-center">
+                                Tu sesión ha expirado por inactividad. Por seguridad, por favor inicia sesión nuevamente.
+                            </p>
                         </div>
                     )}
 
