@@ -351,11 +351,18 @@ export default function CreateRQModal({
                 updatedAt: Timestamp.now()
             };
 
+            console.log('🚀 [CreateRQModal] Submitting RQ data:', rqData);
+
+            console.log('🚀 [CreateRQModal] Submitting RQ data:', rqData);
+
             await onSave(rqData);
+            console.log('✅ [CreateRQModal] RQ Saved successfully');
             resetForm();
         } catch (error: any) {
-            console.error('❌ Error creating RQ:', error);
-            alert(`Error al crear el requerimiento: ${error.message || 'Error desconocido'}`);
+            console.error('❌ [CreateRQModal] CRITICAL ERROR:', error);
+            // Deep inspection of the error
+            const errorDetail = error.message || error.code || JSON.stringify(error);
+            alert(`🚨 ERROR TÉCNICO AL CREAR RQ:\n\nDetalle: ${errorDetail}\n\nPor favor reporta este mensaje.`);
         } finally {
             setLoading(false);
         }
