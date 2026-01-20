@@ -143,9 +143,10 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
             onSuccess();
             onClose();
 
-        } catch (error) {
-            console.error('Error creating RQ instances:', error);
-            alert('Error al crear RQ. Por favor intenta de nuevo.');
+        } catch (error: any) {
+            console.error('❌ [StandardCreateRQModal] Error:', error);
+            const detail = error.message || error.code || JSON.stringify(error) || 'Unknown';
+            alert(`🚨 ERROR EN MODAL ESTÁNDAR (v2):\n\n${detail}`);
         } finally {
             setCreating(false);
         }

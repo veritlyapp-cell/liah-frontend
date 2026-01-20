@@ -373,8 +373,11 @@ export default function CreateRQModal({
             <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white">
-                    <h3 className="text-lg font-semibold">Nuevo Requerimiento (RQ)</h3>
-                    <div className="flex gap-4 mt-3">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-semibold">Nuevo Requerimiento (RQ)</h3>
+                        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">v22:50</span>
+                    </div>
+                    <div className="flex gap-4">
                         {[1, 2, 3, 4].map(s => (
                             <div key={s} className="flex items-center gap-2">
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === s ? 'bg-white text-violet-600' : step > s ? 'bg-white/50 text-violet-600' : 'bg-white/20'
