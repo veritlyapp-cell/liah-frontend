@@ -17,7 +17,7 @@ interface ProductLauncherProps {
  */
 export default function ProductLauncher({ accessFlow, accessTalent }: ProductLauncherProps) {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const [loading, setLoading] = useState(true);
     const [hasFlow, setHasFlow] = useState(accessFlow ?? true);
     const [hasTalent, setHasTalent] = useState(accessTalent ?? false);
@@ -160,7 +160,14 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                 <div>
                     <div className="text-6xl mb-4">🔒</div>
                     <h1 className="text-2xl font-bold text-white">Sin acceso a productos</h1>
-                    <p className="text-white/60 mt-2">Contacta al administrador para habilitar tu acceso</p>
+                    <p className="text-white/60 mt-2 mb-8">Contacta al administrador para habilitar tu acceso</p>
+
+                    <button
+                        onClick={() => signOut()}
+                        className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all font-medium"
+                    >
+                        Cerrar Sesión
+                    </button>
                 </div>
             </div>
         );
@@ -216,9 +223,20 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                 </div>
 
                 {/* Footer */}
-                <p className="text-white/40 text-sm mt-12">
-                    Liah Suite by Relie Labs
-                </p>
+                <div className="mt-12 flex flex-col items-center gap-4">
+                    <p className="text-white/40 text-sm">
+                        Liah Suite by Relie Labs
+                    </p>
+                    <button
+                        onClick={() => signOut()}
+                        className="text-white/30 hover:text-white/60 text-sm transition-colors flex items-center gap-2"
+                    >
+                        <span>Cerrar Sesión</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     );
