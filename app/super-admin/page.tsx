@@ -302,7 +302,7 @@ export default function SuperAdminDashboard() {
             />
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 py-8">
+            <main className="container-main py-20 space-y-12">
                 {/* Filtro Global de Holding */}
                 {activeTab !== 'empresas' && activeTab !== 'configuracion' && (
                     <div className="flex items-center gap-3 animate-fade-in mb-6">

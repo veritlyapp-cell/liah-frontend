@@ -295,13 +295,22 @@ function AplicarContent({ params }: { params: Promise<{ rqId: string }> }) {
                             </div>
                         ))}
 
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full py-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-bold rounded-xl hover:from-violet-600 hover:to-cyan-600 disabled:opacity-50"
-                        >
-                            {submitting ? 'Enviando...' : 'Enviar Postulación'}
-                        </button>
+                        {submitting ? (
+                            <div className="w-full py-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-bold rounded-xl flex flex-col items-center justify-center gap-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></div>
+                                    <span>Procesando tu postulación...</span>
+                                </div>
+                                <span className="text-sm font-normal text-white/80">✨ Nuestra IA está evaluando tu perfil para encontrar el mejor match</span>
+                            </div>
+                        ) : (
+                            <button
+                                type="submit"
+                                className="w-full py-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-bold rounded-xl hover:from-violet-600 hover:to-cyan-600"
+                            >
+                                📨 Enviar Postulación
+                            </button>
+                        )}
                     </form>
                 </div>
             </div>

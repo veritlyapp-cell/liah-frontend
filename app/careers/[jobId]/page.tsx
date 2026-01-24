@@ -333,37 +333,27 @@ export default function JobApplicationPage() {
                 applicationId = docRef.id;
             }
 
-            // If passed KQ, run AI Matching
+            // If passed KQ, run AI Analysis with proper CV extraction
             if (passed && applicationId) {
                 try {
-                    const matchResp = await fetch('/api/talent/match-candidate', {
+                    // Use process-candidate API which extracts CV content from the uploaded file
+                    const analysisResp = await fetch('/api/talent/process-candidate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            jobProfile: {
-                                titulo: job.titulo,
-                                descripcion: job.descripcion,
-                                requisitos: job.requisitos
-                            },
-                            candidateData: {
-                                nombre,
-                                cvText: cvText || '', // Use parsed text or raw text if available
-                                parsedData: applicationData // Full data
-                            },
-                            killerAnswers
+                            candidateId: applicationId,
+                            forceAnalysis: true // Force analysis even though status might not be PENDING_ANALYSIS
                         })
                     });
 
-                    if (matchResp.ok) {
-                        const { data: matchData } = await matchResp.json();
-                        await updateDoc(doc(db, 'talent_applications', applicationId), {
-                            matchScore: matchData.matchScore,
-                            aiAnalysis: matchData,
-                            updatedAt: Timestamp.now()
-                        });
+                    if (analysisResp.ok) {
+                        const { data: analysisData } = await analysisResp.json();
+                        console.log('[Careers] AI Analysis complete. Match score:', analysisData?.matchScore);
+                    } else {
+                        console.error('[Careers] AI Analysis failed:', await analysisResp.text());
                     }
                 } catch (matchErr) {
-                    console.error('Error during AI matching:', matchErr);
+                    console.error('[Careers] Error during AI analysis:', matchErr);
                 }
             }
 
@@ -739,27 +729,59 @@ export default function JobApplicationPage() {
                                         </div>
                                     )}
 
-                                    <button
-                                        type="submit"
-                                        disabled={submitting}
-                                        style={{
-                                            width: '100%',
-                                            padding: '16px',
-                                            minHeight: 48,
-                                            background: `linear-gradient(135deg, ${brandColors.primary} 0%, ${brandColors.primaryDeep} 100%)`,
-                                            color: 'white',
-                                            borderRadius: 12,
-                                            fontWeight: 600,
-                                            fontSize: 18,
-                                            border: 'none',
-                                            cursor: submitting ? 'not-allowed' : 'pointer',
-                                            opacity: submitting ? 0.5 : 1,
-                                            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
-                                            transition: 'transform 0.2s, opacity 0.2s'
-                                        }}
-                                    >
-                                        {submitting ? '⏳ Enviando...' : '📨 Enviar Postulación'}
-                                    </button>
+                                    {submitting ? (
+                                        <div
+                                            style={{
+                                                width: '100%',
+                                                padding: '16px',
+                                                minHeight: 80,
+                                                background: `linear-gradient(135deg, ${brandColors.primary} 0%, ${brandColors.primaryDeep} 100%)`,
+                                                color: 'white',
+                                                borderRadius: 12,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: 8,
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.2)'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div
+                                                    className="animate-spin"
+                                                    style={{
+                                                        width: 20,
+                                                        height: 20,
+                                                        border: '2px solid rgba(255,255,255,0.3)',
+                                                        borderTopColor: 'white',
+                                                        borderRadius: '50%'
+                                                    }}
+                                                />
+                                                <span style={{ fontWeight: 600 }}>Procesando tu postulación...</span>
+                                            </div>
+                                            <span style={{ fontSize: 14, opacity: 0.9 }}>✨ Nuestra IA está evaluando tu perfil para encontrar el mejor match</span>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="submit"
+                                            style={{
+                                                width: '100%',
+                                                padding: '16px',
+                                                minHeight: 48,
+                                                background: `linear-gradient(135deg, ${brandColors.primary} 0%, ${brandColors.primaryDeep} 100%)`,
+                                                color: 'white',
+                                                borderRadius: 12,
+                                                fontWeight: 600,
+                                                fontSize: 18,
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+                                                transition: 'transform 0.2s, opacity 0.2s'
+                                            }}
+                                        >
+                                            📨 Enviar Postulación
+                                        </button>
+                                    )}
 
                                     <p className="text-xs text-gray-500 text-center mt-4">
                                         Al postularte aceptas nuestra política de privacidad

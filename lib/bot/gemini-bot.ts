@@ -14,13 +14,12 @@ class GeminiChatbot {
         const apiKey = process.env.GOOGLE_GEMINI_API_KEY!;
         this.genAI = new GoogleGenerativeAI(apiKey);
 
-        // Usar gemini-2.5-flash (modelo actual 2025+)
+        // Usar gemini-2.5-flash (modelo estándar en 2026)
         const modelName = "gemini-2.5-flash";
         this.modelName = modelName;
         this.model = this.genAI.getGenerativeModel({ model: modelName });
 
         console.log(`[INFO] [BOT] 🤖 Gemini initialized with model: ${this.modelName}`);
-
     }
 
     /**
@@ -127,8 +126,11 @@ ACCIÓN: Despedida amable explicando que no cumple con los requisitos indispensa
     async processMessage(phone: string, message: string, origin_id: string, tenant_id: string): Promise<any> {
         Logger.info(`🤖 Starting processMessage for ${phone} (${tenant_id})`);
         try {
+            console.log(`[DEBUG] [BOT] 📱 Input: ${phone} | Msg: "${message}"`);
 
             const conversation = await ConversationManager.getOrCreateConversation(phone, tenant_id, origin_id);
+            console.log(`[DEBUG] [BOT] 🛡️ State: ${conversation.estado}`);
+
             await ConversationManager.addMessage(phone, 'user', message);
             const history = await ConversationManager.getConversationHistory(phone);
 
@@ -138,19 +140,24 @@ ACCIÓN: Despedida amable explicando que no cumple con los requisitos indispensa
             // 1. Extract structured data
             const extractedData = this.extractDataFromMessage(message, candidateData, currentState);
             if (Object.keys(extractedData).length > 0) {
+                console.log(`[DEBUG] [BOT] 📝 Extracted Data:`, extractedData);
                 await ConversationManager.updateCandidateData(phone, extractedData);
                 Object.assign(candidateData, extractedData);
             }
 
             // 2. Build context
             const context = await this.buildContext(currentState, candidateData, tenant_id);
+            console.log(`[DEBUG] [BOT] 🧠 Context Built`);
 
             // 3. Generate AI response
             const systemPrompt = this.getSystemPrompt(currentState, context);
+            console.log(`[DEBUG] [BOT] 🤖 Generating Gemini Response...`);
             const aiResponse = await this.generateResponse(systemPrompt, history, message);
+            console.log(`[DEBUG] [BOT] ✨ Response: "${aiResponse.substring(0, 30)}..."`);
 
             // 4. Determine next state
             const { newState, actions } = await this.determineNextState(currentState, candidateData, message, tenant_id);
+            console.log(`[DEBUG] [BOT] 🔄 Next State: ${newState}`);
 
             if (newState !== currentState) {
                 await ConversationManager.updateState(phone, newState);
@@ -167,7 +174,7 @@ ACCIÓN: Despedida amable explicando que no cumple con los requisitos indispensa
         } catch (error: any) {
             Logger.error('❌ Error processing message:', error);
             return {
-                response: 'Disculpa, tuve un problema técnico. ¿Podrías repetir tu mensaje?',
+                response: 'Disculpa, tuve un problema técnico con la IA. ¿Podrías repetir tu mensaje?',
                 newState: CONVERSATION_STATES.INICIO,
                 actions: []
             };
@@ -187,10 +194,11 @@ ACCIÓN: Despedida amable explicando que no cumple con los requisitos indispensa
 
             const result = await this.model.generateContent(fullPrompt);
             const response = result.response;
+            if (!response) throw new Error('Empty Gemini response object');
             return response.text().trim();
 
         } catch (error: any) {
-            Logger.error('❌ Error generating AI response:', error.message || error);
+            Logger.error('❌ Error generating AI response with Gemini:', error.message || error);
             throw error;
         }
     }

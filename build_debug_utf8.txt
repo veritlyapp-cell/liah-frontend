@@ -1,0 +1,18 @@
+﻿node.exe : error: unknown option 
+'--no-turbo'
+En línea: 1 Carácter: 1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo          : No 
+   tSpecified: (error: unknown   
+  option '--no-turbo':String)    
+ [], RemoteException
+    + FullyQualifiedErrorId : Na 
+   tiveCommandError
+ 
+(Did you mean --turbo?)

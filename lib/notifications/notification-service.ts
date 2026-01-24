@@ -122,7 +122,7 @@ export async function notifyNewApplication(
 ) {
     const scoreText = matchScore ? ` con ${matchScore}% de match` : '';
 
-    return createNotification(holdingId, {
+    const notificationId = await createNotification(holdingId, {
         type: 'new_application',
         title: '📩 Nueva Postulación',
         message: `${candidateName} se ha postulado a ${jobTitle}${scoreText}`,
@@ -134,6 +134,21 @@ export async function notifyNewApplication(
             link: `/talent?tab=pipeline&job=${jobId}`
         }
     });
+
+    // Send the actual email
+    await sendNotificationEmail({
+        type: 'new_application' as any,
+        recipientEmail: recruiterEmail,
+        data: {
+            jobId,
+            jobTitle,
+            candidateName,
+            matchScore,
+            holdingId
+        }
+    });
+
+    return notificationId;
 }
 
 /**

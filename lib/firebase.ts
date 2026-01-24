@@ -25,14 +25,18 @@ function getFirebaseApp() {
     if (getApps().length === 0) {
         // Check if config is valid
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
-            console.error('[Firebase] ⚠️ API Key missing! Check NEXT_PUBLIC_FIREBASE_API_KEY in .env.local');
-            console.error('[Firebase] Available env keys:', Object.keys(process.env).filter(k => k.includes('FIREBASE')));
+            // Only log warning, don't crash the build/runtime unless a service is actually called
+            console.warn('[Firebase] ⚠️ API Key missing! Environment variables might not be loaded.');
             return null;
         }
-        console.log('[Firebase] Creating new app instance...');
-        return initializeApp(firebaseConfig);
+        try {
+            console.log('[Firebase] Creating new app instance...');
+            return initializeApp(firebaseConfig);
+        } catch (error) {
+            console.error('[Firebase] Error initializing app:', error);
+            return null;
+        }
     }
-    console.log('[Firebase] Using existing app instance');
     return getApp();
 }
 

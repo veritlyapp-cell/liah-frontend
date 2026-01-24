@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
+
+// Get Admin Firestore instance
+const adminDb = getAdminFirestore();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -105,16 +107,16 @@ Analiza cuidadosamente la imagen del documento.`;
         // Update application with analysis results if applicationId provided
         if (applicationId) {
             try {
-                await updateDoc(doc(db, 'talent_applications', applicationId), {
+                await adminDb.collection('talent_applications').doc(applicationId).update({
                     culAnalysis: analysisData,
                     culStatus: analysisData.documentoValido ? 'verified' : 'review_needed',
-                    culVerifiedAt: Timestamp.now(),
+                    culVerifiedAt: new Date(),
                     // Also update candidate profile with extracted info
                     culDni: analysisData.dni,
                     culNombreCompleto: analysisData.nombreCompleto,
                     culEstadoLaboral: analysisData.estadoLaboral,
                     culExperiencia: analysisData.experienciaLaboral,
-                    updatedAt: Timestamp.now()
+                    updatedAt: new Date()
                 });
             } catch (updateErr) {
                 console.error('Error updating application with CUL analysis:', updateErr);

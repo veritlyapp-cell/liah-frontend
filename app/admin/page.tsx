@@ -21,15 +21,19 @@ import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, getDoc
 import DocumentsConfigView from '@/components/admin/DocumentsConfigView';
 import AlertsConfigView from '@/components/admin/AlertsConfigView';
 import RoleMatrixConfig from '@/components/admin/RoleMatrixConfig';
+import AdvancedAnalyticsDashboard from '@/components/admin/AdvancedAnalyticsDashboard';
 
 // Redundant mock data removed to fix lint warning
 
 export default function AdminDashboard() {
     const { user, claims, loading } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'reportes'>('marcas');
+    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'reportes' | 'analitica'>('marcas');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [brands, setBrands] = useState<any[]>([]);
+    const [candidateCounts, setCandidateCounts] = useState<Record<string, number>>({});
+    const [interviewCounts, setInterviewCounts] = useState<Record<string, number>>({});
+    const [rqCounts, setRqCounts] = useState<Record<string, number>>({});
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [stores, setStores] = useState<any[]>([]);
     const [loadingBrands, setLoadingBrands] = useState(true);
@@ -53,7 +57,8 @@ export default function AdminDashboard() {
     const hasRQFeature = currentPlan === 'rq_only' || currentPlan === 'full_stack';
 
     useEffect(() => {
-        if (!loading && (!user || claims?.role !== 'client_admin')) {
+        const allowedRoles = ['client_admin', 'admin', 'gerente'];
+        if (!loading && (!user || !allowedRoles.includes(claims?.role || ''))) {
             router.push('/login');
         }
     }, [user, claims, loading, router]);
@@ -133,6 +138,61 @@ export default function AdminDashboard() {
         return () => unsubscribe();
     }, [user, holdingId]);
 
+    // Aggregate Candidate and Interview counts per brand
+    useEffect(() => {
+        if (!user || !holdingId) return;
+
+        const candidatesRef = collection(db, 'candidates');
+        const q = query(candidatesRef, where('holdingId', '==', holdingId));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const cCounts: Record<string, number> = {};
+            const iCounts: Record<string, number> = {};
+
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                // Brand ID can be at top level OR inside the first assignment
+                const marcaId = data.marcaId || (data.assignments && data.assignments.length > 0 ? data.assignments[0].marcaId : null);
+
+                if (marcaId) {
+                    cCounts[marcaId] = (cCounts[marcaId] || 0) + 1;
+                    if (data.status === 'interview_scheduled' || data.status === 'hired' || data.selectionStatus === 'selected') {
+                        iCounts[marcaId] = (iCounts[marcaId] || 0) + 1;
+                    }
+                }
+            });
+
+            setCandidateCounts(cCounts);
+            setInterviewCounts(iCounts);
+        });
+
+        return () => unsubscribe();
+    }, [user, holdingId]);
+
+    // Aggregate RQ counts per brand
+    useEffect(() => {
+        if (!user || !holdingId) return;
+
+        const rqsRef = collection(db, 'rqs');
+        const q = query(rqsRef, where('holdingId', '==', holdingId));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const countMap: Record<string, number> = {};
+
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const marcaId = data.marcaId;
+                if (marcaId) {
+                    countMap[marcaId] = (countMap[marcaId] || 0) + 1;
+                }
+            });
+
+            setRqCounts(countMap);
+        });
+
+        return () => unsubscribe();
+    }, [user, holdingId]);
+
     // Load stores from Firestore
     useEffect(() => {
         if (!user || !holdingId) return;
@@ -207,8 +267,9 @@ export default function AdminDashboard() {
                 showProductSwitcher={true}
             />
 
-            <main className="max-w-7xl mx-auto px-4 py-8">
-                <div className="flex gap-2 border-b border-gray-200 mb-8 overflow-x-auto pb-1">
+            {/* Content Container */}
+            <main className="container-main py-20 space-y-12">
+                <div className="flex gap-2 border-b border-gray-200 overflow-x-auto pb-1">
                     <button
                         onClick={() => setActiveTab('marcas')}
                         className={`px-4 py-2 font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === 'marcas' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -251,7 +312,13 @@ export default function AdminDashboard() {
                         onClick={() => setActiveTab('reportes')}
                         className={`px-4 py-2 font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === 'reportes' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
-                        📊 Reportes
+                        📋 Logs
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('analitica')}
+                        className={`px-4 py-2 font-bold whitespace-nowrap transition-colors border-b-2 ${activeTab === 'analitica' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        🚀 Analítica Pro
                     </button>
                 </div>
 
@@ -292,15 +359,15 @@ export default function AdminDashboard() {
                                         </div>
                                         <div className="grid grid-cols-3 gap-3 mb-4">
                                             <div className="text-center">
-                                                <p className="text-2xl font-bold text-violet-600">{brand.candidatos || 0}</p>
+                                                <p className="text-2xl font-bold text-violet-600">{candidateCounts[brand.id] || 0}</p>
                                                 <p className="text-xs text-gray-500">Candidatos</p>
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-2xl font-bold text-cyan-600">{brand.entrevistas || 0}</p>
+                                                <p className="text-2xl font-bold text-cyan-600">{interviewCounts[brand.id] || 0}</p>
                                                 <p className="text-xs text-gray-500">Entrevistas</p>
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-2xl font-bold text-amber-600">{brand.rqs || 0}</p>
+                                                <p className="text-2xl font-bold text-amber-600">{rqCounts[brand.id] || 0}</p>
                                                 <p className="text-xs text-gray-500">RQs</p>
                                             </div>
                                         </div>
@@ -384,10 +451,21 @@ export default function AdminDashboard() {
                 {activeTab === 'reportes' && (
                     <div className="space-y-8">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-bold text-gray-900">Reportes y Analítica</h2>
-                            <a href="/analytics" className="px-4 py-2 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">📊 Dashboard Completo →</a>
+                            <h2 className="text-2xl font-bold text-gray-900">Logs de Actividad</h2>
                         </div>
                         <AdminRQAnalyticsView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />
+                    </div>
+                )}
+
+                {activeTab === 'analitica' && (
+                    <div className="space-y-8">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">Analítica Avanzada: Rotación e Impacto</h2>
+                                <p className="text-sm text-gray-500 mt-1">Transformando la rotación en indicadores financieros y operativos</p>
+                            </div>
+                        </div>
+                        <AdvancedAnalyticsDashboard holdingId={holdingId} />
                     </div>
                 )}
 

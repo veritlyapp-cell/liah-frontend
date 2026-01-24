@@ -145,7 +145,8 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
             supervisor: '👔 Supervisor',
             jefe_marca: '🎯 Jefe de Marca',
             recruiter: '🔍 Recruiter',
-            store_manager: '🏪 Gerente de Tienda'
+            store_manager: '🏪 Gerente de Tienda',
+            compensaciones: '💰 Compensaciones'
         };
         return labels[role] || role;
     };
@@ -177,6 +178,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                         <option value="jefe_marca">Jefes de Marca</option>
                         <option value="recruiter">Recruiters</option>
                         <option value="store_manager">Gerentes de Tienda</option>
+                        <option value="compensaciones">Compensaciones</option>
                     </select>
 
                     {/* Marca Filter */}

@@ -108,6 +108,30 @@ export async function POST(request: Request) {
                 `;
                 break;
 
+            case 'new_application':
+                subject = `📩 Nueva Postulación: ${data?.candidateName} - ${data?.jobTitle}`;
+                htmlContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                        <h2 style="color: #7c3aed;">¡Nueva Postulación Recibida!</h2>
+                        <p>Se ha recibido una nueva postulación para la vacante de <strong>${data?.jobTitle}</strong>.</p>
+                        <div style="background: #f5f3ff; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Candidato:</strong> ${data?.candidateName}</p>
+                            <p style="margin: 5px 0;"><strong>Puesto:</strong> ${data?.jobTitle}</p>
+                            ${data?.matchScore ? `<p style="margin: 5px 0;"><strong>Match Score:</strong> ${data?.matchScore}%</p>` : ''}
+                        </div>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${dashboardUrl}/talent?tab=pipeline&job=${data?.jobId}" 
+                               style="background: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                Ver Candidato en Pipeline
+                            </a>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 20px;">
+                            Este registro también se encuentra disponible en tu bandeja de notificaciones dentro de la plataforma.
+                        </p>
+                    </div>
+                `;
+                break;
+
             default:
                 return NextResponse.json({ error: 'Invalid notification type' }, { status: 400 });
         }

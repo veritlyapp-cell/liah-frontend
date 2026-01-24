@@ -207,7 +207,8 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
             supervisor: 'Supervisor',
             jefe_marca: 'Jefe de Marca',
             recruiter: 'Recruiter',
-            store_manager: 'Gerente de Tienda'
+            store_manager: 'Gerente de Tienda',
+            compensaciones: 'Compensaciones'
         };
         return labels[role] || role;
     };

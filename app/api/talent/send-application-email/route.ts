@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
+
+// Get Admin Firestore instance
+const adminDb = getAdminFirestore();
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,22 +13,37 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Get holding info for branding
-        let holdingName = 'La Empresa';
+        // Get holding info for branding using Admin SDK
+        let holdingName = 'LIAH';
         let holdingLogo = null;
+
+        console.log('[Email] Received holdingId:', holdingId);
 
         if (holdingId) {
             try {
-                const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
-                if (holdingDoc.exists()) {
+                const holdingDoc = await adminDb.collection('holdings').doc(holdingId).get();
+                console.log('[Email] Holding doc exists:', holdingDoc.exists);
+                if (holdingDoc.exists) {
                     const data = holdingDoc.data();
-                    holdingName = data.nombre || holdingName;
-                    holdingLogo = data.logoUrl || null;
+                    console.log('[Email] Holding data:', { nombre: data?.nombre, logoUrl: !!data?.logoUrl });
+                    holdingName = data?.nombre || holdingName;
+                    holdingLogo = data?.logoUrl || null;
+                } else {
+                    console.warn('[Email] Holding not found for ID:', holdingId);
+                    // Maybe the holdingId IS the name - use it directly as fallback
+                    holdingName = holdingId.charAt(0).toUpperCase() + holdingId.slice(1);
+                    console.log('[Email] Using holdingId as name:', holdingName);
                 }
             } catch (err) {
-                console.error('Error fetching holding:', err);
+                console.error('[Email] Error fetching holding:', err);
+                // Use holdingId as fallback name
+                holdingName = holdingId.charAt(0).toUpperCase() + holdingId.slice(1);
             }
+        } else {
+            console.warn('[Email] No holdingId provided, using fallback LIAH');
         }
+
+        console.log('[Email] Using holdingName:', holdingName);
 
         // Try to send email via Resend (if configured)
         const resendApiKey = process.env.RESEND_API_KEY;

@@ -72,18 +72,18 @@ export default function JefeMarcaDashboard() {
             />
 
             {/* Content Container */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <main className="container-main py-20 space-y-12">
                 {/* Stats Cards - Hide if in config */}
                 {activeTab !== 'configuracion' && <MarcaStatsCards marcaId={marcaId} />}
 
                 {/* Content */}
                 {activeTab !== 'configuracion' ? (
-                    <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-8">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="border-b border-gray-200">
                             <nav className="flex -mb-px">
                                 <button
                                     onClick={() => setActiveTab('pending')}
-                                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending'
+                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pending'
                                         ? 'border-violet-600 text-violet-600'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
@@ -92,7 +92,7 @@ export default function JefeMarcaDashboard() {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('approved')}
-                                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'approved'
+                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'approved'
                                         ? 'border-violet-600 text-violet-600'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
@@ -101,7 +101,7 @@ export default function JefeMarcaDashboard() {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('candidates')}
-                                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'candidates'
+                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'candidates'
                                         ? 'border-violet-600 text-violet-600'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
@@ -111,7 +111,7 @@ export default function JefeMarcaDashboard() {
                             </nav>
                         </div>
 
-                        <div className="p-6">
+                        <div className="p-8">
                             {activeTab === 'pending' && (
                                 <MarcaPendingRQsView
                                     marcaId={marcaId}
@@ -130,11 +130,11 @@ export default function JefeMarcaDashboard() {
                         </div>
                     </div>
                 ) : (
-                    <div className="mt-8">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                         <ConfigurationView />
                     </div>
                 )}
-            </div>
+            </main>
         </div>
     );
 }

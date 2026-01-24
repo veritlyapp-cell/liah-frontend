@@ -153,6 +153,18 @@ export default function EditUserModalSuperAdmin({ show, user, onCancel, onSave }
                                 <p className="font-semibold text-gray-900">Gerente de Tienda</p>
                                 <p className="text-xs text-gray-600 mt-1">Gestiona tienda</p>
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setRol('compensaciones')}
+                                className={`p-4 border-2 rounded-lg transition-all ${rol === 'compensaciones'
+                                    ? 'border-violet-600 bg-violet-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                            >
+                                <p className="font-semibold text-gray-900">💰 Compensaciones</p>
+                                <p className="text-xs text-gray-600 mt-1">Altas, Bajas y T-Registro</p>
+                            </button>
                         </div>
                     </div>
 

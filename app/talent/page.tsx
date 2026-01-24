@@ -23,6 +23,7 @@ import PublishConfigView from '@/components/talent/PublishConfigView';
 import EmailTemplatesConfig from '@/components/admin/EmailTemplatesConfig';
 import PipelineView from '@/components/talent/PipelineView';
 import NuevosColaboradoresTab from '@/components/talent/NuevosColaboradoresTab';
+import CompensacionesTab from '@/components/talent/CompensacionesTab';
 import { Job } from '@/components/talent/types';
 
 /**
@@ -103,6 +104,8 @@ function TalentDashboardContent() {
     const canManageVacantes = ['admin', 'lider_reclutamiento', 'recruiter', 'client_admin', 'super_admin'].some(cap =>
         userCapacidades.includes(cap)
     ) || ['admin', 'client_admin', 'super_admin'].includes(userRole);
+
+    const isCompensaciones = userRole === 'compensaciones' || isAdmin;
 
     // Debug logs for permissions
     useEffect(() => {
@@ -259,9 +262,32 @@ function TalentDashboardContent() {
         }
     }
 
+    // Helper: deeply clean undefined values from objects/arrays
+    function deepCleanUndefined(obj: any): any {
+        if (obj === null || obj === undefined) return null;
+        if (Array.isArray(obj)) {
+            return obj.map(item => deepCleanUndefined(item)).filter(item => item !== undefined);
+        }
+        if (typeof obj === 'object' && obj.constructor === Object) {
+            const cleaned: any = {};
+            for (const [key, value] of Object.entries(obj)) {
+                if (value !== undefined) {
+                    cleaned[key] = deepCleanUndefined(value);
+                }
+            }
+            return cleaned;
+        }
+        return obj;
+    }
+
     async function handleSaveRQ(rqData: any) {
         try {
-            await addDoc(collection(db, 'talent_rqs'), rqData);
+            // CRITICAL: Deeply remove all undefined values - Firebase doesn't accept them
+            const cleanedData = deepCleanUndefined(rqData);
+
+            console.log('📝 [TalentPage v2] Saving RQ with deep-cleaned data:', cleanedData);
+
+            await addDoc(collection(db, 'talent_rqs'), cleanedData);
             await loadRQs();
             setShowRQModal(false);
             alert('✅ Requerimiento creado exitosamente');
@@ -377,6 +403,7 @@ function TalentDashboardContent() {
         { id: 'requerimientos', label: 'Requerimientos', icon: '📝', visible: true },
         { id: 'vacantes', label: 'Vacantes', icon: '📋', visible: canManageVacantes },
         { id: 'colaboradores', label: 'Nuevos Colaboradores', icon: '🎉', visible: canManageVacantes },
+        { id: 'compensaciones', label: 'Compensaciones', icon: '📑', visible: isCompensaciones },
         { id: 'analytics', label: 'Analytics', icon: '📊', visible: canManageVacantes },
     ];
 
@@ -822,6 +849,10 @@ function TalentDashboardContent() {
 
                 {activeTab === 'colaboradores' && (
                     <NuevosColaboradoresTab holdingId={holdingId} />
+                )}
+
+                {activeTab === 'compensaciones' && (
+                    <CompensacionesTab holdingId={holdingId} />
                 )}
 
                 {activeTab === 'analytics' && (

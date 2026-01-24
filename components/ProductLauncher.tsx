@@ -17,7 +17,7 @@ interface ProductLauncherProps {
  */
 export default function ProductLauncher({ accessFlow, accessTalent }: ProductLauncherProps) {
     const router = useRouter();
-    const { user, signOut } = useAuth();
+    const { user, claims, signOut } = useAuth();
     const [loading, setLoading] = useState(true);
     const [hasFlow, setHasFlow] = useState(accessFlow ?? true);
     const [hasTalent, setHasTalent] = useState(accessTalent ?? false);
@@ -29,35 +29,62 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
 
             setLoading(true);
             try {
-                let foundHoldingId: string | null = null;
+                let foundHoldingId: string | null = (claims?.holdingId as string) || (claims?.tenant_id as string) || null;
 
-                // Step 1: Find user's holdingId from any collection
-                // Try user_assignments first
-                const assignmentsRef = collection(db, 'user_assignments');
-                const flowQuery = query(assignmentsRef, where('email', '==', user.email));
-                const flowSnap = await getDocs(flowQuery);
-
-                if (!flowSnap.empty) {
-                    foundHoldingId = flowSnap.docs[0].data().holdingId;
-                }
-
-                // If not found, try talent_users
+                // Step 1: Find user's holdingId from any collection if not in claims
                 if (!foundHoldingId) {
-                    const talentRef = collection(db, 'talent_users');
-                    const talentQuery = query(talentRef, where('email', '==', user.email.toLowerCase()));
-                    const talentSnap = await getDocs(talentQuery);
+                    console.log('🔍 Launcher: holdingId not in claims, checking collections...');
 
-                    if (!talentSnap.empty) {
-                        foundHoldingId = talentSnap.docs[0].data().holdingId;
+                    // Try userAssignments (UID search is most reliable)
+                    const assignmentsRef = collection(db, 'userAssignments');
+                    const flowSnapByUid = await getDocs(query(assignmentsRef, where('userId', '==', user.uid)));
+
+                    if (!flowSnapByUid.empty) {
+                        foundHoldingId = flowSnapByUid.docs[0].data().holdingId;
+                    }
+
+                    // Try userAssignments (Email search as backup)
+                    if (!foundHoldingId && user.email) {
+                        const flowSnapByEmail = await getDocs(query(assignmentsRef, where('email', '==', user.email.toLowerCase())));
+                        if (!flowSnapByEmail.empty) {
+                            foundHoldingId = flowSnapByEmail.docs[0].data().holdingId;
+                        }
+                    }
+
+                    // Try legacy 'users' collection (UID search)
+                    if (!foundHoldingId) {
+                        const { getDoc, doc } = await import('firebase/firestore');
+                        const userDoc = await getDoc(doc(db, 'users', user.uid));
+                        if (userDoc.exists()) {
+                            foundHoldingId = userDoc.data().tenant_id || userDoc.data().holdingId;
+                        }
+                    }
+
+                    // If still not found, try talent_users
+                    if (!foundHoldingId && user.email) {
+                        const talentRef = collection(db, 'talent_users');
+                        const talentSnap = await getDocs(query(talentRef, where('email', '==', user.email.toLowerCase())));
+                        if (!talentSnap.empty) {
+                            foundHoldingId = talentSnap.docs[0].data().holdingId;
+                        }
                     }
                 }
 
                 console.log('🛡️ Launcher: Found holdingId:', foundHoldingId);
 
+                // Fallback for admins: if we can't find holdingId but they are in /launcher, they are likely admins
+                const isAdmin = ['client_admin', 'admin', 'gerente', 'super_admin'].includes(claims?.role || '');
+
                 if (!foundHoldingId) {
                     console.warn('⚠️ No holdingId found for user:', user.email);
-                    setHasFlow(false);
-                    setHasTalent(false);
+                    if (isAdmin) {
+                        console.log('🛡️ User is admin, enabling Liah Flow as default fallback');
+                        setHasFlow(true);
+                        setHasTalent(false);
+                    } else {
+                        setHasFlow(false);
+                        setHasTalent(false);
+                    }
                     return;
                 }
 

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         console.log(`[Talent AI] Generating JD for: ${titulo}`);
 
         // Fetch holding name if holdingId provided
-        let holdingName = 'Nuestra empresa';
+        let holdingName = 'LIAH';
         if (holdingId) {
             try {
                 const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));

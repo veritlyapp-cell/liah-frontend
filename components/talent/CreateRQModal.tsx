@@ -210,11 +210,14 @@ export default function CreateRQModal({
                                 setPerfilContent(data.content);
                             }
                         } else {
-                            console.error('Error parsing profile document');
-                            setPerfilContent(`[Error al analizar archivo: ${file.name}]`);
+                            // Log the actual error from the API
+                            const errorData = await resp.json().catch(() => ({}));
+                            console.error('❌ [CreateRQModal] Parse profile error:', resp.status, errorData);
+                            setPerfilContent(`[Error al analizar archivo: ${file.name}]\n\nDetalles: ${errorData?.details || errorData?.error || 'Error desconocido'}`);
                         }
-                    } catch (err) {
+                    } catch (err: any) {
                         console.error('Error in reader onload:', err);
+                        setPerfilContent(`[Error de conexión/lectura: ${file.name}]\n\nDetalles: No se pudo conectar con el servidor de análisis. Si estás en local, verifica que el server esté corriendo. Si estás en producción, intenta nuevamente.`);
                     } finally {
                         setParsingProfile(false);
                     }
@@ -264,8 +267,11 @@ export default function CreateRQModal({
     }
 
     async function handleSubmit() {
-        if (!selectedPuestoId || !perfilContent.trim()) {
-            alert('Selecciona un puesto y asegúrate de tener un perfil');
+        const isExistingPuesto = tipoPosition === 'reemplazo' && selectedPuestoId;
+        const isNewPuesto = tipoPosition === 'nueva' && nuevoPuestoNombre.trim();
+
+        if ((!isExistingPuesto && !isNewPuesto) || !perfilContent.trim()) {
+            alert('Selecciona un puesto (o escribe el nombre del nuevo) y asegúrate de tener un perfil');
             return;
         }
 
@@ -335,32 +341,46 @@ export default function CreateRQModal({
                 gerenciaId: selectedPuesto?.gerenciaId || '',
                 gerenciaNombre: selectedPuesto?.gerenciaNombre || '',
                 cantidad,
-                perfilContent,
+                perfilContent: perfilContent || '',
                 perfilFileName: perfilFile?.name || null,
-                justificacion,
-                confidencial, // NEW: Mark RQ as confidential
+                justificacion: justificacion || '',
+                confidencial: confidencial || false,
                 status: 'pending_approval',
-                currentStep, // Which step we're waiting for
-                workflowId,
-                workflowName,
-                resolvedApprovers, // The resolved workflow with actual approver emails
-                aprobaciones: [], // Will store each approval as it happens
-                createdBy: creatorEmail,
-                holdingId,
+                currentStep,
+                workflowId: workflowId || null,
+                workflowName: workflowName || null,
+                resolvedApprovers: resolvedApprovers || [],
+                aprobaciones: [],
+                createdBy: creatorEmail || '',
+                creatorNombre: creatorNombre || creatorEmail || '',
+                holdingId: holdingId || '',
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
 
-            console.log('🚀 [CreateRQModal] DEBUG SUBMIT V4 (20:10):', rqData);
+            // CRITICAL: Remove any undefined values (Firebase doesn't accept undefined)
+            const cleanedRqData = Object.fromEntries(
+                Object.entries(rqData).filter(([_, v]) => v !== undefined)
+            );
 
-            await onSave(rqData);
+            console.log('🚀 [CreateRQModal] DEBUG SUBMIT V5 (22:40):', cleanedRqData);
+
+            await onSave(cleanedRqData);
             console.log('✅ [CreateRQModal] RQ Saved successfully');
             resetForm();
         } catch (error: any) {
             console.error('❌ [CreateRQModal] CRITICAL ERROR:', error);
-            // Deep inspection of the error
+            // Internal investigation
             const errorDetail = error.message || error.code || JSON.stringify(error) || 'Error sin mensaje';
-            alert(`🚨 REPORTE DE ERROR (VERSION 22:10):\n\n${errorDetail}\n\nPor favor reporta esto.`);
+            const stack = error.stack || 'No stack trace';
+
+            alert(`🚨 REPORTE DE ERROR FATAL (v22:55):
+----------------------------------
+MENSAJE: ${errorDetail}
+----------------------------------
+TÉCNICO: ${stack.substring(0, 200)}...
+
+Por favor reporta esto de inmediato.`);
         } finally {
             setLoading(false);
         }
@@ -375,7 +395,7 @@ export default function CreateRQModal({
                 <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-semibold">Nuevo Requerimiento (RQ)</h3>
-                        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">v22:50</span>
+                        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded shadow-sm border border-white/30 animate-pulse">DEBUG: v22:45</span>
                     </div>
                     <div className="flex gap-4">
                         {[1, 2, 3, 4].map(s => (
@@ -512,7 +532,7 @@ export default function CreateRQModal({
                         <div className="space-y-4">
                             <div className="bg-gray-50 rounded-lg p-4">
                                 <p className="text-sm text-gray-600">Puesto seleccionado:</p>
-                                <p className="font-semibold text-gray-900">{selectedPuesto?.nombre}</p>
+                                <p className="font-semibold text-gray-900">{tipoPosition === 'nueva' ? nuevoPuestoNombre : selectedPuesto?.nombre}</p>
                                 <p className="text-sm text-gray-500">{selectedPuesto?.gerenciaNombre} → {selectedPuesto?.areaNombre}</p>
                             </div>
 
@@ -628,7 +648,12 @@ export default function CreateRQModal({
                     {step < 4 ? (
                         <button
                             onClick={() => setStep(step + 1)}
-                            disabled={(step === 1 && !selectedPuestoId) || (step === 3 && !justificacion.trim())}
+                            disabled={
+                                (step === 1 && tipoPosition === 'reemplazo' && !selectedPuestoId) ||
+                                (step === 1 && tipoPosition === 'nueva' && !nuevoPuestoNombre.trim()) ||
+                                (step === 2 && !perfilContent.trim() && !parsingProfile) ||
+                                (step === 3 && !justificacion.trim())
+                            }
                             className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
                         >
                             Siguiente →

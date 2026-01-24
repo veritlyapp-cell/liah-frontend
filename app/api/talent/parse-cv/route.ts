@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'CV content required' }, { status: 400 });
         }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `Analiza el siguiente CV/currículum y extrae la información estructurada.
 Devuelve SOLO un JSON válido (sin markdown, sin \`\`\`) con este formato exacto:

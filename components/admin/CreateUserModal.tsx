@@ -265,6 +265,7 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                             </label>
                             <div className="grid grid-cols-2 gap-4">
                                 {[
+                                    { value: 'compensaciones', label: '💰 Compensaciones', desc: 'Gestión de Altas, Bajas y SUNAT' },
                                     { value: 'supervisor', label: '👔 Supervisor', desc: 'Gestiona múltiples tiendas' },
                                     { value: 'jefe_marca', label: '🎯 Jefe de Marca', desc: 'Gestiona una marca completa' },
                                     { value: 'recruiter', label: '🔍 Recruiter', desc: 'Evalúa candidatos de una marca' },
@@ -323,10 +324,16 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                     Atrás
                                 </button>
                                 <button
-                                    onClick={() => setStep('assignment')}
+                                    onClick={() => {
+                                        if (role === 'compensaciones') {
+                                            handleSubmit();
+                                        } else {
+                                            setStep('assignment');
+                                        }
+                                    }}
                                     className="flex-1 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
                                 >
-                                    Siguiente
+                                    {role === 'compensaciones' ? (loading ? 'Creando...' : '✅ Crear Usuario') : 'Siguiente'}
                                 </button>
                             </div>
                         </div>

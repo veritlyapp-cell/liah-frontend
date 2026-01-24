@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
                 const type = message.type;
 
                 Logger.info(`📱 Message from ${phone} (${type}): "${text}"`);
+                console.log('[DEBUG] [WEBHOOK] Processing payload...');
 
                 if (type === 'text' || type === 'button') {
                     // Use default origin_id for now or derive from metadata

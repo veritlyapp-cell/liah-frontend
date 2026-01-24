@@ -54,6 +54,24 @@ interface Application {
             };
         }
     };
+    // CUL Fields
+    culStatus?: 'pending' | 'uploaded' | 'verified' | 'review_needed';
+    culFileUrl?: string;
+    culFileName?: string;
+    culRequestedAt?: any;
+    culUploadedAt?: any;
+    culVerifiedAt?: any;
+    culAnalysis?: {
+        dni: string;
+        nombreCompleto: string;
+        estadoLaboral: string;
+        antecedentes: boolean;
+        documentoValido: boolean;
+        observaciones: string | null;
+        experienciaLaboral: any[];
+    };
+    joiningDate?: any;
+    onboardingEmailSent?: boolean;
 }
 
 interface FunnelStage {
@@ -97,6 +115,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
     const [usingCustomStages, setUsingCustomStages] = useState(false);
     const [savingStages, setSavingStages] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
+    const [reAnalyzing, setReAnalyzing] = useState(false);
 
     // Multi-select state
     const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(new Set());
@@ -106,6 +125,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
     const [showHireConfirmModal, setShowHireConfirmModal] = useState(false);
     const [pendingHireCandidate, setPendingHireCandidate] = useState<Application | null>(null);
     const [sendOnboardingEmail, setSendOnboardingEmail] = useState(true);
+    const [joiningDate, setJoiningDate] = useState<string>('');
 
     // Stage filters state
     const [matchFilter, setMatchFilter] = useState<string>('all'); // 'all', '80+', '60-80', '40-60', '0-40'
@@ -119,6 +139,39 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
         if (salarioMin && candidateSalary < salarioMin) return true;
         if (salarioMax && candidateSalary > salarioMax) return true;
         return false;
+    }
+
+    // Re-analyze candidate with improved CV extraction
+    async function handleReanalyzeCV(candidateId: string) {
+        if (!confirm('¿Re-analizar el CV de este candidato? Esto extraerá nuevamente el contenido del CV y recalculará el match score.')) {
+            return;
+        }
+
+        setReAnalyzing(true);
+        try {
+            const response = await fetch('/api/talent/process-candidate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidateId, forceAnalysis: true })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.details || error.error || 'Error re-analizando');
+            }
+
+            const data = await response.json();
+            alert(`✅ Re-análisis completado. Nuevo Match Score: ${data.data.matchScore}%`);
+
+            // Reload data to show updated scores
+            await loadData();
+            setSelectedCandidate(null);
+        } catch (error: any) {
+            console.error('Error re-analyzing:', error);
+            alert(`❌ Error: ${error.message}`);
+        } finally {
+            setReAnalyzing(false);
+        }
     }
 
     useEffect(() => {
@@ -443,11 +496,17 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
     function initiateHire(candidate: Application) {
         setPendingHireCandidate(candidate);
         setSendOnboardingEmail(true);
+        setJoiningDate(''); // Reset date
         setShowHireConfirmModal(true);
     }
 
     async function confirmHire() {
         if (!pendingHireCandidate) return;
+
+        if (!joiningDate) {
+            alert('Por favor selecciona una fecha de ingreso');
+            return;
+        }
 
         setProcessing(true);
         try {
@@ -463,17 +522,37 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
             await updateDoc(doc(db, 'talent_applications', candidateId), {
                 funnelStage: 'hired',
                 status: 'hired',
+                hiredStatus: 'hired', // Added for Analytics compatibility
+                jobTitle: jobTitulo, // Ensure job title is persisted
+                hiringManagerId: user?.uid, // Capture who hired
                 currentStageEnteredAt: Timestamp.now(),
                 stageHistory: arrayUnion(stageTransition),
                 updatedAt: Timestamp.now(),
                 hiredAt: Timestamp.now(),
-                onboardingEmailSent: sendOnboardingEmail
+                onboardingEmailSent: sendOnboardingEmail,
+                joiningDate: joiningDate ? Timestamp.fromDate(new Date(joiningDate)) : null
             });
 
-            // TODO: If sendOnboardingEmail is true, trigger email with onboarding form link
+            // Trigger onboarding email via API
             if (sendOnboardingEmail) {
-                console.log(`[Onboarding] Would send email to ${pendingHireCandidate.email}`);
-                // Future: Call API to send onboarding form email
+                console.log(`[Onboarding] Sending email to ${pendingHireCandidate.email}`);
+                try {
+                    await fetch('/api/talent/send-onboarding-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            applicationId: candidateId,
+                            candidateName: pendingHireCandidate.nombre,
+                            candidateEmail: pendingHireCandidate.email,
+                            jobTitle: jobTitulo,
+                            holdingId: holdingId,
+                            joiningDate
+                        })
+                    });
+                } catch (emailErr) {
+                    console.error('Error sending onboarding email:', emailErr);
+                    // Don't block success message if email fails, but maybe warn user
+                }
             }
 
             loadData();
@@ -841,14 +920,30 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                                     <div className="bg-gray-50 rounded-lg p-3">
                                         <p className="text-xs text-gray-500">CV</p>
                                         {selectedCandidate.cvUrl ? (
-                                            <a
-                                                href={selectedCandidate.cvUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-violet-600 hover:text-violet-800 font-medium underline"
-                                            >
-                                                📄 {selectedCandidate.cvFileName || 'Descargar CV'}
-                                            </a>
+                                            <div className="flex flex-col gap-1">
+                                                <a
+                                                    href={selectedCandidate.cvUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-violet-600 hover:text-violet-800 font-medium underline truncate block"
+                                                    title={selectedCandidate.cvFileName || 'Descargar CV'}
+                                                >
+                                                    📄 {selectedCandidate.cvFileName || 'Descargar CV'}
+                                                </a>
+                                                {/* Add Preview Link for Documents */}
+                                                {(selectedCandidate.cvFileName?.toLowerCase().endsWith('.doc') ||
+                                                    selectedCandidate.cvFileName?.toLowerCase().endsWith('.docx') ||
+                                                    selectedCandidate.cvFileName?.toLowerCase().endsWith('.pptx')) && (
+                                                        <a
+                                                            href={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedCandidate.cvUrl)}&embedded=true`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs text-gray-500 hover:text-violet-600 flex items-center gap-1"
+                                                        >
+                                                            👁️ Ver online
+                                                        </a>
+                                                    )}
+                                            </div>
                                         ) : (
                                             <p className="font-medium text-gray-400">{selectedCandidate.cvFileName || 'No adjuntó'}</p>
                                         )}
@@ -871,15 +966,127 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                                     )}
                                 </div>
 
+                                {/* CUL Verification Section - Prominent Position */}
+                                <div className={`p-4 rounded-lg border ${selectedCandidate.culStatus === 'verified' ? 'bg-emerald-50 border-emerald-200' :
+                                    selectedCandidate.culStatus === 'review_needed' ? 'bg-amber-50 border-amber-200' :
+                                        selectedCandidate.culStatus === 'uploaded' ? 'bg-blue-50 border-blue-200' :
+                                            selectedCandidate.culStatus === 'pending' ? 'bg-gray-50 border-gray-200' :
+                                                // Make it visible if requested OR if we have ANY status. Using fallback logic for existing records.
+                                                (selectedCandidate.culRequestedAt || selectedCandidate.culStatus) ? 'bg-gray-50 border-gray-200' : 'hidden'
+                                    }`}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h4 className="text-sm font-bold flex items-center gap-2">
+                                            📋 Verificación CUL
+                                            {selectedCandidate.culStatus === 'verified' && <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">Verificado</span>}
+                                            {selectedCandidate.culStatus === 'review_needed' && <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full">Revisión requiere</span>}
+                                            {selectedCandidate.culStatus === 'uploaded' && <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full">Subido</span>}
+                                            {selectedCandidate.culStatus === 'pending' && <span className="bg-gray-100 text-gray-800 text-[10px] px-2 py-0.5 rounded-full">Pendiente</span>}
+                                        </h4>
+
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => loadData()}
+                                                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                                                title="Actualizar estado"
+                                            >
+                                                🔄
+                                            </button>
+                                            {selectedCandidate.culFileUrl && (
+                                                <a
+                                                    href={selectedCandidate.culFileUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-violet-600 hover:text-violet-800 font-medium underline flex items-center gap-1"
+                                                >
+                                                    ⬇️ Descargar
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {!selectedCandidate.culStatus && !selectedCandidate.culRequestedAt && (
+                                        <p className="text-xs text-gray-500 italic">No se ha solicitado CUL.</p>
+                                    )}
+
+                                    {(selectedCandidate.culStatus === 'pending' || (!selectedCandidate.culStatus && selectedCandidate.culRequestedAt)) && (
+                                        <div className="text-xs text-gray-600">
+                                            <p>Solicitado el: {selectedCandidate.culRequestedAt?.toDate?.()?.toLocaleDateString() || 'Fecha desconocida'}</p>
+                                            <p className="mt-1 italic">Esperando que el candidato suba el documento.</p>
+                                        </div>
+                                    )}
+
+                                    {(selectedCandidate.culAnalysis) && (
+                                        <div className="space-y-2 text-xs">
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                <div>
+                                                    <span className="text-gray-500 block">DNI:</span>
+                                                    <span className="font-medium">{selectedCandidate.culAnalysis.dni || 'No detectado'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 block">Estado Laboral:</span>
+                                                    <span className="font-medium capitalize">{selectedCandidate.culAnalysis.estadoLaboral || 'No detectado'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 block">Antecedentes:</span>
+                                                    <span className={`font-medium ${selectedCandidate.culAnalysis.antecedentes ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {selectedCandidate.culAnalysis.antecedentes ? '⚠️ Detectados' : '✓ Limpio'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 block">Documento:</span>
+                                                    <span className={`font-medium ${selectedCandidate.culAnalysis.documentoValido ? 'text-green-600' : 'text-amber-600'}`}>
+                                                        {selectedCandidate.culAnalysis.documentoValido ? '✓ Válido' : '⚠️ Revisar'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {selectedCandidate.culAnalysis.observaciones && (
+                                                <div className="bg-white/50 p-2 rounded border border-gray-100 mt-2">
+                                                    <span className="text-gray-500 block mb-0.5">Observaciones:</span>
+                                                    <p className="text-gray-700">{selectedCandidate.culAnalysis.observaciones}</p>
+                                                </div>
+                                            )}
+
+                                            {selectedCandidate.culAnalysis.experienciaLaboral?.length > 0 && (
+                                                <div className="mt-2">
+                                                    <span className="text-gray-500 block mb-1">Experiencia en CUL:</span>
+                                                    <ul className="list-disc pl-4 space-y-0.5 text-gray-700">
+                                                        {selectedCandidate.culAnalysis.experienciaLaboral.slice(0, 3).map((exp: any, i: number) => (
+                                                            <li key={i}>{exp.puesto} en {exp.empresa} ({exp.periodo})</li>
+                                                        ))}
+                                                        {selectedCandidate.culAnalysis.experienciaLaboral.length > 3 && (
+                                                            <li className="italic text-gray-500">...y {selectedCandidate.culAnalysis.experienciaLaboral.length - 3} más</li>
+                                                        )}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* AI Analysis Details */}
                                 {selectedCandidate.aiAnalysis && (
                                     <div className="space-y-4 border-t border-gray-100 pt-4">
-                                        <div>
-                                            <h4 className="text-sm font-bold text-gray-900 border-l-4 border-violet-500 pl-2 mb-2">Resumen AI</h4>
-                                            <p className="text-sm text-gray-700 bg-violet-50 p-3 rounded-lg italic">
-                                                "{selectedCandidate.aiAnalysis.summary_rationale}"
-                                            </p>
+                                        {/* Re-analyze button */}
+                                        <div className="flex justify-between items-center">
+                                            <h4 className="text-sm font-bold text-gray-900 border-l-4 border-violet-500 pl-2">Resumen AI</h4>
+                                            <button
+                                                onClick={() => handleReanalyzeCV(selectedCandidate.id)}
+                                                disabled={reAnalyzing}
+                                                className="px-3 py-1 text-xs bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                {reAnalyzing ? (
+                                                    <>
+                                                        <span className="animate-spin">⏳</span> Analizando...
+                                                    </>
+                                                ) : (
+                                                    <>🔄 Re-analizar CV</>
+                                                )}
+                                            </button>
                                         </div>
+                                        <p className="text-sm text-gray-700 bg-violet-50 p-3 rounded-lg italic">
+                                            "{selectedCandidate.aiAnalysis.summary_rationale}"
+                                        </p>
 
                                         {/* Skill Breakdown */}
                                         {selectedCandidate.aiAnalysis.skill_breakdown && (
@@ -943,6 +1150,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                                             <h4 className="text-xs font-bold text-gray-700 mb-1">💡 Recomendación</h4>
                                             <p className="text-sm font-semibold text-gray-900">{selectedCandidate.aiAnalysis.recomendacion}</p>
                                         </div>
+
                                     </div>
                                 )}
 
@@ -1098,6 +1306,20 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                                         <strong>Match Score:</strong> {pendingHireCandidate.matchScore}%
                                     </p>
                                 )}
+                            </div>
+
+                            {/* Joining Date Input */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Fecha de Ingreso
+                                </label>
+                                <input
+                                    type="date"
+                                    value={joiningDate}
+                                    onChange={(e) => setJoiningDate(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    required
+                                />
                             </div>
 
                             <label className="flex items-center gap-3 p-3 bg-violet-50 rounded-lg cursor-pointer hover:bg-violet-100 transition-colors">

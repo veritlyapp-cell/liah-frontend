@@ -18,7 +18,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing email' }, { status: 400 });
         }
 
-        const companyName = holdingName || marcaNombre || 'la empresa';
+        const companyName = holdingName || marcaNombre || 'LIAH';
 
         // Check if Resend is configured
         if (!process.env.RESEND_API_KEY) {

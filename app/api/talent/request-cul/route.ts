@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
+
+// Get Admin Firestore instance
+const adminDb = getAdminFirestore();
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,20 +14,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No candidates selected' }, { status: 400 });
         }
 
-        // Get holding info for branding
-        let holdingName = 'La Empresa';
+        // Get holding info for branding using Admin SDK
+        let holdingName = 'LIAH';
         let holdingLogo = null;
 
         if (holdingId) {
             try {
-                const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
-                if (holdingDoc.exists()) {
+                const holdingDoc = await adminDb.collection('holdings').doc(holdingId).get();
+                if (holdingDoc.exists) {
                     const data = holdingDoc.data();
-                    holdingName = data.nombre || holdingName;
-                    holdingLogo = data.logoUrl || null;
+                    holdingName = data?.nombre || holdingName;
+                    holdingLogo = data?.logoUrl || null;
+                } else {
+                    // Use holdingId as fallback name
+                    holdingName = holdingId.charAt(0).toUpperCase() + holdingId.slice(1);
                 }
             } catch (err) {
                 console.error('Error fetching holding:', err);
+                holdingName = holdingId.charAt(0).toUpperCase() + holdingId.slice(1);
             }
         }
 
@@ -35,11 +41,11 @@ export async function POST(request: NextRequest) {
 
         for (const appId of applicationIds) {
             try {
-                // Get application data
-                const appDoc = await getDoc(doc(db, 'talent_applications', appId));
-                if (!appDoc.exists()) continue;
+                // Get application data using Admin SDK
+                const appDoc = await adminDb.collection('talent_applications').doc(appId).get();
+                if (!appDoc.exists) continue;
 
-                const appData = appDoc.data();
+                const appData = appDoc.data() as any;
                 const candidateEmail = appData.email;
                 const candidateName = appData.nombre;
 
@@ -49,12 +55,12 @@ export async function POST(request: NextRequest) {
                 expiresAt.setDate(expiresAt.getDate() + 7); // 7 days to upload
 
                 // Update application with CUL request info
-                await updateDoc(doc(db, 'talent_applications', appId), {
-                    culRequestedAt: Timestamp.now(),
+                await adminDb.collection('talent_applications').doc(appId).update({
+                    culRequestedAt: new Date(),
                     culToken,
-                    culTokenExpiresAt: Timestamp.fromDate(expiresAt),
+                    culTokenExpiresAt: expiresAt,
                     culStatus: 'pending', // pending, uploaded, verified, rejected
-                    updatedAt: Timestamp.now()
+                    updatedAt: new Date()
                 });
 
                 // Send email if Resend is configured
@@ -89,7 +95,7 @@ export async function POST(request: NextRequest) {
                                     <div class="info-box">
                                         <strong>¿Qué es el CUL?</strong><br>
                                         El Certificado Único Laboral es un documento gratuito que puedes obtener en la página del Ministerio de Trabajo: 
-                                        <a href="https://www.trabajo.gob.pe/cul/">www.trabajo.gob.pe/cul/</a>
+                                        <a href="https://www.gob.pe/47089-obtener-tu-certificado-unico-laboral-cul">Obtener CUL aquí</a>
                                     </div>
                                     
                                     <p>Por favor haz clic en el siguiente botón para subir tu CUL:</p>

@@ -149,10 +149,10 @@ export async function getRQsForAnalytics(filters: AnalyticsFilters) {
     }
 }
 
-// Get candidates from Firestore with filters
+// Get candidates (applications) from Firestore with filters
 export async function getCandidatesForAnalytics(filters: AnalyticsFilters) {
     try {
-        const candidatesRef = collection(db, 'candidates');
+        const candidatesRef = collection(db, 'talent_applications');
         let q = query(candidatesRef);
         // Filter by date range
         if (filters.dateRange) {
@@ -171,48 +171,33 @@ export async function getCandidatesForAnalytics(filters: AnalyticsFilters) {
             const data = doc.data();
             // Apply brand filter
             if (filters.brandIds?.length) {
-                const hasMatchingApp = data.applications?.some((app: any) =>
-                    filters.brandIds!.includes(app.marcaId)
-                );
-                if (!hasMatchingApp) return;
+                if (!filters.brandIds.includes(data.marcaId || data.holdingId)) return;
             }
 
-            // NEW: Apply category filter for candidates
+            // Apply category filter
             if (filters.category && filters.category !== 'all') {
-                const hasMatchingCategory = data.applications?.some((app: any) =>
-                    app.categoria === filters.category
-                );
-                if (!hasMatchingCategory) return;
+                if (data.categoria !== filters.category) return;
             }
 
-            // Apply position filter for candidates
+            // Apply position filter
             if (filters.positionIds?.length) {
-                const hasMatchingPosition = data.applications?.some((app: any) =>
-                    filters.positionIds!.includes(app.posicionId) || filters.positionIds!.includes(app.posicion)
-                );
-                if (!hasMatchingPosition) return;
+                if (!filters.positionIds.includes(data.jobId) && !filters.positionIds.includes(data.posicion)) return;
             }
 
-            // Apply store filter for candidates
+            // Apply store filter
             if (filters.storeIds?.length) {
-                const hasMatchingStore = data.applications?.some((app: any) =>
-                    filters.storeIds!.includes(app.tiendaId)
-                );
-                if (!hasMatchingStore) return;
+                if (!filters.storeIds.includes(data.tiendaId)) return;
             }
 
-            // Apply district filter for candidates
+            // Apply district filter
             if (filters.districtIds?.length) {
-                const hasMatchingDistrict = data.applications?.some((app: any) =>
-                    filters.districtIds!.includes(app.distrito)
-                );
-                if (!hasMatchingDistrict) return;
+                if (!filters.districtIds.includes(data.distrito)) return;
             }
 
             candidates.push({ id: doc.id, ...data });
         });
 
-        console.log(`Fetched ${candidates.length} candidates for brands:`, filters.brandIds);
+        console.log(`Fetched ${candidates.length} applications from talent_applications for brands:`, filters.brandIds);
         return candidates;
     } catch (error) {
         console.error('Error fetching candidates for analytics:', error);
@@ -335,13 +320,17 @@ export function calculateEfficiencyMetrics(
     candidates: DocumentData[],
     rqs: DocumentData[]
 ): EfficiencyMetrics {
+    // Adapted for talent_applications structure
     const approved = candidates.filter(c =>
         c.culStatus === 'apto' ||
-        c.applications?.some((app: any) => app.status === 'approved')
+        c.status === 'approved' ||
+        c.funnelStage === 'approved'
     ).length;
 
     const hired = candidates.filter(c =>
-        c.applications?.some((app: any) => app.hiredStatus === 'hired')
+        c.hiredStatus === 'hired' ||
+        c.status === 'hired' ||
+        c.funnelStage === 'hired'
     ).length;
 
     // Only count positions from active and filled RQs (exclude cancelled)
@@ -379,32 +368,39 @@ export function calculateFunnel(candidates: DocumentData[]): FunnelStage[] {
     // Screened = passed bot screening (has completed conversation or applications)
     const screened = candidates.filter(c =>
         c.screeningCompleted ||
-        c.applications?.length > 0 ||
-        c.culStatus
+        c.culStatus ||
+        c.botStatus === 'completed'
     ).length;
 
     // Interviewed = had interview scheduled/completed
     const interviewed = candidates.filter(c =>
-        c.applications?.some((app: any) =>
-            app.interviewDate || app.status === 'interviewed' || app.status === 'approved'
-        )
+        c.interviewDate ||
+        c.status === 'interviewed' ||
+        c.funnelStage === 'interviewed' ||
+        ['approved', 'selected', 'hired'].includes(c.funnelStage)
     ).length;
 
     // Approved = marked as apt (Pre-selection by Recruiter)
     const approved = candidates.filter(c =>
         c.culStatus === 'apto' ||
-        c.applications?.some((app: any) => app.status === 'approved')
+        c.status === 'approved' ||
+        c.funnelStage === 'approved' ||
+        ['selected', 'hired'].includes(c.funnelStage)
     ).length;
 
     // Selected = Final selection for the position
     const selected = candidates.filter(c =>
         c.selectionStatus === 'selected' ||
-        c.applications?.some((app: any) => app.status === 'selected')
+        c.status === 'selected' ||
+        c.funnelStage === 'selected' ||
+        ['hired'].includes(c.funnelStage)
     ).length;
 
     // Hired = started working
     const hired = candidates.filter(c =>
-        c.applications?.some((app: any) => app.hiredStatus === 'hired')
+        c.hiredStatus === 'hired' ||
+        c.status === 'hired' ||
+        c.funnelStage === 'hired'
     ).length;
 
     return [
@@ -442,9 +438,10 @@ export function calculateDropoffs(candidates: DocumentData[]): DropoffMetric[] {
         else if (c.culStatus === 'no_apto') {
             counts['screening'] = (counts['screening'] || 0) + 1;
         }
-        // Check for not hired applications
-        else if (c.applications?.some((app: any) => app.hiredStatus === 'not_hired')) {
-            counts['interview'] = (counts['interview'] || 0) + 1;
+        else if (c.funnelStage === 'rejected') {
+            const reason = c.rejectionReason || 'other';
+            // Try to map reason if possible, otherwise 'other'
+            counts['other'] = (counts['other'] || 0) + 1;
         }
     });
 
@@ -477,29 +474,14 @@ export function calculateSources(candidates: DocumentData[]): SourceMetric[] {
     const metrics: Record<string, { applied: number; approved: number; selected: number; hired: number }> = {};
 
     candidates.forEach(c => {
-        // A candidate can have multiple applications with different sources (theoretically)
-        // or a global source/origenConvocatoria
-        const globalSource = c.source || c.origenConvocatoria || 'Otros';
+        const source = c.source || c.origenConvocatoria || 'Otros';
 
-        // If candidate has no applications, count only global source in 'applied'
-        if (!c.applications || c.applications.length === 0) {
-            const src = globalSource;
-            if (!metrics[src]) metrics[src] = { applied: 0, approved: 0, selected: 0, hired: 0 };
-            metrics[src].applied++;
-            return;
-        }
+        if (!metrics[source]) metrics[source] = { applied: 0, approved: 0, selected: 0, hired: 0 };
+        metrics[source].applied++;
 
-        // Count per application to get stage-aware metrics
-        c.applications.forEach((app: any) => {
-            const appSource = app.source || app.origenConvocatoria || globalSource;
-            if (!metrics[appSource]) metrics[appSource] = { applied: 0, approved: 0, selected: 0, hired: 0 };
-
-            metrics[appSource].applied++;
-
-            if (app.status === 'approved') metrics[appSource].approved++;
-            if (app.status === 'selected') metrics[appSource].selected++;
-            if (app.hiredStatus === 'hired') metrics[appSource].hired++;
-        });
+        if (c.status === 'approved' || c.funnelStage === 'approved' || ['selected', 'hired'].includes(c.funnelStage)) metrics[source].approved++;
+        if (c.status === 'selected' || c.funnelStage === 'selected' || ['hired'].includes(c.funnelStage)) metrics[source].selected++;
+        if (c.hiredStatus === 'hired' || c.status === 'hired') metrics[source].hired++;
     });
 
     const totalApplied = Object.values(metrics).reduce((sum, m) => sum + m.applied, 0);

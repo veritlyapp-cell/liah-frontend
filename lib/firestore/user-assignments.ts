@@ -4,6 +4,7 @@ import { collection, doc, getDoc, query, where, getDocs, Timestamp } from 'fireb
 export type UserRole =
     | 'super_admin'
     | 'client_admin'
+    | 'compensaciones'
     | 'supervisor'
     | 'jefe_marca'
     | 'recruiter'

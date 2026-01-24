@@ -81,15 +81,16 @@ const USERS = [
     },
 
     // Store Manager Papa Johns San Isidro
-    {
-        email: 'manager.sanisidro@papajohns.pe',
-        password: 'Manager2024!',
-        displayName: 'Manager San Isidro',
-        role: 'store_manager',
-        tenant_id: 'ngr_holding',
-        entity_id: 'entity_papajohns',
-        authorized_stores: ['store_pj_sanisidro']
-    }
+    authorized_stores: ['store_pj_sanisidro']
+    },
+{
+    email: 'compensaciones@ngr.pe',
+        password: 'Compensaciones2024!',
+            displayName: 'Compensaciones NGR',
+                role: 'compensaciones',
+                    tenant_id: 'ngr_holding',
+                        authorized_entities: ['*']
+}
 ];
 
 // ============================================

@@ -348,7 +348,10 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Crear Requerimiento</h2>
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            Crear Requerimiento
+                            <span className="text-[10px] bg-violet-100 text-violet-600 px-2 py-0.5 rounded animate-pulse border border-violet-200 font-mono">v22:55</span>
+                        </h2>
                         <p className="text-sm text-gray-500">Paso {step} de 2</p>
                     </div>
                     <button

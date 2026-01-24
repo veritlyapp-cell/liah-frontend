@@ -1,13 +1,7 @@
 const nextConfig = {
-    eslint: {
-        ignoreDuringBuilds: true,
-    },
+    // Standard Next.js config
     typescript: {
         ignoreBuildErrors: true,
-    },
-    // Force webpack for stability (avoid Turbopack issues)
-    experimental: {
-        webpackBuildWorker: true,
     },
 };
 module.exports = nextConfig;

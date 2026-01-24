@@ -96,38 +96,72 @@ export function getTalentModelLite(): GenerativeModel {
 
 export const TALENT_PROMPTS = {
     CV_MATCHING: `
-Eres un experto reclutador senior con 20 años de experiencia evaluando candidatos corporativos.
+Eres un experto reclutador senior con 20 años de experiencia. Tu tarea es evaluar candidatos usando ANÁLISIS SEMÁNTICO, no comparación literal.
 
-## TU TAREA
-Analizar la compatibilidad entre un CV y un Job Description (JD), considerando también las respuestas del candidato a las preguntas filtro.
+## METODOLOGÍA DE EVALUACIÓN EN 3 PASOS
+
+### PASO 1: Perfilado del Puesto
+Analiza el requerimiento e identifica:
+- Certificaciones/Licencias requeridas (ej. Brevete, SCRUM)
+- Habilidades Técnicas (ej. Ventas, React.js)
+- Experiencia Mínima (años)
+- KPIs/Resultados esperados
+
+### PASO 2: Extracción del CV
+Extrae del CV del candidato:
+- Experiencia laboral y años acumulados
+- Habilidades mencionadas
+- Logros cuantificables (números, porcentajes, premios)
+- Formación académica
+
+### PASO 3: Cruce Semántico
+Compara usando estas REGLAS CRÍTICAS:
+
+1. **ANÁLISIS SEMÁNTICO, NO LITERAL:**
+   - Si el puesto pide "Prospección" y el CV dice "Búsqueda de clientes nuevos" → es MATCH 100%
+   - Si el puesto pide "Atención al cliente" y el CV dice "Servicio al consumidor" → es MATCH 100%
+   - Considera sinónimos, paráfrasis y conceptos equivalentes
+
+2. **NORMALIZACIÓN DE SUELDO:**
+   - Si el candidato pide más sueldo del presupuestado, informa la diferencia
+   - PERO no reduzcas el score técnico por esto
+   - El score refleja CAPACIDAD, no costo
+
+3. **DETECCIÓN DE LOGROS:**
+   - Si hay evidencia de éxito (números, %, premios) → +10% adicional al score
+   - Ejemplos: "Aumenté ventas 30%", "Gané empleado del mes", "Lideré equipo de 5 personas"
+
+4. **TOLERANCIA DE EXPERIENCIA:**
+   - Si la experiencia está dentro del 80% del requisito → no penalices
+   - Si piden 2 años y tiene 1.5 años → aceptable
 
 ## INPUT
 ### Job Description (Perfil del Puesto):
 {JD_CONTENT}
 
-### CV del Candidato (o datos extraídos):
+### CV del Candidato:
 {CV_CONTENT}
 
 ### Respuestas a Killer Questions:
 {KILLER_RESPUESTAS}
 
-## REGLAS DE EVALUACIÓN:
-1. Analiza experiencia, habilidades y formación frente a los requisitos.
-2. Si el candidato FALLA en un requisito obligatorio (ej: no tiene licencia requerida, no cumple disponibilidad), el matchScore debe ser < 30%.
-3. Sé objetivo y basa tu análisis en evidencia.
-
 ## OUTPUT (JSON estricto)
 {
   "matchScore": <número 0-100>,
   "summary_rationale": "<resumen ejecutivo de 2-3 oraciones>",
-  "puntosFuertes": ["Fortaleza 1", "Fortaleza 2"],
-  "puntosDebiles": ["Gap 1", "Gap 2"],
+  "puntosFuertes": ["Fortaleza 1", "Fortaleza 2", ...],
+  "puntosDebiles": ["Gap 1 o 'Ninguno significativo'"],
   "recomendacion": "Entrevistar / En espera / Descartar",
+  "analisis_semantico": {
+    "matches_encontrados": ["habilidad_cv → requisito_puesto"],
+    "logros_detectados": ["logro1", "logro2"],
+    "bonus_aplicado": <true/false>
+  },
   "skill_breakdown": {
     "technical": {
       "score": <0-100>,
       "matched": ["skill1", "skill2"],
-      "missing": ["skill3"]
+      "missing": ["skill3 o 'Ninguno crítico'"]
     },
     "experience": {
       "score": <0-100>,
@@ -139,57 +173,49 @@ Analizar la compatibilidad entre un CV y un Job Description (JD), considerando t
 `,
 
     JD_GENERATION: `
-Genera una publicación de empleo profesional y atractiva para la siguiente posición.
+Genera una publicación de empleo profesional, limpia y atractiva.
 
-## REGLAS IMPORTANTES:
-1. NO uses introducciones como "Como experto...", "Aquí está el JD...", etc.
-2. Empieza DIRECTAMENTE con el contenido de la publicación
-3. El primer párrafo debe empezar con: "En {HOLDING_NAME} estamos en búsqueda de..."
-4. Usa el nombre de la empresa real, no genérico
-5. Tono: {TONO}
-6. Slogan: {SLOGAN}
-7. Instrucciones adicionales: {INSTRUCCIONES_IA}
+## REGLAS DE FORMATO CRÍTICAS:
+1. NO uses asteriscos (**) ni ningún formato markdown
+2. NO uses introducciones como "Como experto...", "Aquí está el JD..."
+3. Empieza DIRECTAMENTE con el contenido de la publicación
+4. El primer párrafo debe empezar con: "En {HOLDING_NAME} estamos en búsqueda de..."
+5. Usa texto plano y limpio, fácil de copiar y pegar
+6. Tono: {TONO}
+7. Slogan: {SLOGAN}
+8. Instrucciones adicionales: {INSTRUCCIONES_IA}
 
 ## INPUT
-### Empresa:
-{HOLDING_NAME}
+Empresa: {HOLDING_NAME}
+Título del Puesto: {TITULO}
+Perfil/Requisitos Base: {DESCRIPCION_BASE}
+Beneficios Estándar: {BENEFICIOS_ESTANDAR}
+JDs de Referencia: {JDS_SIMILARES}
 
-### Título del Puesto:
-{TITULO}
+## OUTPUT (FORMATO LIMPIO SIN ASTERISCOS)
 
-### Perfil/Requisitos Base:
-{DESCRIPCION_BASE}
+En {HOLDING_NAME} estamos en búsqueda de... [resumen atractivo de 2-3 líneas]
 
-### Beneficios Estándar:
-{BENEFICIOS_ESTANDAR}
+¿Qué harás?
+- [Responsabilidad 1]
+- [Responsabilidad 2]
+- [5-8 puntos en total]
 
-### JDs de Referencia (opcional):
-{JDS_SIMILARES}
+¿Qué buscamos?
+- [Requisito 1]
+- [Requisito 2]
+- [4-6 puntos]
 
-## OUTPUT (FORMATO EXACTO)
-Genera el texto de la publicación con estas secciones:
+Deseable:
+- [Requisito deseable 1]
+- [3-4 puntos]
 
-**Resumen del puesto** (2-3 líneas que enganchen al candidato)
+¿Qué ofrecemos?
+- [Beneficio 1]
+- [Beneficio 2]
+- [4-6 puntos, incluye los beneficios estándar]
 
-**¿Qué harás?**
-• [Responsabilidad 1]
-• [Responsabilidad 2]
-• [5-8 bullets en total]
-
-**¿Qué buscamos?**
-• [Requisito obligatorio 1]
-• [Requisito obligatorio 2]
-• [4-6 bullets]
-
-**Deseable:**
-• [Requisito deseable 1]
-• [3-4 bullets]
-
-**¿Qué ofrecemos?**
-• [Beneficio 1]
-• [4-6 bullets, incluye los beneficios estándar si son relevantes]
-
-IMPORTANTE: Genera SOLO el contenido de la publicación, sin comentarios adicionales.
+RECUERDA: NO uses ** ni otros símbolos de formato. Solo texto limpio con guiones (-) para listas.
 `,
 
     CANDIDATE_SUMMARY: `

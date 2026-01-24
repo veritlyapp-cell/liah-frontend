@@ -53,6 +53,7 @@ const CAPACIDADES = [
     { id: 'recruiter', label: 'Recruiter', icon: '🔍', description: 'Publica vacantes + gestiona candidatos' },
     { id: 'hiring_manager', label: 'Hiring Manager', icon: '📝', description: 'Crea RQs + revisa candidatos de su área' },
     { id: 'approver', label: 'Aprobador', icon: '✅', description: 'Aprueba RQs según nivel jerárquico' },
+    { id: 'compensaciones', label: 'Compensaciones', icon: '💰', description: 'Gestión de Altas, Bajas y SUNAT' },
 ];
 
 export default function TalentUsers({ holdingId }: TalentUsersProps) {

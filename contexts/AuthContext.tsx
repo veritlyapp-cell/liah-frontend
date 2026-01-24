@@ -12,7 +12,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface UserClaims {
-    role?: 'super_admin' | 'client_admin' | 'admin' | 'gerente' | 'jefe_marca' | 'supervisor' | 'brand_recruiter' | 'recruiter' | 'store_manager' | 'lider_reclutamiento' | 'hiring_manager' | 'approver';
+    role?: 'super_admin' | 'client_admin' | 'admin' | 'gerente' | 'jefe_marca' | 'supervisor' | 'brand_recruiter' | 'recruiter' | 'store_manager' | 'lider_reclutamiento' | 'hiring_manager' | 'approver' | 'compensaciones';
     tenant_id?: string | null;
     holdingId?: string | null;
     marcaId?: string | null;
@@ -110,6 +110,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             }
 
+            // Finally, try legacy users collection
+            const usersRef = collection(db, 'users');
+            const userQ = query(usersRef, where('email', '==', userEmail || ''));
+            const userSnap = await getDocs(userQ);
+            if (!userSnap.empty) {
+                const userData = userSnap.docs[0].data();
+                if (userData.activo !== false && userData.active !== false) {
+                    console.log('✅ Found legacy user in users collection:', userEmail);
+                    return {
+                        role: userData.role as any,
+                        tenant_id: userData.tenant_id || userData.holdingId || null,
+                        holdingId: userData.tenant_id || userData.holdingId || null,
+                        marcaId: userData.marcaId || null,
+                        storeId: userData.storeId || null,
+                        authorized_entities: userData.authorized_entities || null,
+                        entity_id: userData.entity_id || null,
+                        authorized_stores: userData.authorized_stores || null
+                    };
+                }
+            }
+
             console.log('⚠️ No user found in userAssignments or talent_users');
             return null;
         } catch (error) {
@@ -181,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 case 'client_admin':
                 case 'admin':
                 case 'gerente':
-                    router.push('/admin');
+                    router.push('/launcher');
                     break;
                 case 'jefe_marca':
                     router.push('/jefe-marca');
@@ -201,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 case 'lider_reclutamiento':
                 case 'hiring_manager':
                 case 'approver':
+                case 'compensaciones':
                     router.push('/talent');
                     break;
                 default:

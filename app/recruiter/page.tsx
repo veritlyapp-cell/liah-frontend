@@ -259,13 +259,12 @@ export default function RecruiterDashboard() {
                 </div>
             </div>
 
-            {/* Tab Content */}
-
-            {/* Multi-Brand Selector */}
-            {
-                marcas.length > 1 && (
-                    <div className="bg-white border-b border-gray-200">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            {/* Content Container */}
+            <main className="container-main py-20 space-y-12">
+                {/* Multi-Brand Selector */}
+                {
+                    marcas.length > 1 && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <label className="text-sm font-medium text-gray-700">
                                     🏪 Filtrar por Marca:
@@ -290,126 +289,123 @@ export default function RecruiterDashboard() {
                                 )}
                             </div>
                         </div>
-                    </div>
-                )
-            }
+                    )
+                }
 
-            {
-                activeTab === 'candidatos' && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                        <div className="grid grid-cols-4 gap-4 mb-6">
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                <p className="text-sm text-gray-600">Total Candidatos</p>
-                                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                {
+                    activeTab === 'candidatos' && (
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                    <p className="text-sm text-gray-600">Total Candidatos</p>
+                                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                                </div>
+                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                    <p className="text-sm text-gray-600">Aprobados por SM</p>
+                                    <p className="text-3xl font-bold text-blue-600">{stats.approved}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Esperando evaluación CUL</p>
+                                </div>
+                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                    <p className="text-sm text-gray-600">CUL Aptos</p>
+                                    <p className="text-3xl font-bold text-green-600">{stats.culAptos}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Listos para ingresar</p>
+                                </div>
+                                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                                    <p className="text-sm text-gray-600">CUL No Aptos</p>
+                                    <p className="text-3xl font-bold text-red-600">{stats.culNoAptos}</p>
+                                    <p className="text-xs text-gray-500 mt-1">No pueden ingresar</p>
+                                </div>
+                                <div className="bg-white rounded-lg border border-emerald-200 p-4 shadow-sm">
+                                    <p className="text-sm text-emerald-700 font-medium">🎯 Seleccionados</p>
+                                    <p className="text-3xl font-bold text-emerald-600">{stats.selected}</p>
+                                    <p className="text-xs text-emerald-600 mt-1">Listos para exportar</p>
+                                </div>
                             </div>
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                <p className="text-sm text-gray-600">Aprobados por SM</p>
-                                <p className="text-3xl font-bold text-blue-600">{stats.approved}</p>
-                                <p className="text-xs text-gray-500 mt-1">Esperando evaluación CUL</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                <p className="text-sm text-gray-600">CUL Aptos</p>
-                                <p className="text-3xl font-bold text-green-600">{stats.culAptos}</p>
-                                <p className="text-xs text-gray-500 mt-1">Listos para ingresar</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                <p className="text-sm text-gray-600">CUL No Aptos</p>
-                                <p className="text-3xl font-bold text-red-600">{stats.culNoAptos}</p>
-                                <p className="text-xs text-gray-500 mt-1">No pueden ingresar</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-emerald-200 p-4 shadow-sm">
-                                <p className="text-sm text-emerald-700 font-medium">🎯 Seleccionados</p>
-                                <p className="text-3xl font-bold text-emerald-600">{stats.selected}</p>
-                                <p className="text-xs text-emerald-600 mt-1">Listos para exportar</p>
-                            </div>
-                        </div>
 
-                        {/* Hiring Stats Row - Reordenado: Pendiente → Ingreso → No Ingreso */}
-                        <div className="grid grid-cols-3 gap-4 mb-6">
-                            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 p-4">
-                                <p className="text-sm text-yellow-700 font-medium">⏳ Pendientes Ingreso</p>
-                                <p className="text-3xl font-bold text-yellow-900">{stats.pendingHire}</p>
-                                <p className="text-xs text-yellow-600 mt-1">Aptos esperando confirmación</p>
+                            {/* Hiring Stats Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 p-4">
+                                    <p className="text-sm text-yellow-700 font-medium">⏳ Pendientes Ingreso</p>
+                                    <p className="text-3xl font-bold text-yellow-900">{stats.pendingHire}</p>
+                                    <p className="text-xs text-yellow-600 mt-1">Aptos esperando confirmación</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-4">
+                                    <p className="text-sm text-green-700 font-medium">✅ Ingresaron</p>
+                                    <p className="text-3xl font-bold text-green-900">{stats.hired}</p>
+                                    <p className="text-xs text-green-600 mt-1">Confirmado por SM</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 p-4">
+                                    <p className="text-sm text-gray-700 font-medium">❌ No Ingresaron</p>
+                                    <p className="text-3xl font-bold text-gray-900">{stats.notHired}</p>
+                                    <p className="text-xs text-gray-600 mt-1">Desistieron o rechazados</p>
+                                </div>
                             </div>
-                            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-4">
-                                <p className="text-sm text-green-700 font-medium">✅ Ingresaron</p>
-                                <p className="text-3xl font-bold text-green-900">{stats.hired}</p>
-                                <p className="text-xs text-green-600 mt-1">Confirmado por SM</p>
-                            </div>
-                            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 p-4">
-                                <p className="text-sm text-gray-700 font-medium">❌ No Ingresaron</p>
-                                <p className="text-3xl font-bold text-gray-900">{stats.notHired}</p>
-                                <p className="text-xs text-gray-600 mt-1">Desistieron o rechazados</p>
-                            </div>
-                        </div>
 
-
-                        {/* Main Content */}
-                        <div className="flex gap-6">
-                            {/* Filtros Sidebar */}
-                            <FiltersSidebar
-                                stores={stores}
-                                positions={positions}
-                                selectedStores={selectedStores}
-                                setSelectedStores={setSelectedStores}
-                                selectedPosition={selectedPosition}
-                                setSelectedPosition={setSelectedPosition}
-                                selectedCULStatus={selectedCULStatus}
-                                setSelectedCULStatus={setSelectedCULStatus}
-                                onClearFilters={clearFilters}
-                            />
-
-                            {/* Candidates List */}
-                            <div className="flex-1">
-                                <RecruiterCandidatesView
-                                    candidates={filteredCandidates}
-                                    onRefresh={loadData}
+                            {/* Main Content */}
+                            <div className="flex gap-6">
+                                {/* Filtros Sidebar */}
+                                <FiltersSidebar
+                                    stores={stores}
+                                    positions={positions}
+                                    selectedStores={selectedStores}
+                                    setSelectedStores={setSelectedStores}
+                                    selectedPosition={selectedPosition}
+                                    setSelectedPosition={setSelectedPosition}
+                                    selectedCULStatus={selectedCULStatus}
+                                    setSelectedCULStatus={setSelectedCULStatus}
+                                    onClearFilters={clearFilters}
                                 />
+
+                                {/* Candidates List */}
+                                <div className="flex-1">
+                                    <RecruiterCandidatesView
+                                        candidates={filteredCandidates}
+                                        onRefresh={loadData}
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )
-            }
+                    )
+                }
 
-            {
-                activeTab === 'requerimientos' && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                        <RQTrackingView
-                            holdingId=""
-                            marcas={marcas}
-                        />
-                    </div>
-                )
-            }
+                {
+                    activeTab === 'requerimientos' && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                            <RQTrackingView
+                                holdingId=""
+                                marcas={marcas}
+                            />
+                        </div>
+                    )
+                }
 
-            {
-                activeTab === 'analitica' && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+                {
+                    activeTab === 'analitica' && (
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
                             <div className="text-6xl mb-4">📊</div>
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Dashboard de Analítica</h2>
-                            <p className="text-gray-600 mb-6">
-                                Visualiza métricas de reclutamiento, funnel de candidatos y tendencias.
+                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                                Visualiza métricas de reclutamiento, funnel de candidatos y tendencias operativas.
                             </p>
                             <a
                                 href="/analytics"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95"
                             >
                                 Abrir Dashboard Completo →
                             </a>
                         </div>
-                    </div>
-                )
-            }
+                    )
+                }
 
-            {
-                activeTab === 'configuracion' && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-                        {holdingId && <EmailTemplatesConfig holdingId={holdingId} />}
-                        <ConfigurationView />
-                    </div>
-                )
-            }
-        </div >
+                {
+                    activeTab === 'configuracion' && (
+                        <div className="space-y-8">
+                            {holdingId && <EmailTemplatesConfig holdingId={holdingId} />}
+                            <ConfigurationView />
+                        </div>
+                    )
+                }
+            </main>
+        </div>
     );
 }
