@@ -27,12 +27,8 @@ export default function LauncherPage() {
         );
     }
 
-    // TODO: Fetch actual permissions from user profile
-    // For now, show both products
+    // ProductLauncher handles permissions internally based on role and holding config
     return (
-        <ProductLauncher
-            accessFlow={true}
-            accessTalent={true}
-        />
+        <ProductLauncher />
     );
 }

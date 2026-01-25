@@ -35,8 +35,9 @@ interface AnalyticsFilters {
     positionIds?: string[];
     storeIds?: string[];
     districtIds?: string[];
+    zoneId?: string;
     holdingId?: string;
-    category?: 'operativo' | 'gerencial' | 'all'; // NEW
+    category?: 'operativo' | 'gerencial' | 'all';
 }
 
 // Get RQs from Firestore with filters
@@ -127,8 +128,12 @@ export async function getRQsForAnalytics(filters: AnalyticsFilters) {
                 return;
             }
 
-            // Apply district filter
-            if (filters.districtIds?.length && !filters.districtIds.includes(data.distrito)) {
+            // Apply district/zone filter
+            const targetDistricts = filters.districtIds?.length ? filters.districtIds : [];
+
+            // Note: Zone-based district resolution should happen before calling this
+            // or we check it here if districtIds is empty but zoneId is present
+            if (targetDistricts.length && !targetDistricts.includes(data.distrito)) {
                 return;
             }
 
@@ -579,20 +584,35 @@ export async function getTopStores(rqs: DocumentData[], limit: number = 5): Prom
 
 // Main function to load all analytics data
 export async function loadAnalyticsData(filters: AnalyticsFilters): Promise<AnalyticsDashboardData> {
+    // Resolve zone to districts if zoneId is present
+    let effectiveFilters = { ...filters };
+    if (filters.zoneId && (!filters.districtIds || filters.districtIds.length === 0)) {
+        try {
+            const { doc, getDoc } = await import('firebase/firestore');
+            const zoneDoc = await getDoc(doc(db, 'zones', filters.zoneId));
+            if (zoneDoc.exists()) {
+                effectiveFilters.districtIds = zoneDoc.data().distritos || [];
+                console.log(`📍 Resolved Zone ${filters.zoneId} to districts:`, effectiveFilters.districtIds);
+            }
+        } catch (e) {
+            console.error('Error resolving zone:', e);
+        }
+    }
+
     const [rqs, candidates] = await Promise.all([
-        getRQsForAnalytics(filters),
-        getCandidatesForAnalytics(filters)
+        getRQsForAnalytics(effectiveFilters),
+        getCandidatesForAnalytics(effectiveFilters)
     ]);
 
     const topStores = await getTopStores(rqs);
 
     return {
         filters: {
-            dateRange: { ...filters.dateRange, label: 'custom' },
-            brandIds: filters.brandIds || [],
-            positionIds: filters.positionIds || [],
-            storeIds: filters.storeIds || [],
-            districtIds: filters.districtIds || [],
+            dateRange: effectiveFilters.dateRange ? { ...effectiveFilters.dateRange, label: 'custom' } : { start: new Date(), end: new Date(), label: 'custom' },
+            brandIds: effectiveFilters.brandIds || [],
+            positionIds: effectiveFilters.positionIds || [],
+            storeIds: effectiveFilters.storeIds || [],
+            districtIds: effectiveFilters.districtIds || [],
             rqStatus: []
         },
         volume: calculateVolumeMetrics(rqs),
@@ -603,6 +623,6 @@ export async function loadAnalyticsData(filters: AnalyticsFilters): Promise<Anal
         demographics: calculateDemographics(candidates),
         timeSeries: [],
         topStores,
-        difficultPositions: [] // Could be calculated similarly
+        difficultPositions: []
     };
 }

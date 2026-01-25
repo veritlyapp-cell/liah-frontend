@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface FiltersBarProps {
     brands: { id: string; name: string }[];
@@ -12,6 +12,7 @@ interface FiltersBarProps {
     // For role-based filtering
     userRole?: string;
     userBrandIds?: string[];
+    holdingId?: string;
 }
 
 export interface FilterValues {
@@ -22,7 +23,8 @@ export interface FilterValues {
     positionIds: string[];
     storeIds: string[];
     districtIds: string[];
-    category?: 'operativo' | 'gerencial' | 'all'; // NEW
+    zoneId?: string;
+    category?: 'operativo' | 'gerencial' | 'all';
 }
 
 export default function FiltersBar({
@@ -33,8 +35,10 @@ export default function FiltersBar({
     onFilterChange,
     initialFilters,
     userRole,
-    userBrandIds = []
+    userBrandIds = [],
+    holdingId
 }: FiltersBarProps) {
+    const [zones, setZones] = useState<{ id: string; nombre: string }[]>([]);
     const [filters, setFilters] = useState<FilterValues>(initialFilters || {
         dateRange: 'month',
         customStartDate: '',
@@ -43,8 +47,21 @@ export default function FiltersBar({
         positionIds: [],
         storeIds: [],
         districtIds: [],
+        zoneId: '',
         category: 'all'
     });
+
+    useEffect(() => {
+        if (holdingId) {
+            import('firebase/firestore').then(({ collection, query, where, getDocs }) => {
+                const { db } = require('@/lib/firebase');
+                getDocs(query(collection(db, 'zones'), where('holdingId', '==', holdingId)))
+                    .then(snap => {
+                        setZones(snap.docs.map(d => ({ id: d.id, nombre: d.data().nombre })));
+                    });
+            });
+        }
+    }, [holdingId]);
 
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showCustomDate, setShowCustomDate] = useState(false);
@@ -146,6 +163,21 @@ export default function FiltersBar({
                         </select>
                     </div>
                 )}
+
+                {/* Zone Filter */}
+                <div className="flex items-center gap-3">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Zona</label>
+                    <select
+                        value={filters.zoneId || ''}
+                        onChange={(e) => handleChange('zoneId', e.target.value)}
+                        className="px-4 py-2 bg-gray-50 border-none rounded-xl text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-violet-500 cursor-pointer"
+                    >
+                        <option value="">Todas</option>
+                        {zones.map(z => (
+                            <option key={z.id} value={z.id}>{z.nombre}</option>
+                        ))}
+                    </select>
+                </div>
 
                 {/* Position Filter */}
                 <div className="flex items-center gap-3">

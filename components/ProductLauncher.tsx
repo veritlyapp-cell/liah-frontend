@@ -96,10 +96,9 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                     const holdingData = holdingDoc.data();
                     const config = holdingData.config || {};
 
-                    // Read product access from holding config
-                    // Default: hasLiahFlow = true, hasLiahTalent = false (for backward compatibility)
-                    const flowAccess = config.hasLiahFlow !== false;
-                    const talentAccess = config.hasLiahTalent === true;
+                    // Read product access - check both top-level and config object
+                    const flowAccess = holdingData.hasLiahFlow !== false && config.hasLiahFlow !== false;
+                    const talentAccess = holdingData.hasLiahTalent === true || config.hasLiahTalent === true;
 
                     setHasFlow(flowAccess);
                     setHasTalent(talentAccess);
@@ -109,6 +108,19 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                         hasLiahFlow: flowAccess,
                         hasLiahTalent: talentAccess
                     });
+
+                    // Immediate redirect check if only one product is available
+                    // We determine availability here to avoid waiting for another useEffect cycle
+                    const products = [
+                        { id: 'flow', path: '/admin', enabled: flowAccess && !['recruiter', 'brand_recruiter'].includes(claims?.role || '') },
+                        { id: 'talent', path: '/talent', enabled: talentAccess }
+                    ];
+                    const enabled = products.filter(p => p.enabled);
+                    if (enabled.length === 1) {
+                        console.log('🚀 Launcher: Only one product enabled, redirecting to:', enabled[0].path);
+                        router.push(enabled[0].path);
+                        return; // Stop loading, we are redirecting
+                    }
                 } else {
                     // Holding not found, default to Flow only
                     console.warn('⚠️ Holding document not found:', foundHoldingId);
@@ -136,8 +148,8 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
             description: 'Reclutamiento Masivo',
             icon: '🚀',
             color: 'from-orange-500 to-red-500',
-            path: '/admin',  // Fixed: was /dashboard which doesn't exist
-            enabled: hasFlow
+            path: '/admin',
+            enabled: hasFlow && (!['recruiter', 'brand_recruiter'].includes(claims?.role || '') || !hasTalent)
         },
         {
             id: 'talent',

@@ -38,7 +38,11 @@ export const sendWhatsAppMessage = async (to: string, text: string) => {
         const data = await response.json();
 
         if (!response.ok) {
-            Logger.error('❌ Error sending WhatsApp message:', data);
+            const debugHeader = response.headers.get('x-fb-debug');
+            Logger.error('❌ Error sending WhatsApp message:', {
+                ...data,
+                debug: debugHeader
+            });
             throw new Error(data.error?.message || 'Failed to send WhatsApp message');
         }
 

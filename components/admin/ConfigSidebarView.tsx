@@ -6,12 +6,13 @@ import HoldingLogoUpload from './HoldingLogoUpload';
 import AlertsConfigView from './AlertsConfigView';
 import DocumentsConfigView from './DocumentsConfigView';
 import ConfigurationView from '../ConfigurationView';
+import ZoneManagement from './ZoneManagement';
 
 interface ConfigSidebarViewProps {
     holdingId: string;
 }
 
-type ConfigSection = 'identidad' | 'permisos' | 'alertas' | 'documentos' | 'cuenta';
+type ConfigSection = 'identidad' | 'permisos' | 'zonas' | 'alertas' | 'documentos' | 'cuenta';
 
 export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps) {
     const [activeSection, setActiveSection] = useState<ConfigSection>('identidad');
@@ -19,6 +20,7 @@ export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps)
     const sections = [
         { id: 'identidad', label: '🎨 Identidad Visual', desc: 'Logo y marca corporativa' },
         { id: 'permisos', label: '🔐 Matriz de Roles', desc: 'Control de accesos y permisos' },
+        { id: 'zonas', label: '📍 Gestión de Zonas', desc: 'Agrupación de distritos regionales' },
         { id: 'alertas', label: '🔔 Centro de Alertas', desc: 'Canales y reglas de notificación' },
         { id: 'documentos', label: '📁 Documentación', desc: 'Requisitos y archivos' },
         { id: 'cuenta', label: '👤 Mi Cuenta', desc: 'Seguridad y perfil personal' },
@@ -38,8 +40,8 @@ export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps)
                         key={section.id}
                         onClick={() => setActiveSection(section.id as ConfigSection)}
                         className={`w-full text-left px-4 py-4 rounded-2xl transition-all duration-300 group ${activeSection === section.id
-                                ? 'bg-white shadow-xl border-l-4 border-violet-600 scale-[1.02]'
-                                : 'hover:bg-white/50 text-gray-500'
+                            ? 'bg-white shadow-xl border-l-4 border-violet-600 scale-[1.02]'
+                            : 'hover:bg-white/50 text-gray-500'
                             }`}
                     >
                         <p className={`font-bold text-sm ${activeSection === section.id ? 'text-violet-700' : 'text-gray-700'}`}>
@@ -69,6 +71,16 @@ export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps)
                             <p className="text-sm text-gray-500">Define qué puede ver y hacer cada rol dentro de tu organización.</p>
                         </div>
                         <RoleMatrixConfig holdingId={holdingId} />
+                    </div>
+                )}
+
+                {activeSection === 'zonas' && (
+                    <div className="space-y-6">
+                        <div className="pb-4 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-900">Ubicaciones y Zonas</h3>
+                            <p className="text-sm text-gray-500">Define grupos regionales de distritos para filtrar tus métricas.</p>
+                        </div>
+                        <ZoneManagement holdingId={holdingId} />
                     </div>
                 )}
 

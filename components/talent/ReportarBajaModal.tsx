@@ -19,14 +19,24 @@ interface ReportarBajaModalProps {
 }
 
 export default function ReportarBajaModal({ isOpen, onClose, holdingId, colaborador }: ReportarBajaModalProps) {
+    const isManual = colaborador?.id === 'manual';
+
+    const [nombreManual, setNombreManual] = useState(colaborador?.nombreCompleto || '');
+    const [dniManual, setDniManual] = useState(colaborador?.numeroDocumento || '');
     const [motivo, setMotivo] = useState('01'); // Renuncia
     const [fechaCese, setFechaCese] = useState(new Date().toISOString().split('T')[0]);
     const [fechaIngresoManual, setFechaIngresoManual] = useState('');
     const [noSabeFechaIngreso, setNoSabeFechaIngreso] = useState(false);
+    const [noSabeDNI, setNoSabeDNI] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [cartaFile, setCartaFile] = useState<File | null>(null);
 
     if (!isOpen || !colaborador) return null;
+
+    const filteredReasons = MOTIVOS_BAJA_SUNAT.filter(m => ['01', '09', '11'].includes(m.code)).map(m => {
+        if (m.code === '11') return { ...m, label: 'Ausencia / Abandono' };
+        if (m.code === '09') return { ...m, label: 'No renovación de contrato' };
+        return m;
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,49 +55,54 @@ export default function ReportarBajaModal({ isOpen, onClose, holdingId, colabora
                 permanenciaDias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
             }
 
+            // Determine status based on missing data
+            const missingData = noSabeDNI || noSabeFechaIngreso || (isManual && !dniManual && !noSabeDNI);
+
             // Create Baja record
             const docRef = await addDoc(collection(db, 'bajas_colaboradores'), {
                 holdingId,
                 colaboradorId: colaborador.id,
-                nombreCompleto: colaborador.nombreCompleto,
-                numeroDocumento: colaborador.numeroDocumento,
+                nombreCompleto: isManual ? nombreManual : colaborador.nombreCompleto,
+                numeroDocumento: isManual ? (noSabeDNI ? 'DESCONOCIDO' : dniManual) : colaborador.numeroDocumento,
                 tipoDocumento: colaborador.tipoDocumento,
                 fechaIngreso: fechaIngresoFinal || null,
                 fechaCese,
                 permanenciaDias,
                 noSabeFechaIngreso,
+                noSabeDNI,
                 motivoBaja: motivo,
-                motivoLabel: MOTIVOS_BAJA_SUNAT.find(m => m.code === motivo)?.label || 'Otro',
+                motivoLabel: filteredReasons.find(m => m.code === motivo)?.label || 'Otro',
                 createdAt: Timestamp.now(),
-                status: noSabeFechaIngreso ? 'pendiente_data' : 'procesado',
-                isLiahCandidate: !!colaborador.fechaIngreso // Si tiene fechaIngreso previa, asumimos que vino de Liah
+                status: missingData ? 'pendiente_data' : 'procesado',
+                isLiahCandidate: !!colaborador.fechaIngreso && !isManual
             });
 
             // 🔍 Intento de buscar email para encuesta de salida
             try {
-                // Buscamos en nuevos_colaboradores para obtener el email personal
-                const colabQuery = query(
-                    collection(db, 'nuevos_colaboradores'),
-                    where('numeroDocumento', '==', colaborador.numeroDocumento)
-                );
-                const colabSnap = await getDocs(colabQuery);
+                const numDoc = isManual ? (noSabeDNI ? '' : dniManual) : colaborador.numeroDocumento;
+                if (numDoc) {
+                    const colabQuery = query(
+                        collection(db, 'nuevos_colaboradores'),
+                        where('numeroDocumento', '==', numDoc)
+                    );
+                    const colabSnap = await getDocs(colabQuery);
 
-                if (!colabSnap.empty) {
-                    const colabData = colabSnap.docs[0].data();
-                    const personalEmail = colabData.emailPersonal || colabData.email;
+                    if (!colabSnap.empty) {
+                        const colabData = colabSnap.docs[0].data();
+                        const personalEmail = colabData.emailPersonal || colabData.email;
 
-                    if (personalEmail) {
-                        // Disparar API de email (Fire and forget or minimal wait)
-                        fetch('/api/send-exit-survey-email', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                email: personalEmail,
-                                name: colaborador.nombreCompleto,
-                                holdingName: 'Empresa', // Idealmente pasar nombre real de holding
-                                reason: MOTIVOS_BAJA_SUNAT.find(m => m.code === motivo)?.label || 'Otro'
-                            })
-                        }).catch(err => console.error('Error triggering exit email:', err));
+                        if (personalEmail) {
+                            fetch('/api/send-exit-survey-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    email: personalEmail,
+                                    name: isManual ? nombreManual : colaborador.nombreCompleto,
+                                    holdingName: 'Empresa',
+                                    reason: filteredReasons.find(m => m.code === motivo)?.label || 'Otro'
+                                })
+                            }).catch(err => console.error('Error triggering exit email:', err));
+                        }
                     }
                 }
             } catch (emailError) {
@@ -113,21 +128,62 @@ export default function ReportarBajaModal({ isOpen, onClose, holdingId, colabora
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div>
-                        <label className="text-xs text-gray-400 uppercase font-bold">Colaborador</label>
-                        <p className="font-medium text-gray-900">{colaborador.nombreCompleto}</p>
-                        <p className="text-xs text-gray-500">{colaborador.tipoDocumento}: {colaborador.numeroDocumento}</p>
+                    <div className="space-y-3">
+                        <label className="text-xs text-gray-400 uppercase font-bold tracking-wider">Información del Colaborador</label>
+
+                        {isManual ? (
+                            <div className="space-y-3">
+                                <input
+                                    type="text"
+                                    placeholder="Nombres y Apellidos Completos"
+                                    value={nombreManual}
+                                    onChange={(e) => setNombreManual(e.target.value)}
+                                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                                    required
+                                />
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-gray-700">DNI:</label>
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                type="checkbox"
+                                                id="noSabeDNI"
+                                                checked={noSabeDNI}
+                                                onChange={(e) => setNoSabeDNI(e.target.checked)}
+                                                className="w-3.5 h-3.5 text-red-600 rounded"
+                                            />
+                                            <label htmlFor="noSabeDNI" className="text-[11px] text-gray-500">DNI Desconocido</label>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Número de DNI"
+                                        value={dniManual}
+                                        onChange={(e) => setDniManual(e.target.value)}
+                                        disabled={noSabeDNI}
+                                        className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                                        required={!noSabeDNI}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                <p className="font-bold text-gray-900">{colaborador.nombreCompleto}</p>
+                                <p className="text-xs text-gray-500">{colaborador.tipoDocumento}: {colaborador.numeroDocumento}</p>
+                            </div>
+                        )}
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Motivo de Baja (SUNAT)</label>
+                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Motivo de Baja (SUNAT)</label>
                         <select
                             value={motivo}
                             onChange={(e) => setMotivo(e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none font-medium"
                             required
                         >
-                            {MOTIVOS_BAJA_SUNAT.map(m => (
+                            {filteredReasons.map(m => (
                                 <option key={m.code} value={m.code}>{m.label}</option>
                             ))}
                         </select>

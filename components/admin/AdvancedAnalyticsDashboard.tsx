@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
@@ -32,9 +32,10 @@ export default function AdvancedAnalyticsDashboard({ holdingId }: AdvancedAnalyt
 
             try {
                 // 1. Cargar configuración de la holding
-                const holdingSnap = await getDocs(query(collection(db, 'holdings'), where('id', '==', holdingId)));
-                if (!holdingSnap.empty) {
-                    const hData = holdingSnap.docs[0].data();
+                const holdingRef = doc(db, 'holdings', holdingId);
+                const holdingDoc = await getDoc(holdingRef);
+                if (holdingDoc.exists()) {
+                    const hData = holdingDoc.data();
                     if (hData.settings?.costoReposicionPromedio) {
                         setCostoReposicion(hData.settings.costoReposicionPromedio);
                     }
