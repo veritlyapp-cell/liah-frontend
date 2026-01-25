@@ -15,20 +15,17 @@ import HoldingLogoUpload from '@/components/admin/HoldingLogoUpload';
 import JobProfilesManagement from '@/components/admin/JobProfilesManagement';
 import RQTrackingView from '@/components/admin/RQTrackingView';
 import AdminCandidatesView from '@/components/admin/AdminCandidatesView';
-import AdminRQAnalyticsView from '@/components/admin/AdminRQAnalyticsView';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
-import DocumentsConfigView from '@/components/admin/DocumentsConfigView';
-import AlertsConfigView from '@/components/admin/AlertsConfigView';
-import RoleMatrixConfig from '@/components/admin/RoleMatrixConfig';
-import AdvancedAnalyticsDashboard from '@/components/admin/AdvancedAnalyticsDashboard';
+import UnifiedAnalytics from '@/components/admin/UnifiedAnalytics';
+import ConfigSidebarView from '@/components/admin/ConfigSidebarView';
 
 // Redundant mock data removed to fix lint warning
 
 export default function AdminDashboard() {
     const { user, claims, loading } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'reportes' | 'analitica'>('marcas');
+    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'analitica'>('marcas');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [brands, setBrands] = useState<any[]>([]);
     const [candidateCounts, setCandidateCounts] = useState<Record<string, number>>({});
@@ -92,6 +89,11 @@ export default function AdminDashboard() {
 
                 if (foundHoldingId) {
                     setHoldingId(foundHoldingId);
+
+                    // NGR Specific Redirect: If they only have flow/RQs, go straight there
+                    if (foundHoldingId === 'ngr' || foundHoldingId === 'ktJgslYzcGSD2hIPnvvLk') {
+                        setActiveTab('rqs');
+                    }
 
                     const holdingDoc = await getDoc(doc(db, 'holdings', foundHoldingId));
                     if (holdingDoc.exists()) {
@@ -309,16 +311,10 @@ export default function AdminDashboard() {
                         📝 Perfiles de Puesto
                     </button>
                     <button
-                        onClick={() => setActiveTab('reportes')}
-                        className={`px-4 py-2 font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === 'reportes' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    >
-                        📋 Logs
-                    </button>
-                    <button
                         onClick={() => setActiveTab('analitica')}
                         className={`px-4 py-2 font-bold whitespace-nowrap transition-colors border-b-2 ${activeTab === 'analitica' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
-                        🚀 Analítica Pro
+                        📈 Analítica
                     </button>
                 </div>
 
@@ -448,36 +444,14 @@ export default function AdminDashboard() {
                 {activeTab === 'candidatos' && <AdminCandidatesView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} tiendas={stores.map(s => ({ id: s.id, nombre: s.nombre, marcaId: s.marcaId }))} />}
                 {activeTab === 'perfiles' && <JobProfilesManagement holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
 
-                {activeTab === 'reportes' && (
-                    <div className="space-y-8">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-bold text-gray-900">Logs de Actividad</h2>
-                        </div>
-                        <AdminRQAnalyticsView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />
-                    </div>
-                )}
-
                 {activeTab === 'analitica' && (
-                    <div className="space-y-8">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">Analítica Avanzada: Rotación e Impacto</h2>
-                                <p className="text-sm text-gray-500 mt-1">Transformando la rotación en indicadores financieros y operativos</p>
-                            </div>
-                        </div>
-                        <AdvancedAnalyticsDashboard holdingId={holdingId} />
-                    </div>
+                    <UnifiedAnalytics
+                        holdingId={holdingId}
+                        marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))}
+                    />
                 )}
 
-                {activeTab === 'configuracion' && (
-                    <div className="space-y-6">
-                        <RoleMatrixConfig holdingId={holdingId} />
-                        <HoldingLogoUpload holdingId={holdingId} />
-                        <AlertsConfigView holdingId={holdingId} />
-                        <DocumentsConfigView holdingId={holdingId} />
-                        <ConfigurationView />
-                    </div>
-                )}
+                {activeTab === 'configuracion' && <ConfigSidebarView holdingId={holdingId} />}
             </main>
 
             <CreateBrandModal show={showCreateBrandModal} holdingId={holdingId} onCancel={() => setShowCreateBrandModal(false)} onSave={() => setShowCreateBrandModal(false)} />
