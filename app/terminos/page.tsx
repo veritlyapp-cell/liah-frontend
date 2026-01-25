@@ -13,27 +13,29 @@ export default function TerminosPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-                <div className="max-w-4xl mx-auto px-4 py-4">
+            <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+                <div className="container-main py-4">
                     <div className="flex items-center justify-between">
                         <Link href="/landing">
                             <Logo size="sm" />
                         </Link>
                         <Link
                             href="/landing"
-                            className="text-violet-600 hover:text-violet-700 font-medium"
+                            className="bg-violet-50 text-violet-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-100 transition-colors"
                         >
-                            ← Volver al inicio
+                            ← Volver
                         </Link>
                     </div>
                 </div>
             </header>
 
             {/* Content */}
-            <main className="max-w-4xl mx-auto px-4 py-12">
-                <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Términos y Condiciones de Uso</h1>
-                    <p className="text-gray-600 mb-8">Última actualización: {currentDate}</p>
+            <main className="container-main section-spacing min-h-[calc(100vh-80px)] flex flex-col items-center">
+                <div className="w-full max-w-3xl bg-white rounded-3xl shadow-xl border border-gray-100 p-8 md:p-16">
+                    <div className="text-center mb-12">
+                        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">Términos y Condiciones de Uso</h1>
+                        <p className="text-violet-600 font-medium tracking-wide uppercase text-sm">Última actualización: {currentDate}</p>
+                    </div>
 
                     <div className="prose prose-lg max-w-none text-gray-700 space-y-6">
                         <section>
