@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, Timestamp, getDoc, setDoc } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
-import { NIVEL_EDUCATIVO_SUNAT } from '@/lib/constants/sunat-codes';
+import { NIVEL_EDUCATIVO_SUNAT, ESTADO_CIVIL_SUNAT } from '@/lib/constants/sunat-codes';
 
 export default function OnboardingPage() {
     const params = useParams();
@@ -33,6 +33,9 @@ export default function OnboardingPage() {
         cci: '',
         sisPensiones: '', // AFP/ONP
         nivelEducativo: '', // SUNAT code
+        estadoCivil: '1', // Default Soltero
+        numHijos: '0',
+        tieneDiscapacidad: false,
         contactoEmergenciaNombre: '',
         contactoEmergenciaTelefono: ''
     });
@@ -71,7 +74,6 @@ export default function OnboardingPage() {
                     dni: docData.culDni || docData.dni || '',
                     email: docData.email || '',
                     telefono: docData.telefono || '',
-                    // Try to get address from CUL analysis if exists (it usually doesn't have address, but let's check culAnalysis)
                     direccion: docData.culAnalysis?.direccion || '',
                 }));
 
@@ -150,11 +152,13 @@ export default function OnboardingPage() {
                     cci: formData.cci,
                     sisPensiones: formData.sisPensiones,
                     nivelEducativo: formData.nivelEducativo,
+                    estadoCivil: formData.estadoCivil,
+                    numHijos: parseInt(formData.numHijos) || 0,
+                    tieneDiscapacidad: formData.tieneDiscapacidad,
                     contactoEmergenciaNombre: formData.contactoEmergenciaNombre,
                     contactoEmergenciaTelefono: formData.contactoEmergenciaTelefono,
                     status: 'pendiente_revision',
                     createdAt: Timestamp.now(),
-                    // New fields for dashboard
                     puesto: applicationData?.jobTitle || applicationData?.jobTitulo || 'Sin puesto',
                     area: applicationData?.area || '',
                     gerencia: applicationData?.gerencia || '',
@@ -219,7 +223,6 @@ export default function OnboardingPage() {
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    {/* Header */}
                     <div className={`p-8 text-center ${holdingData ? 'bg-white' : 'bg-gradient-to-r from-emerald-500 to-green-600'}`}>
                         {holdingData?.logoUrl ? (
                             <img src={holdingData.logoUrl} alt="Logo" className="h-16 mx-auto mb-4 object-contain" />
@@ -234,10 +237,8 @@ export default function OnboardingPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                        {/* Personal Info */}
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Datos Personales</h3>
-
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
@@ -296,10 +297,8 @@ export default function OnboardingPage() {
                             </div>
                         </div>
 
-                        {/* Address */}
                         <div className="space-y-4 pt-4">
                             <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Ubicación</h3>
-
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Dirección Completa</label>
@@ -327,10 +326,8 @@ export default function OnboardingPage() {
                             </div>
                         </div>
 
-                        {/* Financial Info */}
                         <div className="space-y-4 pt-4">
                             <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Datos para Pago & Pensión</h3>
-
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Entidad Bancaria</label>
@@ -363,7 +360,7 @@ export default function OnboardingPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Código Interbancario (CCI) <span className="text-xs text-gray-400">(Opcional si es el mismo banco)</span></label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Código Interbancario (CCI) <span className="text-xs text-gray-400">(Opcional)</span></label>
                                     <input
                                         type="text"
                                         name="cci"
@@ -390,7 +387,7 @@ export default function OnboardingPage() {
                                         <option value="Sin afiliación">No tengo / Primera vez</option>
                                     </select>
                                 </div>
-                                <div className="sm:col-span-2">
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nivel Educativo (SUNAT)</label>
                                     <select
                                         name="nivelEducativo"
@@ -405,13 +402,50 @@ export default function OnboardingPage() {
                                         ))}
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado Civil</label>
+                                    <select
+                                        name="estadoCivil"
+                                        value={formData.estadoCivil}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                                        required
+                                    >
+                                        {ESTADO_CIVIL_SUNAT.map(ec => (
+                                            <option key={ec.code} value={ec.code}>{ec.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Número de Hijos</label>
+                                    <input
+                                        type="number"
+                                        name="numHijos"
+                                        min="0"
+                                        value={formData.numHijos}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                                        required
+                                    />
+                                </div>
+                                <div className="sm:col-span-2 flex items-center gap-3 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                    <input
+                                        type="checkbox"
+                                        name="tieneDiscapacidad"
+                                        id="tieneDiscapacidad"
+                                        checked={formData.tieneDiscapacidad}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, tieneDiscapacidad: e.target.checked }))}
+                                        className="w-5 h-5 text-blue-600 rounded"
+                                    />
+                                    <label htmlFor="tieneDiscapacidad" className="text-sm font-medium text-blue-800">
+                                        ¿Cuentas con alguna discapacidad física o carnet de CONADIS?
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Emergency Contact */}
                         <div className="space-y-4 pt-4">
                             <h3 className="text-lg font-bold text-gray-900 border-b pb-2">En Caso de Emergencia</h3>
-
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Contacto</label>
@@ -453,9 +487,6 @@ export default function OnboardingPage() {
                                     '✅ Confirmar y Enviar Datos'
                                 )}
                             </button>
-                            <p className="text-center text-xs text-gray-500 mt-4">
-                                Al enviar este formulario declaras que la información proporcionada es verdadera y correcta.
-                            </p>
                         </div>
                     </form>
                 </div>

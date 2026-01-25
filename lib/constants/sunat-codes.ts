@@ -30,3 +30,11 @@ export const MOTIVOS_BAJA_SUNAT = [
     { code: '11', label: 'Otras causas de extinción' },
     { code: '12', label: 'Fin de temporada' },
 ];
+
+export const ESTADO_CIVIL_SUNAT = [
+    { code: '1', label: 'Soltero' },
+    { code: '2', label: 'Casado' },
+    { code: '3', label: 'Viudo' },
+    { code: '4', label: 'Divorciado' },
+    { code: '5', label: 'Unión de hecho' },
+];

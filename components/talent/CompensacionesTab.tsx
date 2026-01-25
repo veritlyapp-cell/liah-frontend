@@ -24,6 +24,8 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
+    const [selectedBajas, setSelectedBajas] = useState<string[]>([]);
+    const [processingBulk, setProcessingBulk] = useState(false);
 
     useEffect(() => {
         if (!holdingId) return;
@@ -83,6 +85,35 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
         link.click();
     };
 
+    const triggerExitSurvey = async (baja: any) => {
+        // Find email in nuevos_colaboradores
+        try {
+            const docNum = baja.numeroDocumento;
+            if (!docNum || docNum === 'DESCONOCIDO') return;
+
+            const q = query(collection(db, 'nuevos_colaboradores'), where('numeroDocumento', '==', docNum));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                const data = snap.docs[0].data();
+                const email = data.emailPersonal || data.email;
+                if (email) {
+                    await fetch('/api/send-exit-survey-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email,
+                            name: baja.nombreCompleto,
+                            holdingName: 'Empresa',
+                            reason: baja.motivoLabel || 'Otro'
+                        })
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Error triggering exit survey:', e);
+        }
+    };
+
     const handleUpdateDNI = async (bajaId: string) => {
         if (!tempDni || tempDni.length < 8) return alert('Ingrese un DNI válido');
         try {
@@ -92,6 +123,10 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
                 tipoDocumento: 'DNI',
                 status: 'procesado'
             });
+
+            const bajaFull = salidas.find(s => s.id === bajaId);
+            if (bajaFull) triggerExitSurvey({ ...bajaFull, numeroDocumento: tempDni });
+
             setEditingBaja(null);
             setTempDni('');
             alert('✅ DNI actualizado y registro validado');
@@ -116,6 +151,10 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
                 status: 'procesado',
                 noSabeFechaIngreso: false
             });
+
+            const bajaFull = salidas.find(s => s.id === bajaId);
+            if (bajaFull) triggerExitSurvey(bajaFull);
+
             setEditingFechaBaja(null);
             setTempFechaIngreso('');
             alert('✅ Fecha de ingreso actualizada y permanencia calculada');
@@ -123,6 +162,83 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
             console.error('Error updating fecha ingreso:', error);
             alert('Error al actualizar fecha de ingreso');
         }
+    };
+
+    const handleBulkValidate = async () => {
+        if (selectedBajas.length === 0) return;
+        const toValidate = salidas.filter(s =>
+            selectedBajas.includes(s.id) &&
+            s.numeroDocumento &&
+            s.numeroDocumento !== 'DESCONOCIDO' &&
+            !s.noSabeFechaIngreso
+        );
+
+        if (toValidate.length === 0) return alert('Los registros seleccionados deben tener DNI y Fecha de Ingreso para validarse en bloque.');
+
+        setProcessingBulk(true);
+        try {
+            for (const s of toValidate) {
+                const bajaRef = doc(db, 'bajas_colaboradores', s.id);
+                await updateDoc(bajaRef, { status: 'procesado' });
+                triggerExitSurvey(s);
+            }
+            setSelectedBajas([]);
+            alert(`✅ ${toValidate.length} bajas validadas y encuestas enviadas.`);
+        } catch (err) {
+            console.error(err);
+            alert('Error en validación masiva');
+        } finally {
+            setProcessingBulk(false);
+        }
+    };
+
+    const handleSmartAutoFill = async () => {
+        const pendientes = salidas.filter(s => s.status === 'pendiente_data' || s.status === 'INCOMPLETE_INFO');
+        if (pendientes.length === 0) return alert('No hay registros pendientes para auto-completar');
+
+        setProcessingBulk(true);
+        let filledCount = 0;
+        try {
+            for (const s of pendientes) {
+                // Try to find in ingresos (we already have them in state)
+                const match = ingresos.find(i =>
+                    i.nombreCompleto?.toLowerCase().trim() === s.nombreCompleto?.toLowerCase().trim() ||
+                    (i.numeroDocumento && i.numeroDocumento === s.numeroDocumento)
+                );
+
+                if (match) {
+                    const bajaRef = doc(db, 'bajas_colaboradores', s.id);
+                    const updateData: any = { status: 'procesado' };
+
+                    if (!s.numeroDocumento || s.numeroDocumento === 'DESCONOCIDO') {
+                        updateData.numeroDocumento = match.numeroDocumento;
+                        updateData.tipoDocumento = match.tipoDocumento || 'DNI';
+                    }
+
+                    if (s.noSabeFechaIngreso && match.fechaIngreso) {
+                        const ingresoDate = match.fechaIngreso?.toDate?.() || new Date(match.fechaIngreso);
+                        const ceseDate = new Date(s.fechaCese);
+                        const diff = ceseDate.getTime() - ingresoDate.getTime();
+                        updateData.fechaIngreso = match.fechaIngreso;
+                        updateData.permanenciaDias = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        updateData.noSabeFechaIngreso = false;
+                    }
+
+                    await updateDoc(bajaRef, updateData);
+                    triggerExitSurvey({ ...s, ...updateData });
+                    filledCount++;
+                }
+            }
+            alert(`✨ Auto-Fill completado: Se encontraron coincidencias para ${filledCount} registros.`);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setProcessingBulk(false);
+        }
+    };
+
+    const toggleSelection = (id: string) => {
+        setSelectedBajas(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
     return (
@@ -218,7 +334,25 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
             ) : (
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900">Ceses Reportados</h3>
+                        <div className="flex items-center gap-4">
+                            <h3 className="font-semibold text-gray-900">Ceses Reportados</h3>
+                            {selectedBajas.length > 0 && (
+                                <button
+                                    onClick={handleBulkValidate}
+                                    disabled={processingBulk}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm"
+                                >
+                                    ✅ Validar {selectedBajas.length} seleccionados
+                                </button>
+                            )}
+                            <button
+                                onClick={handleSmartAutoFill}
+                                disabled={processingBulk}
+                                className="px-3 py-1.5 bg-violet-100 text-violet-700 rounded-lg text-xs font-bold hover:bg-violet-200"
+                            >
+                                ✨ Smart Auto-Fill
+                            </button>
+                        </div>
                         <button
                             onClick={downloadBajasTXT}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center gap-2"
@@ -231,6 +365,17 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                                 <tr>
+                                    <th className="px-6 py-3 w-10">
+                                        <input
+                                            type="checkbox"
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedBajas(salidas.map(s => s.id));
+                                                else setSelectedBajas([]);
+                                            }}
+                                            checked={selectedBajas.length === salidas.length && salidas.length > 0}
+                                            className="rounded"
+                                        />
+                                    </th>
                                     <th className="px-6 py-3">Colaborador</th>
                                     <th className="px-6 py-3">Permanencia</th>
                                     <th className="px-6 py-3">Motivo</th>
@@ -244,6 +389,14 @@ export default function CompensacionesTab({ holdingId }: CompensacionesTabProps)
                                 ) : (
                                     salidas.map(s => (
                                         <tr key={s.id} className={`hover:bg-gray-50 transition-colors ${s.status === 'INCOMPLETE_INFO' || s.status === 'pendiente_data' ? 'bg-amber-50' : ''}`}>
+                                            <td className="px-6 py-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedBajas.includes(s.id)}
+                                                    onChange={() => toggleSelection(s.id)}
+                                                    className="rounded"
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-gray-900">{s.nombreCompleto}</div>
                                                 {(s.status === 'INCOMPLETE_INFO' || s.status === 'pendiente_data') && (
