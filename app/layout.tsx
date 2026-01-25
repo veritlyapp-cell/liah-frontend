@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LIAH - Reclutamiento Inteligente",
-  description: "Sistema de reclutamiento masivo con IA para retail y restaurantes",
+  title: "LIAH - Más control, menos rotación",
+  description: "Ecosistema de RR.HH. para el ciclo de vida del colaborador: Reclutamiento, Onboarding, T-Registro y Analytics.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "LIAH",
-    title: "LIAH - Reclutamiento Inteligente",
-    description: "Automatiza tu reclutamiento masivo con IA",
+    title: "LIAH - Más control, menos rotación",
+    description: "Detén la rotación temprana y automatiza el cumplimiento legal con LIAH.",
   },
 };
 

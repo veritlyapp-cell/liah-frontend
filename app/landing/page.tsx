@@ -14,18 +14,19 @@ export default function LandingPage() {
   }, []);
 
   const features = [
-    { icon: '📋', title: 'Gestión de Requerimientos', desc: 'Crea y administra vacantes (RQs) con toda la información necesaria para reclutar' },
-    { icon: '✅', title: 'Flujo de Aprobaciones', desc: 'Workflow configurable de aprobación multinivel según tu estructura organizacional' },
-    { icon: '🤖', title: 'CUL Validado por IA', desc: 'Validación automática del Certificado Único Laboral con inteligencia artificial' },
-    { icon: '👥', title: 'Registro de Candidatos', desc: 'Portal de autoregistro para candidatos con validación de datos y documentos' },
-    { icon: '📊', title: 'Métricas y Reportes', desc: 'Dashboard con analíticas en tiempo real del proceso de reclutamiento' },
+    { icon: '🎯', title: 'Atracción & IA Match', desc: 'Reclutamiento inteligente con validación automática de perfiles y match cognitivo' },
+    { icon: '🤖', title: 'Validación Certificado Único Laboral (CUL) por IA', desc: 'Validación automática del Certificado Único Laboral con inteligencia artificial' },
+    { icon: '📝', title: 'Onboarding Digital & Altas', desc: 'Captura la ficha del colaborador y genera automáticamente el alta masiva para SUNAT' },
+    { icon: '🚪', title: 'Offboarding & Checkout', desc: 'Gestiona renuncias y abandono legal con encuestas de salida y checklists de activos' },
+    { icon: '📉', title: 'Analytics de Fuga', desc: 'Identifica el "Sunk Cost" por rotación y detecta qué sedes afectan tu rentabilidad' },
+    { icon: '✅', title: 'Compliance SUNAT', desc: 'Automatización total de documentos y procesos legales para evitar multas' },
   ];
 
   const stats = [
-    { value: '85%', label: 'Reducción tiempo de contratación' },
-    { value: '100%', label: 'Validación automática CUL' },
-    { value: 'Multi', label: 'Niveles de aprobación' },
-    { value: 'Real-time', label: 'Métricas en vivo' },
+    { value: '85%', label: 'Reducción tiempo contratación' },
+    { value: '30%', label: 'Reducción rotación temprana' },
+    { value: '100%', label: 'Automatización Altas/Bajas' },
+    { value: 'Real-time', label: 'Métricas de rentabilidad' },
   ];
 
   const whatsappNumber = '51956833456';
@@ -77,16 +78,16 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-8 leading-[1.1]">
-                Reclutamiento Masivo
+                LIAH: Más control,
                 <br />
                 <span className="bg-gradient-to-r from-cyan-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                  Automatizado con IA
+                  menos rotación.
                 </span>
               </h1>
 
               <p className="text-lg md:text-xl text-white/70 mb-10 leading-relaxed max-w-xl">
-                LIAH gestiona tus Requerimientos de Vacantes con flujos de aprobación,
-                valida el CUL con IA, registra candidatos y te da métricas en tiempo real.
+                El primer ecosistema de RR.HH. diseñado para cerrar el ciclo: desde el reclutamiento inteligente
+                hasta el checkout de salida. Automatiza tus altas, detén la fuga de talento y protege tu rentabilidad.
               </p>
 
               <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -147,11 +148,11 @@ export default function LandingPage() {
               </div>
 
               <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6 leading-tight">
-                Todo lo que necesitas para reclutar a escala
+                Control total del ciclo de vida del colaborador
               </h2>
 
               <p className="text-lg text-gray-600 mb-10 leading-relaxed">
-                LIAH automatiza el proceso completo de reclutamiento masivo, desde la creación de vacantes hasta la contratación final.
+                LIAH no solo te ayuda a contratar; te da las herramientas para retener el talento y automatizar el cumplimiento legal en cada etapa.
               </p>
 
               <div className="space-y-6">
@@ -209,10 +210,10 @@ export default function LandingPage() {
             <div className="order-2 lg:order-1 bg-white rounded-3xl p-8 shadow-xl border border-gray-100">
               <div className="space-y-6">
                 {[
-                  { step: '01', title: 'Creas tu RQ', desc: 'Vacante con toda la información necesaria', icon: '📋' },
-                  { step: '02', title: 'Aprobaciones', desc: 'Flujo multinivel configurable', icon: '✅' },
-                  { step: '03', title: 'Registro Candidatos', desc: 'Portal de autoregistro con validación CUL', icon: '👥' },
-                  { step: '04', title: 'Métricas', desc: 'Dashboard con analíticas en tiempo real', icon: '📊' },
+                  { step: '01', title: 'Atracción Inteligente', desc: 'Reclutamiento y match por IA', icon: '🎯' },
+                  { step: '02', title: 'Alta Masiva SUNAT', desc: 'Generamos tus archivos listos para T-Registro', icon: '📝' },
+                  { step: '03', title: 'Gestión de Permanencia', desc: 'Fidelización y control de asistencia', icon: '🛡️' },
+                  { step: '04', title: 'Análisis de Salida', desc: 'Encuestas automáticas y ROI de rotación', icon: '📊' },
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl hover:bg-violet-50 transition-colors">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-2xl text-white flex-shrink-0">
@@ -236,11 +237,11 @@ export default function LandingPage() {
               </div>
 
               <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6 leading-tight">
-                Así funciona LIAH
+                El Círculo Cerrado de RR.HH.
               </h2>
 
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                En 4 simples pasos, automatiza tu proceso de reclutamiento masivo y reduce el tiempo de contratación en un 85%.
+                Automatiza el flujo legal, detén la rotación temprana y obtén visibilidad total sobre tu mayor costo operativo: el talento.
               </p>
 
               <a
@@ -266,10 +267,10 @@ export default function LandingPage() {
 
         <div className="container-main text-center relative z-10" style={{ maxWidth: '900px' }}>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-8 leading-tight">
-            ¿Listo para revolucionar tu reclutamiento?
+            ¿Listo para detener la puerta giratoria en tu empresa?
           </h2>
           <p className="text-xl text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Únete a las empresas que ya están contratando más rápido con LIAH
+            Solicita un demo del ecosistema completo y optimiza tu rentabilidad hoy.
           </p>
           <a
             href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`}
