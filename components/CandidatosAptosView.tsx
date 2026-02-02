@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Candidate } from '@/lib/firestore/candidates';
 import DatePickerModal from './DatePickerModal';
+import CandidateProfileModal from './CandidateProfileModal';
 
 interface CandidatosAptosViewProps {
     storeId: string;
@@ -15,6 +16,7 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<{ id: string, appId: string, name: string } | null>(null);
+    const [viewedCandidate, setViewedCandidate] = useState<Candidate | null>(null);
 
     useEffect(() => {
         loadAptoCandidates();
@@ -27,27 +29,17 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
             const { getCandidatesByMarca } = await import('@/lib/firestore/recruiter-queries');
             const allCandidates = await getCandidatesByMarca(marcaId);
 
-            // Filtrar candidatos que:
-            // 1. Tienen una aplicación aprobada (principal o backup) para esta tienda
-            // 2. O tienen CUL Apto Y NO han sido rechazados para esta tienda
-            const aptoCandidates = allCandidates.filter(c => {
-                const hasApprovedAppForStore = c.applications?.some(app =>
-                    app.tiendaId === storeId && app.status === 'approved'
+            // 1. selectionStatus is strictly 'selected'
+            // 2. selectedForRQ belongs to an application in this store
+            const selectedCandidates = allCandidates.filter(c => {
+                if (c.selectionStatus !== 'selected') return false;
+
+                return c.applications?.some(app =>
+                    app.rqId === c.selectedForRQ && app.tiendaId === storeId
                 );
-
-                const isRejectedForStore = c.applications?.some(app =>
-                    app.tiendaId === storeId && app.status === 'rejected'
-                );
-
-                const hasCULApto = c.culStatus === 'apto';
-
-                // Show if:
-                // - Has approved app for this store
-                // - OR (Has CUL apto AND hasn't been rejected for this store)
-                return hasApprovedAppForStore || (hasCULApto && !isRejectedForStore);
             });
 
-            setCandidates(aptoCandidates);
+            setCandidates(selectedCandidates);
         } catch (error) {
             console.error('Error loading apto candidates:', error);
         } finally {
@@ -117,23 +109,26 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
         </div>;
     }
 
-    // Agrupar por estado de ingreso
-    const pending = candidates.filter(c =>
-        !c.applications?.some(app => app.hiredStatus)
-    );
-    const hired = candidates.filter(c =>
-        c.applications?.some(app => app.hiredStatus === 'hired')
-    );
-    const notHired = candidates.filter(c =>
-        c.applications?.some(app => app.hiredStatus === 'not_hired')
-    );
+    // Agrupar por estado de ingreso - ONLY check the CURRENT (selectedForRQ) application
+    const pending = candidates.filter(c => {
+        const currentApp = c.applications?.find(app => app.rqId === c.selectedForRQ);
+        return currentApp && !currentApp.hiredStatus;
+    });
+    const hired = candidates.filter(c => {
+        const currentApp = c.applications?.find(app => app.rqId === c.selectedForRQ);
+        return currentApp?.hiredStatus === 'hired';
+    });
+    const notHired = candidates.filter(c => {
+        const currentApp = c.applications?.find(app => app.rqId === c.selectedForRQ);
+        return currentApp?.hiredStatus === 'not_hired';
+    });
 
     const exportToCSV = () => {
         if (pending.length === 0) return;
 
         const headers = ['Nombre', 'Apellido Paterno', 'Apellido Materno', 'DNI', 'Email', 'Telefono', 'Puesto', 'Modalidad', 'Tienda'];
         const rows = pending.map(c => {
-            const app = c.applications?.find(a => (a.tiendaId === storeId || a.marcaId === marcaId) && a.status === 'approved');
+            const app = c.applications?.find(a => (a.tiendaId === storeId || a.marcaId === marcaId) && (a.status === 'approved' || a.status === 'selected'));
             return [
                 c.nombre,
                 c.apellidoPaterno,
@@ -192,14 +187,11 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                     </div>
                     <div className="space-y-3">
                         {pending.map(candidate => {
-                            const aptoApp = candidate.applications?.find(app => (app.tiendaId === storeId || app.marcaId === marcaId) && app.status === 'approved');
+                            const aptoApp = candidate.applications?.find(app => (app.tiendaId === storeId || app.marcaId === marcaId) && (app.status === 'approved' || app.status === 'selected'));
                             if (!aptoApp) return null;
 
-                            // Enable buttons if Recruiter selected candidate for ANY RQ in this store
-                            // Check if the selectedForRQ belongs to this store
-                            const selectedForRQInThisStore = candidate.selectionStatus === 'selected' &&
-                                candidate.applications?.some(app => app.rqId === candidate.selectedForRQ && app.tiendaId === storeId);
-                            const canConfirmIngreso = selectedForRQInThisStore;
+                            // Since we filtered strictly, canConfirmIngreso is always true if they are in the 'pending' list
+                            const canConfirmIngreso = true;
                             const fullName = `${candidate.nombre} ${candidate.apellidoPaterno} ${candidate.apellidoMaterno}`;
 
                             return (
@@ -215,15 +207,9 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                         ⭐ Principal
                                                     </span>
                                                 )}
-                                                {selectedForRQInThisStore ? (
-                                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                                                        <span>🎯</span> SELECCIONADO
-                                                    </span>
-                                                ) : (
-                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1">
-                                                        <span>⌛</span> Esperando selección de Recruiter
-                                                    </span>
-                                                )}
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                                    <span>🎯</span> SELECCIONADO
+                                                </span>
                                             </div>
 
                                             <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-gray-600">
@@ -248,6 +234,15 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                                                     📌 Aprueba al candidato con prioridad (Principal/Backup) para habilitar los botones.
                                                 </p>
                                             )}
+
+                                            <div className="mt-4">
+                                                <button
+                                                    onClick={() => setViewedCandidate(candidate)}
+                                                    className="text-xs font-bold text-violet-600 hover:text-violet-800 flex items-center gap-1.5 bg-violet-50 px-3 py-1.5 rounded-lg border border-violet-100 transition-colors"
+                                                >
+                                                    🔍 Ver Perfil y Documentos (CUL IA)
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-col gap-2 ml-4">
@@ -285,6 +280,15 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                         })}
                     </div>
                 </div>
+            )}
+
+            {/* Candidate Profile Modal */}
+            {viewedCandidate && (
+                <CandidateProfileModal
+                    candidate={viewedCandidate}
+                    onClose={() => setViewedCandidate(null)}
+                    onRefresh={loadAptoCandidates}
+                />
             )}
 
             {/* Toggle History Button */}

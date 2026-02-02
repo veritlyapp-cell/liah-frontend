@@ -213,10 +213,9 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                                                 </span>
                                             )}
 
-                                            {/* Hiring Status Badge */}
+                                            {/* Hiring Status Badge - based on CURRENT (latest) application only */}
                                             {(() => {
-                                                const aptoApp = candidate.applications?.find(app => (app.status === 'approved' || app.status === 'selected'));
-
+                                                // First check if selected for this RQ
                                                 if (candidate.selectionStatus === 'selected' && latestApp && candidate.selectedForRQ === latestApp.rqId) {
                                                     return (
                                                         <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
@@ -234,22 +233,29 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                                                     );
                                                 }
 
-                                                if (aptoApp?.hiredStatus === 'hired') {
+                                                // Show hired status ONLY for CURRENT application (latestApp), not historical data
+                                                if (latestApp?.hiredStatus === 'hired') {
                                                     return (
                                                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">
                                                             ✅ Ingresó
                                                         </span>
                                                     );
-                                                } else if (aptoApp?.hiredStatus === 'not_hired') {
+                                                } else if (latestApp?.hiredStatus === 'not_hired') {
                                                     return (
                                                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500 text-white">
                                                             ❌ No Ingresó
                                                         </span>
                                                     );
+                                                } else if (candidate.selectionStatus === 'selected') {
+                                                    return (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500 text-white shadow-sm border border-yellow-400">
+                                                            ⏳ Pendiente Ingreso
+                                                        </span>
+                                                    );
                                                 } else if (candidate.culStatus === 'apto') {
                                                     return (
-                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500 text-white">
-                                                            ⏳ Pendiente Ingreso
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500 text-white shadow-sm border border-blue-400">
+                                                            👍 Apto
                                                         </span>
                                                     );
                                                 }

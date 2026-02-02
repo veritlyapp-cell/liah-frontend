@@ -111,6 +111,12 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             const existing = await getCandidateByEmail(inv.candidateEmail);
             if (existing) {
                 setExistingCandidate(existing);
+                // Convert DD/MM/YYYY to YYYY-MM-DD for date input
+                let fechaNacimientoForInput = existing.fechaNacimiento || '';
+                if (fechaNacimientoForInput && fechaNacimientoForInput.includes('/')) {
+                    const [day, month, year] = fechaNacimientoForInput.split('/');
+                    fechaNacimientoForInput = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                }
                 // Pre-llenar formulario
                 setFormData({
                     dni: existing.dni || '',
@@ -120,7 +126,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     apellidoMaterno: existing.apellidoMaterno || '',
                     email: existing.email || '',
                     telefono: existing.telefono || '',
-                    fechaNacimiento: existing.fechaNacimiento || '',
+                    fechaNacimiento: fechaNacimientoForInput,
                     departamento: existing.departamento || '',
                     provincia: existing.provincia || '',
                     distrito: existing.distrito || '',
@@ -272,9 +278,13 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 candidateId = existingCandidate.id;
                 setCandidateCode(existingCandidate.candidateCode);
 
-                // Actualizar datos
+                // Reset selection status for new application (reingreso)
                 const { updateCandidate } = await import('@/lib/firestore/candidate-update');
-                await updateCandidate(candidateId, candidateData);
+                await updateCandidate(candidateId, {
+                    ...candidateData,
+                    selectionStatus: null,
+                    selectedForRQ: null
+                });
             } else {
                 // Crear nuevo candidato
                 const { createCandidate } = await import('@/lib/firestore/candidates');

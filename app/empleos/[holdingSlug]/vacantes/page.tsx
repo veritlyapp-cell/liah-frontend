@@ -405,7 +405,7 @@ export default function VacantesPage() {
                         {filteredJobs.map(job => (
                             <Link
                                 key={job.id}
-                                href={`/careers/${job.id}`}
+                                href={`/empleos/aplicar/${job.id}?holding=${holdingSlug}`}
                                 style={{ textDecoration: 'none' }}
                             >
                                 <div style={{

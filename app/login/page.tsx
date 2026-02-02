@@ -21,10 +21,11 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isTimeout = searchParams.get('reason') === 'timeout';
+    const isManual = searchParams.get('manual') === 'true';
 
-    // Auto-redirect if already logged in
+    // Auto-redirect if already logged in (unless manual flag is present)
     useEffect(() => {
-        if (!authLoading && user && claims?.role) {
+        if (!authLoading && user && claims?.role && !isManual) {
             console.log('🔄 User already logged in, redirecting to dashboard...');
             switch (claims.role) {
                 case 'super_admin':
@@ -43,7 +44,7 @@ function LoginContent() {
                     break;
                 case 'brand_recruiter':
                 case 'recruiter':
-                    router.push('/launcher');
+                    router.push('/recruiter');
                     break;
                 case 'store_manager':
                     router.push('/store-manager');
@@ -59,7 +60,7 @@ function LoginContent() {
                     router.push('/talent');
             }
         }
-    }, [user, claims, authLoading, router]);
+    }, [user, claims, authLoading, router, isManual]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

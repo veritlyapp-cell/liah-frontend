@@ -42,6 +42,41 @@ export async function markCandidateHired(
 
     // Check if RQ should be closed (all vacancies filled)
     if (rqId) {
+        // [NEW] Sync with Compensations (Altas)
+        try {
+            const { collection, addDoc } = await import('firebase/firestore');
+            const candidateData = candidate.data();
+            const app = updatedApplications.find((a: Application) => a.id === applicationId);
+
+            if (app) {
+                await addDoc(collection(db, 'nuevos_colaboradores'), {
+                    candidateId,
+                    applicationId,
+                    nombres: candidateData.nombre,
+                    apellidos: `${candidateData.apellidoPaterno} ${candidateData.apellidoMaterno}`,
+                    nombreCompleto: `${candidateData.nombre} ${candidateData.apellidoPaterno} ${candidateData.apellidoMaterno}`,
+                    numeroDocumento: candidateData.dni,
+                    tipoDocumento: 'DNI',
+                    posicion: app.posicion,
+                    marcaId: app.marcaId,
+                    marcaNombre: app.marcaNombre,
+                    tiendaId: app.tiendaId,
+                    tiendaNombre: app.tiendaNombre,
+                    fechaIngreso: app.startDate,
+                    modalidad: app.modalidad || 'Full Time',
+                    hiredAt: Timestamp.now(),
+                    createdAt: Timestamp.now(), // Added for sorting
+                    hiredBy,
+                    holdingId: candidateData.holdingId || 'ngr',
+                    processedAt: null,
+                    status: 'pendiente'
+                });
+                console.log('✅ Synchronized with Compensaciones (Altas)');
+            }
+        } catch (syncError) {
+            console.error('Error syncing with Compensaciones:', syncError);
+        }
+
         // Calculate and store Time to Fill
         try {
             const rqRef = doc(db, 'rqs', rqId);

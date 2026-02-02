@@ -16,6 +16,7 @@ export default function CreateBrandModal({ show, holdingId, onCancel, onSave }: 
     const [nombre, setNombre] = useState('');
     const [logo, setLogo] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
+    const [slug, setSlug] = useState('');
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
@@ -98,6 +99,7 @@ export default function CreateBrandModal({ show, holdingId, onCancel, onSave }: 
                 nombre,
                 logo: logo || nombre.charAt(0), // Default: primera letra si no hay logo
                 logoUrl: logoUrl || null, // URL de imagen del logo
+                slug: slug || nombre.toLowerCase().replace(/[^a-z0-9]/g, '-'),
                 holdingId,
                 activa: true,
                 tiendasActivas: 0,
@@ -150,7 +152,29 @@ export default function CreateBrandModal({ show, holdingId, onCancel, onSave }: 
                             onChange={(e) => setNombre(e.target.value)}
                             placeholder="Papa John's, Pizza Hut, etc."
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            onBlur={(e) => {
+                                if (!slug) {
+                                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+                                }
+                            }}
                         />
+                    </div>
+
+                    {/* Slug (URL) */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Slug de la Marca (para URL) *
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <span className="text-gray-400 text-sm">/</span>
+                            <input
+                                type="text"
+                                value={slug}
+                                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'))}
+                                placeholder="bembos"
+                                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            />
+                        </div>
                     </div>
 
                     {/* Logo (emoji o texto) */}

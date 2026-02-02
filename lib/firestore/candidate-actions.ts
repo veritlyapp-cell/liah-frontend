@@ -83,6 +83,26 @@ export async function rejectCandidate(
     }
 
     await updateDoc(candidateRef, updateData);
+
+    // [NEW] Trigger rejection email if email exists and not already rejected
+    const app = candidateDoc.applications?.find(a => a.id === applicationId);
+    if (candidateDoc.email && app) {
+        try {
+            await fetch('/api/send-rejection-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidateEmail: candidateDoc.email,
+                    candidateName: candidateDoc.nombre,
+                    posicion: app.posicion,
+                    marcaNombre: app.marcaNombre,
+                    reason: reason
+                })
+            });
+        } catch (e) {
+            console.error('Error triggering rejection email:', e);
+        }
+    }
 }
 
 /**

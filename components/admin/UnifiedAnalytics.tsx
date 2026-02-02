@@ -158,7 +158,7 @@ export default function UnifiedAnalytics({ holdingId, marcas }: UnifiedAnalytics
                             <h3 className="text-lg font-extrabold text-gray-900 mb-2">Analítica de Retención y ROI</h3>
                             <p className="text-gray-500 text-xs mb-6 uppercase tracking-wider font-bold">Impacto financiero de la rotación temprana y permanencia</p>
                         </div>
-                        <AdvancedAnalyticsDashboard holdingId={holdingId} />
+                        <AdvancedAnalyticsDashboard holdingId={holdingId} filters={filters} />
                     </div>
                 )}
             </div>

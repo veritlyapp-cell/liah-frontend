@@ -7,22 +7,26 @@ import AlertsConfigView from './AlertsConfigView';
 import DocumentsConfigView from './DocumentsConfigView';
 import ConfigurationView from '../ConfigurationView';
 import ZoneManagement from './ZoneManagement';
+import FinancialConfig from './FinancialConfig';
+import HoldingOperationalConfig from './HoldingOperationalConfig';
 
 interface ConfigSidebarViewProps {
     holdingId: string;
 }
 
-type ConfigSection = 'identidad' | 'permisos' | 'zonas' | 'alertas' | 'documentos' | 'cuenta';
+type ConfigSection = 'identidad' | 'permisos' | 'zonas' | 'alertas' | 'documentos' | 'analitica' | 'cuenta' | 'operaciones';
 
 export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps) {
     const [activeSection, setActiveSection] = useState<ConfigSection>('identidad');
 
     const sections = [
-        { id: 'identidad', label: '🎨 Identidad Visual', desc: 'Logo y marca corporativa' },
+        { id: 'identidad', label: '✨ Marca Empleadora', desc: 'Portal de empleos y colores' },
         { id: 'permisos', label: '🔐 Matriz de Roles', desc: 'Control de accesos y permisos' },
         { id: 'zonas', label: '📍 Gestión de Zonas', desc: 'Agrupación de distritos regionales' },
         { id: 'alertas', label: '🔔 Centro de Alertas', desc: 'Canales y reglas de notificación' },
         { id: 'documentos', label: '📁 Documentación', desc: 'Requisitos y archivos' },
+        { id: 'operaciones', label: '⚙️ Configuración SaaS', desc: 'Bloqueos y ajustes generales' },
+        { id: 'analitica', label: '💰 Analítica Financiera', desc: 'Costos de rotación e impacto' },
         { id: 'cuenta', label: '👤 Mi Cuenta', desc: 'Seguridad y perfil personal' },
     ];
 
@@ -101,6 +105,26 @@ export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps)
                             <p className="text-sm text-gray-500">Define los documentos obligatorios para los candidatos.</p>
                         </div>
                         <DocumentsConfigView holdingId={holdingId} />
+                    </div>
+                )}
+
+                {activeSection === 'analitica' && (
+                    <div className="space-y-6">
+                        <div className="pb-4 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-900">Analítica Financiera</h3>
+                            <p className="text-sm text-gray-500">Configura los rubros de costo operativo para el cálculo de impacto de rotación.</p>
+                        </div>
+                        <FinancialConfig holdingId={holdingId} />
+                    </div>
+                )}
+
+                {activeSection === 'operaciones' && (
+                    <div className="space-y-6">
+                        <div className="pb-4 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-900">Configuración SaaS</h3>
+                            <p className="text-sm text-gray-500">Gestión de bloqueos y parámetros operativos del holding.</p>
+                        </div>
+                        <HoldingOperationalConfig holdingId={holdingId} />
                     </div>
                 )}
 

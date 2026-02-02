@@ -10,11 +10,12 @@ import MarcaApprovedRQsView from '@/components/jefe-marca/MarcaApprovedRQsView';
 import DashboardHeader from '@/components/DashboardHeader';
 import CandidatesListView from '@/components/CandidatesListView';
 import ConfigurationView from '@/components/ConfigurationView';
+import CompensacionesTab from '@/components/talent/CompensacionesTab';
 
 export default function JefeMarcaDashboard() {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
-    const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'candidates' | 'configuracion'>('pending');
+    const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'candidates' | 'compensaciones' | 'configuracion'>('pending');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -48,9 +49,15 @@ export default function JefeMarcaDashboard() {
     if (!assignment || assignment.role !== 'jefe_marca') {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
+                <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">Acceso Denegado</h2>
-                    <p className="text-gray-600">No tienes permisos de Jefe de Marca.</p>
+                    <p className="text-gray-600 mb-6">No tienes permisos de Jefe de Marca.</p>
+                    <button
+                        onClick={signOut}
+                        className="w-full py-3 px-4 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors"
+                    >
+                        Cerrar Sesión
+                    </button>
                 </div>
             </div>
         );
@@ -108,6 +115,15 @@ export default function JefeMarcaDashboard() {
                                 >
                                     👥 Candidatos
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('compensaciones')}
+                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'compensaciones'
+                                        ? 'border-violet-600 text-violet-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                >
+                                    📑 Compensaciones
+                                </button>
                             </nav>
                         </div>
 
@@ -125,6 +141,14 @@ export default function JefeMarcaDashboard() {
                             {activeTab === 'candidates' && (
                                 <div className="space-y-6">
                                     <CandidatesListView marcaId={marcaId} />
+                                </div>
+                            )}
+                            {activeTab === 'compensaciones' && (
+                                <div className="bg-white rounded-2xl p-8">
+                                    <CompensacionesTab
+                                        holdingId={assignment.holdingId}
+                                        marcaId={marcaId}
+                                    />
                                 </div>
                             )}
                         </div>

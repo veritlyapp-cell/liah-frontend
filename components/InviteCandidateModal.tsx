@@ -134,6 +134,24 @@ export default function InviteCandidateModal({
         setLoading(true);
 
         try {
+            // Check if candidate already exists with an active application
+            const candidatesRef = collection(db, 'candidates');
+            const existingQuery = query(candidatesRef, where('email', '==', email.toLowerCase().trim()));
+            const existingSnapshot = await getDocs(existingQuery);
+
+            if (!existingSnapshot.empty) {
+                const existingCandidate = existingSnapshot.docs[0].data();
+                const activeApps = existingCandidate.applications?.filter((app: any) =>
+                    app.status !== 'rejected' && app.hiredStatus !== 'hired' && app.hiredStatus !== 'not_hired'
+                ) || [];
+
+                if (activeApps.length > 0) {
+                    const brandNames = [...new Set(activeApps.map((app: any) => app.marcaNombre))].join(', ');
+                    // Informational only - candidate can apply to multiple stores/brands
+                    console.log(`ℹ️ Candidato con procesos activos en: ${brandNames}`);
+                }
+            }
+
             const { link } = await createInvitation({
                 candidateEmail: email,
                 marcaId,

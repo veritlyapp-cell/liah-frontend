@@ -19,6 +19,9 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
     const [provincia, setProvincia] = useState('');
     const [distrito, setDistrito] = useState('');
     const [direccion, setDireccion] = useState('');
+    const [slug, setSlug] = useState('');
+    const [lat, setLat] = useState<number | ''>('');
+    const [lng, setLng] = useState<number | ''>('');
     const [marcas, setMarcas] = useState<any[]>([]);
     const [loadingMarcas, setLoadingMarcas] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -135,6 +138,8 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
                 provincia,
                 distrito,
                 direccion,
+                slug: slug || nombre.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                location: lat && lng ? { lat: Number(lat), lng: Number(lng) } : null,
                 activa: true,
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
@@ -221,7 +226,29 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
                                     onChange={(e) => setNombre(e.target.value)}
                                     placeholder="Papa John's - San Isidro"
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    onBlur={(e) => {
+                                        if (!slug) {
+                                            setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+                                        }
+                                    }}
                                 />
+                            </div>
+
+                            {/* Slug (URL) */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Slug de la Tienda (para URL) *
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-400 text-sm">/</span>
+                                    <input
+                                        type="text"
+                                        value={slug}
+                                        onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'))}
+                                        placeholder="san-isidro"
+                                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    />
+                                </div>
                             </div>
 
                             {/* Ubicación - Selectores Jerárquicos */}
@@ -298,6 +325,39 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
                                 />
                             </div>
+
+                            {/* Coordenadas */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Latitud
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={lat}
+                                        onChange={(e) => setLat(e.target.value === '' ? '' : Number(e.target.value))}
+                                        placeholder="-12.0464"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Longitud
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={lng}
+                                        onChange={(e) => setLng(e.target.value === '' ? '' : Number(e.target.value))}
+                                        placeholder="-77.0428"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                                Tip: Busca la tienda en Google Maps, haz clic derecho y copia las coordenadas.
+                            </p>
 
                             {/* Info */}
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

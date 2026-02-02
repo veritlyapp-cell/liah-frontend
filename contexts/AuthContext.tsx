@@ -212,8 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     break;
                 case 'brand_recruiter':
                 case 'recruiter':
-                    // Redirect to launcher to handle Flow vs Talent vs Hybrid
-                    router.push('/launcher');
+                    // Redirect directly to recruiter dashboard to avoid launcher loops
+                    router.push('/recruiter');
                     break;
                 case 'store_manager':
                     router.push('/store-manager');
@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 case 'hiring_manager':
                 case 'approver':
                 case 'compensaciones':
-                    router.push('/talent');
+                    router.push('/admin');
                     break;
                 default:
                     console.warn('⚠️ Unknown role:', userClaims.role, '- redirecting to /talent');

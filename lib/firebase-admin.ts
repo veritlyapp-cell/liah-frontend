@@ -10,6 +10,7 @@ import * as admin from 'firebase-admin';
 import { getApps, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
 let adminApp: App | null = null;
 
@@ -95,4 +96,10 @@ export function getAdminFirestore() {
 export function getFieldValue() {
     initializeFirebaseAdmin();
     return FieldValue;
+}
+export function getAdminStorage() {
+    const app = initializeFirebaseAdmin();
+    // In production, we might need a specific bucket name
+    const bucketName = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`;
+    return getStorage(app).bucket(bucketName);
 }

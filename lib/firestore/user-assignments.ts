@@ -30,6 +30,11 @@ export interface UserAssignment {
     vacationMode?: boolean;
     backupUserId?: string;
     backupDisplayName?: string;
+    availability?: {
+        startHour: string;
+        endHour: string;
+        days: string[];
+    };
 }
 
 /**

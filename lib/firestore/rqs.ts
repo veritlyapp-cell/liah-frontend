@@ -87,7 +87,7 @@ export interface RQ {
     motivo?: 'Reemplazo' | 'Necesidad de Venta'; // Para métricas
 
     // Status del RQ
-    status: 'active' | 'filled' | 'closed' | 'cancelled';
+    status: 'active' | 'recruiting' | 'filled' | 'closed' | 'cancelled';
     filledCount?: number; // Cuántas vacantes se llenaron
     filledAt?: any; // Cuando se llenó completamente
     closedAt?: any;
@@ -141,6 +141,12 @@ export interface RQ {
     approvalFlow?: 'standard' | 'short'; // standard = SM->Sup->JM, short = Sup->JM (when Supervisor creates)
     categoria?: 'operativo' | 'gerencial'; // NEW: for filtering and analytics
     confidencial?: boolean; // NEW: secret recruitment
+
+    // Geolocation & SEO
+    storeCoordinates?: { lat: number; lng: number };
+    tiendaSlug?: string;
+    marcaSlug?: string;
+
     createdAt: any;
     updatedAt: any;
 }
@@ -227,6 +233,16 @@ export async function createRQInstances(
     creadorEmail: string,
     creatorRole: 'store_manager' | 'supervisor' = 'store_manager'
 ): Promise<string[]> {
+    // Get store data for coordinates and slug
+    const storeRef = doc(db, 'tiendas', tiendaId);
+    const storeSnap = await getDoc(storeRef);
+    const storeData = storeSnap.exists() ? storeSnap.data() : null;
+
+    // Get brand slug
+    const brandRef = doc(db, 'marcas', marcaId);
+    const brandSnap = await getDoc(brandRef);
+    const brandSlug = brandSnap.exists() ? brandSnap.data().slug : '';
+
     const batch = writeBatch(db);
     const rqsRef = collection(db, 'rqs');
     const now = Timestamp.now();
@@ -287,6 +303,12 @@ export async function createRQInstances(
             createdByRole: creatorRole,
             approvalFlow: creatorRole === 'supervisor' ? 'short' : 'standard',
             categoria: jobProfile.categoria as any || 'operativo',
+
+            // NEW: Geolocation & Slugs
+            storeCoordinates: storeData?.location || null,
+            tiendaSlug: storeData?.slug || '',
+            marcaSlug: brandSlug || '',
+
             createdAt: now,
             updatedAt: now
         };
@@ -298,6 +320,17 @@ export async function createRQInstances(
         );
         batch.set(newDocRef, cleanedData);
         rqIds.push(newDocRef.id);
+    }
+
+    // Update the counter to reflect all numbers used in this batch
+    if (numVacantes > 1) {
+        const counterRef = doc(db, 'counters', `rqs_${marcaId}`);
+        batch.set(counterRef, {
+            lastNumber: currentNumberValue - 1, // currentNumberValue is already incremented past the last used
+            updatedAt: Timestamp.now(),
+            marcaId: marcaId,
+            type: 'rqs'
+        }, { merge: true });
     }
 
     await batch.commit();
@@ -386,7 +419,7 @@ export async function approveRQ(
         // Último nivel, marcar como aprobado
         await updateDoc(rqRef, {
             approvalStatus: 'approved',
-            status: 'active', // Listo para que el Store Manager invite
+            status: 'recruiting', // Autopublicado: Listo para que el portal lo muestre y el Store Manager invite
             estado: 'aprobado', // Backward compatibility
             approvalHistory: updatedHistory,
             approvalChain: updatedApprovalChain,
@@ -496,7 +529,7 @@ export async function startRecruitment(rqId: string): Promise<void> {
     const rqRef = doc(db, 'rqs', rqId);
 
     await updateDoc(rqRef, {
-        status: 'active',
+        status: 'recruiting', // Inicia reclutamiento: Visible en el portal
         recruitment_started_at: Timestamp.now(),
         updatedAt: Timestamp.now()
     });

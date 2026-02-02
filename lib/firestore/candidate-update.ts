@@ -25,6 +25,8 @@ export async function updateCandidate(
         source?: string;
         origenConvocatoria?: string;
         documents?: Record<string, string>;
+        selectionStatus?: string | null;
+        selectedForRQ?: string | null;
     }
 
 ): Promise<void> {
@@ -52,6 +54,8 @@ export async function updateCandidate(
     if (updates.origenConvocatoria !== undefined) updateData.origenConvocatoria = updates.origenConvocatoria;
     if (updates.documents !== undefined) updateData.documents = updates.documents;
     if (updates.culStatus !== undefined) updateData.culStatus = updates.culStatus;
+    if (updates.selectionStatus !== undefined) updateData.selectionStatus = updates.selectionStatus;
+    if (updates.selectedForRQ !== undefined) updateData.selectedForRQ = updates.selectedForRQ;
 
 
     // Handle CUL specially

@@ -42,8 +42,7 @@ service cloud.firestore {
     // RQs (Requerimientos)
     // ==========================================
     match /rqs/{rqId} {
-      allow read: if isAuthenticated() && 
-                     (isAdmin() || resource.data.marcaId == getUserMarca());
+      allow read: if true; // Permissive read for portal transparency
       
       allow create: if isAuthenticated() &&
                        request.resource.data.holdingId == getUserTenant() &&
@@ -92,8 +91,7 @@ service cloud.firestore {
     // HOLDINGS (Empresas)
     // ==========================================
     match /holdings/{holdingId} {
-      allow read: if isAuthenticated() && 
-                     (isAdmin() || getUserTenant() == holdingId);
+      allow read: if true;
       
       allow create, update, delete: if isAuthenticated() && isAdmin();
     }
@@ -102,9 +100,7 @@ service cloud.firestore {
     // MARCAS (Brands)
     // ==========================================
     match /marcas/{marcaId} {
-      allow read: if isAuthenticated() && 
-                     (isAdmin() || getUserMarca() == marcaId || 
-                      resource.data.holdingId == getUserTenant());
+      allow read: if true;
       
       allow create, update, delete: if isAuthenticated() && isAdmin();
     }
@@ -139,11 +135,14 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated() && isAdmin();
     }
     
-    // ==========================================
-    // VACANTES
-    // ==========================================
-    match /vacantes/{vacanteId} {
-      allow read: if isAuthenticated();
+    match /talent_jobs/{jobId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && (isAdmin() || isRecruiter());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    match /{path=**}/vacantes/{vacanteId} {
+      allow read: if (isAuthenticated()) || (!isAuthenticated() && resource.data.estado == 'activo');
       
       allow create, update: if isAuthenticated() && 
                                (isAdmin() || isStoreManager() || isRecruiter());

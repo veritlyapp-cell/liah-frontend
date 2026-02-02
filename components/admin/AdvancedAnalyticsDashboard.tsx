@@ -5,8 +5,11 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from '
 import { db } from '@/lib/firebase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
+import { FilterValues } from '../analytics/FiltersBar';
+
 interface AdvancedAnalyticsDashboardProps {
     holdingId: string;
+    filters?: FilterValues;
 }
 
 interface TurnoverStats {
@@ -20,7 +23,7 @@ interface TurnoverStats {
     recentAlerts: any[];
 }
 
-export default function AdvancedAnalyticsDashboard({ holdingId }: AdvancedAnalyticsDashboardProps) {
+export default function AdvancedAnalyticsDashboard({ holdingId, filters }: AdvancedAnalyticsDashboardProps) {
     const [stats, setStats] = useState<TurnoverStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [costoReposicion, setCostoReposicion] = useState(700);
@@ -36,22 +39,57 @@ export default function AdvancedAnalyticsDashboard({ holdingId }: AdvancedAnalyt
                 const holdingDoc = await getDoc(holdingRef);
                 if (holdingDoc.exists()) {
                     const hData = holdingDoc.data();
-                    if (hData.settings?.costoReposicionPromedio) {
+                    if (hData.settings?.costItems && Array.isArray(hData.settings.costItems)) {
+                        const total = hData.settings.costItems.reduce((acc: number, item: any) => acc + (item.amount || 0), 0);
+                        if (total > 0) setCostoReposicion(total);
+                    } else if (hData.settings?.costoReposicionPromedio) {
                         setCostoReposicion(hData.settings.costoReposicionPromedio);
                     }
                 }
 
                 // 2. Cargar bajas
                 const bajasRef = collection(db, 'bajas_colaboradores');
-                const q = query(
+                let q = query(
                     bajasRef,
                     where('holdingId', '==', holdingId),
                     orderBy('fechaCese', 'desc')
                 );
-                const snapshot = await getDocs(q);
-                const bajas = snapshot.docs.map(doc => doc.data());
 
-                // 3. Procesar estadísticas
+                const snapshot = await getDocs(q);
+                let bajas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // 3. Aplicar filtros en cliente (para mayor flexibilidad con campos dinámicos)
+                if (filters) {
+                    if (filters.brandIds && filters.brandIds.length > 0) {
+                        bajas = bajas.filter(b => filters.brandIds?.includes(b.marcaId));
+                    }
+                    if (filters.storeIds && filters.storeIds.length > 0) {
+                        bajas = bajas.filter(b => filters.storeIds?.includes(b.tiendaId));
+                    }
+                    // Filtro de fecha
+                    if (filters.dateRange) {
+                        const now = new Date();
+                        let startDate = new Date();
+                        switch (filters.dateRange) {
+                            case 'week': startDate.setDate(now.getDate() - 7); break;
+                            case 'month': startDate.setMonth(now.getMonth() - 1); break;
+                            case 'quarter': startDate.setMonth(now.getMonth() - 3); break;
+                            case 'year': startDate.setFullYear(now.getFullYear() - 1); break;
+                            default: startDate.setMonth(now.getMonth() - 1);
+                        }
+
+                        // Si hay fechas personalizadas
+                        if (filters.customStartDate) startDate = new Date(filters.customStartDate);
+                        const endDate = filters.customEndDate ? new Date(filters.customEndDate) : now;
+
+                        bajas = bajas.filter(b => {
+                            const ceseDate = b.fechaCese?.toDate?.() || new Date(b.fechaCese);
+                            return ceseDate >= startDate && ceseDate <= endDate;
+                        });
+                    }
+                }
+
+                // 4. Procesar estadísticas
                 let totalSunkCost = 0;
                 let earlyAttritionCount = 0;
                 let totalTenure = 0;
@@ -74,7 +112,10 @@ export default function AdvancedAnalyticsDashboard({ holdingId }: AdvancedAnalyt
 
                     // By Sede (Nota: Necesitaremos asegurar que 'sede' esté en el record de bajas_colaboradores, 
                     // por ahora usamos 'tiendaId' o 'marca' si está disponible)
-                    const sede = b.tiendaNombre || b.marcaLabel || 'No asignado';
+                    const store = b.storeName || b.tiendaNombre;
+                    const brand = b.marcaNombre || b.marcaLabel;
+                    const sede = store ? (brand ? `${store} (${brand})` : store) : (brand || 'No asignado');
+
                     if (!sedeMap[sede]) sedeMap[sede] = { total: 0, count: 0 };
                     sedeMap[sede].total += days;
                     sedeMap[sede].count++;
@@ -116,7 +157,7 @@ export default function AdvancedAnalyticsDashboard({ holdingId }: AdvancedAnalyt
         };
 
         loadData();
-    }, [holdingId, costoReposicion]);
+    }, [holdingId, costoReposicion, filters]);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center py-20">
@@ -254,7 +295,11 @@ export default function AdvancedAnalyticsDashboard({ holdingId }: AdvancedAnalyt
                                     <div className={`w-2 h-2 rounded-full ${alert.permanenciaDias < 30 ? 'bg-red-500 animate-pulse' : 'bg-amber-400'}`} />
                                     <div>
                                         <p className="text-xs font-bold text-gray-900">{alert.nombreCompleto}</p>
-                                        <p className="text-[10px] text-gray-500">{alert.tiendaNombre || alert.marcaLabel || 'Sede desconocida'}</p>
+                                        <p className="text-[10px] text-gray-500">
+                                            {alert.storeName || alert.tiendaNombre ? (
+                                                `${alert.storeName || alert.tiendaNombre}${alert.marcaNombre || alert.marcaLabel ? ` (${alert.marcaNombre || alert.marcaLabel})` : ''}`
+                                            ) : (alert.marcaNombre || alert.marcaLabel || 'Sede desconocida')}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="text-right">

@@ -2,22 +2,10 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy, limit as firestoreLimit, Timestamp } from 'firebase/firestore';
 import type { Candidate } from './candidates';
 
-// Cache for loaded candidates to avoid redundant queries
-let candidateCache: { marcaId: string; candidates: Candidate[]; timestamp: number } | null = null;
-const CACHE_TTL = 60000; // 1 minute cache
-
 /**
- * Obtener candidatos de una marca con límite y cache
+ * Obtener candidatos de una marca con límite
  */
 export async function getCandidatesByMarca(marcaId: string, maxResults: number = 200): Promise<Candidate[]> {
-    // Check cache
-    if (candidateCache &&
-        candidateCache.marcaId === marcaId &&
-        (Date.now() - candidateCache.timestamp) < CACHE_TTL) {
-        console.log('[getCandidatesByMarca] Using cache');
-        return candidateCache.candidates;
-    }
-
     console.log('[getCandidatesByMarca] Fetching from Firestore...');
     const candidatesRef = collection(db, 'candidates');
 
@@ -35,20 +23,13 @@ export async function getCandidatesByMarca(marcaId: string, maxResults: number =
             candidate.applications?.some(app => app.marcaId === marcaId)
         );
 
-    // Cache results
-    candidateCache = {
-        marcaId,
-        candidates,
-        timestamp: Date.now()
-    };
-
     console.log('[getCandidatesByMarca] Loaded:', candidates.length, 'candidates');
     return candidates;
 }
 
-// Clear cache function (call when data changes)
+// Clear cache function (legacy)
 export function clearCandidateCache() {
-    candidateCache = null;
+    // No-op after cache removal
 }
 
 interface FilterOptions {

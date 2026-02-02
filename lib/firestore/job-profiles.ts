@@ -28,6 +28,16 @@ export interface JobProfileRequisitos {
     };
     distanciaMax: number; // km
     otros?: string; // requisitos adicionales
+    killerQuestions?: KillerQuestion[];
+}
+
+export interface KillerQuestion {
+    id: string;
+    question: string;
+    type: 'boolean' | 'multiple';
+    options?: string[];
+    correctAnswer: string; // "yes"/"no" or specific option
+    isMandatory: boolean; // if false, it's just for scoring
 }
 
 export interface JobProfile {

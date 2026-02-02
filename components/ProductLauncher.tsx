@@ -81,10 +81,12 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                         console.log('🛡️ User is admin, enabling Liah Flow as default fallback');
                         setHasFlow(true);
                         setHasTalent(false);
+                        // No logic to auto-redirect admins without holdingId yet, so show choosing screen
                     } else {
                         setHasFlow(false);
                         setHasTalent(false);
                     }
+                    setLoading(false); // CRITICAL: Stop loading even if no holdingId
                     return;
                 }
 
@@ -109,23 +111,32 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                         hasLiahTalent: talentAccess
                     });
 
-                    // Immediate redirect check if only one product is available
-                    // We determine availability here to avoid waiting for another useEffect cycle
+                    // Step 3: Determine enabled products
+                    const flowPath = ['recruiter', 'brand_recruiter'].includes(claims?.role || '') ? '/recruiter' : '/admin';
+
                     const products = [
-                        { id: 'flow', path: '/admin', enabled: flowAccess && !['recruiter', 'brand_recruiter'].includes(claims?.role || '') },
+                        { id: 'flow', path: flowPath, enabled: flowAccess },
                         { id: 'talent', path: '/talent', enabled: talentAccess }
                     ];
-                    const enabled = products.filter(p => p.enabled);
-                    if (enabled.length === 1) {
-                        console.log('🚀 Launcher: Only one product enabled, redirecting to:', enabled[0].path);
-                        router.push(enabled[0].path);
-                        return; // Stop loading, we are redirecting
+
+                    const enabledList = products.filter(p => p.enabled);
+
+                    // Step 4: Immediate redirect if only one product is enabled
+                    if (enabledList.length === 1) {
+                        const targetPath = enabledList[0].path;
+                        console.log('🚀 Launcher: Auto-redirecting to:', targetPath);
+                        router.replace(targetPath);
+                        return; // Exit fetchHoldingConfig, router will handle the rest
                     }
+
+                    // If we reach here, either multiple or zero products (will show choice or lock screen)
+                    setLoading(false);
                 } else {
                     // Holding not found, default to Flow only
                     console.warn('⚠️ Holding document not found:', foundHoldingId);
                     setHasFlow(true);
                     setHasTalent(false);
+                    setLoading(false);
                 }
 
             } catch (error) {
@@ -133,13 +144,12 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                 // On error, allow both as fallback
                 setHasFlow(true);
                 setHasTalent(true);
-            } finally {
                 setLoading(false);
             }
         }
 
         fetchHoldingConfig();
-    }, [user]);
+    }, [user, claims, router]);
 
     const products = [
         {
@@ -148,8 +158,8 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
             description: 'Reclutamiento Masivo',
             icon: '🚀',
             color: 'from-orange-500 to-red-500',
-            path: '/admin',
-            enabled: hasFlow && (!['recruiter', 'brand_recruiter'].includes(claims?.role || '') || !hasTalent)
+            path: ['recruiter', 'brand_recruiter'].includes(claims?.role || '') ? '/recruiter' : '/admin',
+            enabled: hasFlow
         },
         {
             id: 'talent',
@@ -164,10 +174,13 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
 
     const enabledProducts = products.filter(p => p.enabled);
 
-    // If only one product, redirect directly (inside useEffect to avoid render side effects)
+    // Consolidate the effect that handles the redirect once loading is done
+    // This is for users who landed on /launcher and were NOT auto-redirected in the fetchHoldingConfig
     useEffect(() => {
         if (!loading && enabledProducts.length === 1) {
-            router.push(enabledProducts[0].path);
+            const targetPath = enabledProducts[0].path;
+            console.log('🚀 Launcher: Fallback redirect triggering to:', targetPath);
+            router.replace(targetPath);
         }
     }, [loading, enabledProducts.length, router]);
 

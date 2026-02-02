@@ -37,28 +37,36 @@ export function useRQs(options: UseRQsOptions) {
         let unsubscribe: () => void;
 
         if (options.scope === 'store' && options.storeId) {
+            console.log(`[useRQs] 📡 Subscribing to RQs for Store: ${options.storeId}`);
             unsubscribe = subscribeToRQsByStore(options.storeId, (newRQs) => {
+                console.log(`[useRQs] 📥 Received ${newRQs.length} RQs for Store`);
                 // Filter out gerencial RQs for Store Managers
                 let filteredRQs = newRQs.filter(rq => rq.status !== 'cancelled' || rq.approvalStatus === 'rejected');
 
                 if (userRole === 'store_manager') {
                     filteredRQs = filteredRQs.filter(rq => !rq.categoria || rq.categoria === 'operativo');
+                    console.log(`[useRQs] 🧹 Filtered to ${filteredRQs.length} RQs for Store Manager`);
                 }
 
                 setRQs(filteredRQs);
                 setLoading(false);
             });
         } else if (options.scope === 'marca' && options.marcaId) {
+            console.log(`[useRQs] 📡 Subscribing to RQs for Marca: ${options.marcaId}`);
             unsubscribe = subscribeToRQsByMarca(options.marcaId, (newRQs) => {
+                console.log(`[useRQs] 📥 Received ${newRQs.length} RQs for Marca`);
                 setRQs(newRQs.filter(rq => rq.status !== 'cancelled' || rq.approvalStatus === 'rejected'));
                 setLoading(false);
             });
         } else if (options.scope === 'all' && tenantId) {
+            console.log(`[useRQs] 📡 Subscribing to all RQs for Tenant: ${tenantId}`);
             unsubscribe = subscribeToAllRQs(tenantId, (newRQs) => {
+                console.log(`[useRQs] 📥 Received ${newRQs.length} total RQs`);
                 setRQs(newRQs.filter(rq => rq.status !== 'cancelled' || rq.approvalStatus === 'rejected'));
                 setLoading(false);
             });
         } else {
+            console.log('[useRQs] ⚠️ No valid scope/ID provided for subscription');
             setLoading(false);
             return;
         }

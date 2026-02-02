@@ -12,12 +12,21 @@ interface HoldingLogoUploadProps {
 export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps) {
     const [holdingName, setHoldingName] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
-    const [blockRQCreation, setBlockRQCreation] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
-    const [costoReposicion, setCostoReposicion] = useState(700);
+    const [branding, setBranding] = useState({
+        enabled: false,
+        primaryColor: '#E30613',
+        secondaryColor: '#1A1A1A',
+        phrases: [] as string[],
+        gallery: [] as string[],
+        videos: [] as { id: string, title: string }[],
+        description: ''
+    });
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
+    const [ytInput, setYtInput] = useState('');
 
     // Load current holding data
     useEffect(() => {
@@ -33,9 +42,24 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                     setHoldingName(data.nombre || '');
                     setLogoUrl(data.logoUrl || '');
                     setPreviewUrl(data.logoUrl || '');
-                    setBlockRQCreation(data.blockRQCreation || false);
-                    if (data.settings?.costoReposicionPromedio) {
-                        setCostoReposicion(data.settings.costoReposicionPromedio);
+                    if (data.config?.branding) {
+                        setBranding({
+                            enabled: data.config.branding.enabled ?? true, // Default to true if configuring
+                            primaryColor: data.config.branding.primaryColor || '#E30613',
+                            secondaryColor: data.config.branding.secondaryColor || '#1A1A1A',
+                            phrases: data.config.branding.phrases || [],
+                            gallery: data.config.branding.gallery || [],
+                            videos: data.config.branding.videos || [],
+                            description: data.config.branding.description || ''
+                        });
+                    } else {
+                        // Default presets for Phillip Chu Joy or generic premium
+                        setBranding(prev => ({
+                            ...prev,
+                            enabled: true,
+                            primaryColor: '#E30613',
+                            secondaryColor: '#1A1A1A'
+                        }));
                     }
                 }
             } catch (error) {
@@ -46,217 +70,302 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
         loadHolding();
     }, [holdingId]);
 
-    async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor selecciona un archivo de imagen');
-            return;
-        }
-
-        // Validate file size (max 2MB)
-        if (file.size > 2 * 1024 * 1024) {
-            alert('La imagen debe ser menor a 2MB');
-            return;
-        }
+    async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>, target: 'logo' | 'gallery') {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
         setUploading(true);
 
         try {
-            // Create a reference to Firebase Storage
-            const fileName = `logos/holdings/${holdingId}_${Date.now()}.${file.name.split('.').pop()}`;
-            const storageRef = ref(storage, fileName);
-
-            // Upload the file
-            const snapshot = await uploadBytes(storageRef, file);
-            console.log('✅ Archivo subido:', snapshot.metadata.fullPath);
-
-            // Get the download URL
-            const downloadUrl = await getDownloadURL(storageRef);
-            console.log('✅ URL obtenida:', downloadUrl);
-
-            // Update state
-            setLogoUrl(downloadUrl);
-            setPreviewUrl(downloadUrl);
-
-            alert('✅ Logo subido exitosamente');
+            if (target === 'logo') {
+                const file = files[0];
+                const fileName = `logos/holdings/${holdingId}_${Date.now()}.${file.name.split('.').pop()}`;
+                const storageRef = ref(storage, fileName);
+                await uploadBytes(storageRef, file);
+                const url = await getDownloadURL(storageRef);
+                setLogoUrl(url);
+                setPreviewUrl(url);
+            } else {
+                const newGallery = [...branding.gallery];
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const fileName = `branding/${holdingId}/gallery/${Date.now()}_${file.name}`;
+                    const storageRef = ref(storage, fileName);
+                    await uploadBytes(storageRef, file);
+                    const url = await getDownloadURL(storageRef);
+                    newGallery.push(url);
+                }
+                setBranding({ ...branding, gallery: newGallery });
+            }
         } catch (error: any) {
-            console.error('Error subiendo logo:', error);
-            alert(`❌ Error subiendo logo: ${error.message || 'Error desconocido'}`);
+            console.error('Error subiendo:', error);
+            alert(`❌ Error subiendo: ${error.message}`);
         } finally {
             setUploading(false);
         }
     }
 
+    const addYoutubeVideo = () => {
+        if (!ytInput) return;
+        let id = ytInput;
+        // Basic extract ID from URL
+        if (ytInput.includes('v=')) id = ytInput.split('v=')[1].split('&')[0];
+        else if (ytInput.includes('youtu.be/')) id = ytInput.split('youtu.be/')[1].split('?')[0];
+        else if (ytInput.includes('embed/')) id = ytInput.split('embed/')[1].split('?')[0];
+
+        if (id.length < 5) {
+            alert('ID de video inválido');
+            return;
+        }
+
+        setBranding({
+            ...branding,
+            videos: [...branding.videos, { id, title: 'Video Corportativo' }]
+        });
+        setYtInput('');
+    };
+
+    const removeGalleryItem = (index: number) => {
+        const newGallery = [...branding.gallery];
+        newGallery.splice(index, 1);
+        setBranding({ ...branding, gallery: newGallery });
+    };
+
+    const removeVideoItem = (index: number) => {
+        const newVideos = [...branding.videos];
+        newVideos.splice(index, 1);
+        setBranding({ ...branding, videos: newVideos });
+    };
+
     async function handleSave() {
         if (!holdingId) return;
-
         setSaving(true);
-
         try {
             const holdingRef = doc(db, 'holdings', holdingId);
-            const { setDoc } = await import('firebase/firestore');
-            await setDoc(holdingRef, {
+            await updateDoc(holdingRef, {
                 nombre: holdingName,
                 logoUrl: logoUrl || null,
-                blockRQCreation: blockRQCreation,
-                settings: {
-                    costoReposicionPromedio: Number(costoReposicion)
-                },
+                config: { branding },
                 updatedAt: Timestamp.now()
-            }, { merge: true });
-
-            alert('✅ Configuración de empresa guardada');
+            });
+            alert('✅ Marca empleadora guardada');
         } catch (error: any) {
             console.error('Error guardando:', error);
-            alert('❌ Error guardando configuración');
+            alert('❌ Error guardando');
         } finally {
             setSaving(false);
         }
     }
 
-    if (!holdingId) {
-        return (
-            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                    No se encontró información de la empresa.
-                </p>
-            </div>
-        );
-    }
+    if (!holdingId) return null;
 
     return (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">🏢 Configuración de Empresa</h3>
-
-            <div className="space-y-4">
-                {/* Nombre de la empresa */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Nombre de la Empresa
-                    </label>
-                    <input
-                        type="text"
-                        value={holdingName}
-                        onChange={(e) => setHoldingName(e.target.value)}
-                        placeholder="Nombre de tu empresa"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                </div>
-
-                {/* Logo Upload */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Logo de la Empresa
-                    </label>
-
-                    {/* File Input */}
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                    />
-
-                    {/* Upload Button and Preview */}
-                    <div className="flex items-center gap-4">
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                            className="px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-violet-500 hover:text-violet-600 transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {uploading ? (
-                                <>
-                                    <span className="animate-spin">⏳</span> Subiendo...
-                                </>
-                            ) : (
-                                <>📁 Subir Logo</>
-                            )}
-                        </button>
-
-                        {/* Preview */}
-                        {previewUrl && (
-                            <div className="flex items-center gap-2">
-                                <img
-                                    src={previewUrl}
-                                    alt="Logo Preview"
-                                    className="h-12 w-auto object-contain rounded border border-gray-200"
-                                    onError={() => setPreviewUrl('')}
-                                />
-                                <span className="text-xs text-green-600">✓</span>
+        <div className="space-y-8 animate-fade-in">
+            {/* Header / Brand Card */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                <div className="h-32 bg-gradient-to-r from-red-600 to-red-800 relative">
+                    <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-2xl shadow-lg border border-gray-100">
+                        {previewUrl ? (
+                            <img src={previewUrl} alt="Logo" className="w-24 h-24 object-contain rounded-xl" />
+                        ) : (
+                            <div className="w-24 h-24 bg-gray-50 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-xs text-center p-2">
+                                Sin Logo
                             </div>
                         )}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute -top-2 -right-2 w-8 h-8 bg-violet-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+                        >
+                            ✏️
+                        </button>
                     </div>
+                </div>
 
-                    {/* Manual URL Option */}
-                    <details className="mt-3">
-                        <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
-                            O pegar URL manualmente
-                        </summary>
+                <div className="pt-16 pb-6 px-8 flex justify-between items-end gap-6">
+                    <div className="flex-1">
                         <input
                             type="text"
-                            value={logoUrl}
-                            onChange={(e) => {
-                                setLogoUrl(e.target.value);
-                                setPreviewUrl(e.target.value);
-                            }}
-                            placeholder="https://ejemplo.com/logo.png"
-                            className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            value={holdingName}
+                            onChange={(e) => setHoldingName(e.target.value)}
+                            className="text-2xl font-black text-gray-900 bg-transparent border-b border-transparent hover:border-violet-200 transition-colors focus:outline-none focus:border-violet-500 w-full"
+                            placeholder="Nombre de la Marca"
                         />
-                    </details>
-                </div>
-
-                {/* RQ Lock Toggle */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div>
-                        <p className="font-semibold text-gray-900">Bloquear Nuevos Requerimientos</p>
-                        <p className="text-sm text-gray-500">
-                            Si se activa, los Gerentes de Tienda no podrán crear nuevos RQs.
-                        </p>
+                        <p className="text-sm text-gray-500 mt-1">Configuración de Identidad y Portal</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={blockRQCreation}
-                            onChange={(e) => setBlockRQCreation(e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || uploading}
+                        className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                    >
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                    </button>
                 </div>
+            </div>
 
-                {/* Financial Settings */}
-                <div className="p-4 bg-violet-50 rounded-lg border border-violet-100">
-                    <p className="font-semibold text-gray-900">Analítica Financiera</p>
-                    <p className="text-sm text-gray-500 mb-3">
-                        Define los costos operativos para calcular el impacto de la rotación.
-                    </p>
-                    <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                            <label className="block text-xs font-bold text-violet-600 uppercase mb-1">Costo Reposición Promedio (S/.)</label>
-                            <input
-                                type="number"
-                                value={costoReposicion}
-                                onChange={(e) => setCostoReposicion(Number(e.target.value))}
-                                className="w-full px-3 py-2 border border-violet-200 rounded-lg focus:ring-2 focus:ring-violet-500"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Visual Settings */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Colors & Style */}
+                    <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h4 className="font-bold text-gray-900 flex items-center gap-2">🎨 Colores de Marca</h4>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="p-4 bg-gray-50 rounded-xl space-y-3">
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Color Primario</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="color"
+                                        value={branding.primaryColor}
+                                        onChange={(e) => setBranding({ ...branding, primaryColor: e.target.value })}
+                                        className="w-12 h-12 rounded-lg cursor-pointer border-2 border-white shadow-sm"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={branding.primaryColor}
+                                        onChange={(e) => setBranding({ ...branding, primaryColor: e.target.value })}
+                                        className="flex-1 bg-white px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-xl space-y-3">
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Color Secundario</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="color"
+                                        value={branding.secondaryColor}
+                                        onChange={(e) => setBranding({ ...branding, secondaryColor: e.target.value })}
+                                        className="w-12 h-12 rounded-lg cursor-pointer border-2 border-white shadow-sm"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={branding.secondaryColor}
+                                        onChange={(e) => setBranding({ ...branding, secondaryColor: e.target.value })}
+                                        className="flex-1 bg-white px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setBranding({ ...branding, primaryColor: '#E30613', secondaryColor: '#1A1A1A' })}
+                            className="text-xs font-bold text-red-600 hover:text-red-700 underline"
+                        >
+                            Aplicar Paleta Phill-Chu-Joy
+                        </button>
+                    </section>
+
+                    {/* Content CMS */}
+                    <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                        <h4 className="font-bold text-gray-900 flex items-center gap-2">✍️ Contenido del Portal</h4>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Descripción de la Empresa</label>
+                            <textarea
+                                value={branding.description}
+                                onChange={(e) => setBranding({ ...branding, description: e.target.value })}
+                                placeholder="Describe por qué es genial trabajar aquí..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm min-h-[120px] focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                             />
                         </div>
-                    </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Frases destacadas (Hero)</label>
+                            <textarea
+                                value={branding.phrases.join('\n')}
+                                onChange={(e) => setBranding({ ...branding, phrases: e.target.value.split('\n').filter(Boolean) })}
+                                placeholder="Una frase por línea&#10;Ej: El futuro es hoy"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500"
+                            />
+                        </div>
+                    </section>
                 </div>
 
-                {/* Save Button */}
-                <button
-                    onClick={handleSave}
-                    disabled={saving || uploading}
-                    className="w-full px-6 py-3 gradient-bg text-white font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
-                >
-                    {saving ? 'Guardando...' : '✅ Guardar Configuración'}
-                </button>
+                {/* Media Side */}
+                <div className="space-y-8">
+                    {/* Gallery Manager */}
+                    <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-gray-900">📸 Galería de Fotos</h4>
+                            <button
+                                onClick={() => galleryInputRef.current?.click()}
+                                disabled={uploading}
+                                className="text-xs px-3 py-1 bg-violet-50 text-violet-600 font-bold rounded-lg hover:bg-violet-100 transition-colors"
+                            >
+                                {uploading ? '⏳...' : '+ Subir'}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 min-h-[100px]">
+                            {branding.gallery.map((url, idx) => (
+                                <div key={idx} className="group relative aspect-video bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
+                                    <img src={url} alt="Gallery" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => removeGalleryItem(idx)}
+                                        className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px]"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                            <button
+                                onClick={() => galleryInputRef.current?.click()}
+                                className="aspect-video border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-violet-300 hover:text-violet-400 transition-all"
+                            >
+                                <span className="text-xl">+</span>
+                                <span className="text-[10px] font-bold uppercase">Añadir</span>
+                            </button>
+                        </div>
+                        <input
+                            ref={galleryInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, 'gallery')}
+                            className="hidden"
+                        />
+                    </section>
+
+                    {/* YouTube Manager */}
+                    <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h4 className="font-bold text-gray-900">🎥 Videos de YouTube</h4>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={ytInput}
+                                onChange={(e) => setYtInput(e.target.value)}
+                                placeholder="Pega el link de YouTube"
+                                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                            />
+                            <button
+                                onClick={addYoutubeVideo}
+                                className="px-3 py-2 bg-red-600 text-white rounded-lg font-bold text-xs"
+                            >
+                                Añadir
+                            </button>
+                        </div>
+
+                        <div className="space-y-2">
+                            {branding.videos.map((vid, idx) => (
+                                <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div className="w-12 h-9 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-400 overflow-hidden">
+                                        <img src={`https://img.youtube.com/vi/${vid.id}/default.jpg`} alt="YT" className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] text-gray-400 font-mono truncate">ID: {vid.id}</p>
+                                    </div>
+                                    <button onClick={() => removeVideoItem(idx)} className="text-gray-300 hover:text-red-500 transition-colors">🗑️</button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
             </div>
+
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileUpload(e, 'logo')}
+                className="hidden"
+            />
         </div>
     );
 }

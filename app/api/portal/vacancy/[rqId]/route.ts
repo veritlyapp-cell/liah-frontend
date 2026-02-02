@@ -42,7 +42,9 @@ export async function GET(
                 vacantes: data.vacantes || 1,
                 categoria: data.categoria || 'operativo',
                 description: data.description || '',
-                requirements: data.requirements || []
+                requirements: data.requirements || [],
+                requisitos: data.requisitos || null,
+                storeCoordinates: data.storeCoordinates || null
             }
         });
 

@@ -11,15 +11,31 @@ import ConfigurationView from '@/components/ConfigurationView';
 import RQTrackingView from '@/components/admin/RQTrackingView';
 import EmailTemplatesConfig from '@/components/admin/EmailTemplatesConfig';
 import { useRouter } from 'next/navigation';
+import AnalyticsUnifiedView from '@/components/analytics/AnalyticsUnifiedView';
 
 export default function RecruiterDashboard() {
-    const { user } = useAuth();
+    const { user, claims, loading: authLoading, signOut } = useAuth();
     const router = useRouter();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
     const [positions, setPositions] = useState<string[]>([]);
     const [stores, setStores] = useState<Array<{ id: string, nombre: string }>>([]);
+
+    // Role protection and redirection
+    useEffect(() => {
+        if (!authLoading && user) {
+            const role = claims?.role || '';
+            // ONLY redirect if we explicitly have a role AND it's NOT a recruiter role
+            if (role && !['recruiter', 'brand_recruiter', 'client_admin', 'admin', 'super_admin'].includes(role)) {
+                console.log('🛡️ Recruiter Guard: Unauthorized role detected:', role, '- redirecting to /launcher');
+                router.push('/launcher');
+            }
+        } else if (!authLoading && !user) {
+            console.log('🛡️ Recruiter Guard: No user, redirecting to /login');
+            router.push('/login');
+        }
+    }, [user, claims, authLoading, router]);
 
     // Filters state
     const [selectedStores, setSelectedStores] = useState<string[]>([]);
@@ -40,36 +56,105 @@ export default function RecruiterDashboard() {
             try {
                 const { getUserAssignment } = await import('@/lib/firestore/user-assignments');
                 const assignment = await getUserAssignment(user.uid);
+                console.log('🔍 Recruiter: Raw assignment data:', JSON.stringify(assignment, null, 2));
+
+                if (!assignment) {
+                    console.log('❌ Recruiter: No assignment found for user');
+                    setLoading(false);
+                    setLoadingAssignment(false);
+                    return;
+                }
 
                 const loadedMarcas: { id: string; nombre: string }[] = [];
 
-                // Get from assignedMarca (primary)
-                if (assignment?.assignedMarca?.marcaId) {
+                // 1. Get from assignedMarca (singular)
+                const am = assignment.assignedMarca;
+                if (am && (am.marcaId || (am as any).id)) {
                     loadedMarcas.push({
-                        id: assignment.assignedMarca.marcaId,
-                        nombre: assignment.assignedMarca.marcaNombre || 'Marca'
+                        id: am.marcaId || (am as any).id,
+                        nombre: am.marcaNombre || (am as any).nombre || 'Marca'
                     });
                 }
 
-                // Also get from assignedStores (additional marcas)
-                if (assignment?.assignedStores) {
-                    assignment.assignedStores.forEach(store => {
-                        if (store.marcaId && !loadedMarcas.some(m => m.id === store.marcaId)) {
+                // 2. Get from assignedMarcas (plural array)
+                const ams = assignment.assignedMarcas || (assignment as any).assignedBrands || (assignment as any).marcasAsignadas;
+                if (ams && Array.isArray(ams)) {
+                    ams.forEach((m: any) => {
+                        const mid = m.marcaId || m.id || m.brandId;
+                        if (mid && !loadedMarcas.some(lm => lm.id === mid)) {
                             loadedMarcas.push({
-                                id: store.marcaId,
-                                nombre: store.marcaId // Will be replaced if we have the name
+                                id: mid,
+                                nombre: m.marcaNombre || m.nombre || m.brandName || mid
                             });
                         }
                     });
                 }
 
+                // 3. Get from top-level Fields
+                const topMid = assignment.marcaId || (assignment as any).idMarca || (assignment as any).brandId || (assignment as any).brand_id;
+                if (topMid && !loadedMarcas.some(lm => lm.id === topMid)) {
+                    loadedMarcas.push({
+                        id: topMid,
+                        nombre: (assignment as any).marcaNombre || (assignment as any).nombreMarca || (assignment as any).brandName || topMid
+                    });
+                }
+
+                // 4. Get from assignedStores (array)
+                const aStores = assignment.assignedStores || (assignment as any).tiendasAsignadas;
+                if (aStores && Array.isArray(aStores)) {
+                    aStores.forEach((store: any) => {
+                        // Could be store object or just ID
+                        if (store && typeof store !== 'string') {
+                            const mid = store.marcaId || store.brandId || store.idMarca || store.brand_id;
+                            if (mid && !loadedMarcas.some(lm => lm.id === mid)) {
+                                loadedMarcas.push({
+                                    id: mid,
+                                    nombre: store.marcaNombre || store.nombreMarca || store.brandName || mid
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // 5. Check if they have ANY assignment at all (as a fallback for admins or misconfigured data)
+                const role = claims?.role || assignment.role || '';
+                const isAdmin = ['super_admin', 'admin', 'client_admin'].includes(role);
+
+                // EXTRA REDUNDANCY: Check for ANY property that suggests assignment
+                const hasAnyAssignment =
+                    loadedMarcas.length > 0 ||
+                    (aStores && aStores.length > 0) ||
+                    assignment.tiendaId ||
+                    (assignment as any).storeId ||
+                    assignment.marcaId ||
+                    assignment.assignedStore ||
+                    assignment.assignedMarca;
+
+                if (loadedMarcas.length === 0 && (isAdmin || hasAnyAssignment) && assignment.holdingId) {
+                    console.log('🛡️ Assignment detected via fallback. Using placeholder for holding:', assignment.holdingId);
+                    loadedMarcas.push({
+                        id: 'all_holding',
+                        nombre: 'Todas las Marcas (vía fallback)'
+                    });
+                }
+
                 setMarcas(loadedMarcas);
-                if (assignment?.holdingId) {
+                if (assignment.holdingId) {
                     setHoldingId(assignment.holdingId);
                 }
-                console.log('✅ Recruiter marcas loaded:', loadedMarcas.length);
+
+                console.log('✅ Recruiter brands final selection:', loadedMarcas);
+
+                if (loadedMarcas.length > 0) {
+                    // Success path
+                    setLoading(false); // Make sure loading is false if we found marcas
+                } else {
+                    console.log('❌ Recruiter: Hard fail - No brands found. Assignment object:', JSON.stringify(assignment));
+                    setLoading(false);
+                }
             } catch (error) {
                 console.error('Error loading assignment:', error);
+                setLoading(false);
             } finally {
                 setLoadingAssignment(false);
             }
@@ -206,10 +291,27 @@ export default function RecruiterDashboard() {
                     </p>
                     <button
                         onClick={() => router.push('/launcher')}
-                        className="w-full py-3 px-4 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors"
+                        className="w-full py-3 px-4 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors mb-3"
                     >
                         Volver al Selector
                     </button>
+
+                    <button
+                        onClick={() => signOut()}
+                        className="w-full py-3 px-4 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                    >
+                        Cerrar Sesión
+                    </button>
+
+                    <div className="mt-8 pt-6 border-t border-gray-100 text-left">
+                        <p className="text-[10px] uppercase font-bold text-gray-400 mb-2 tracking-widest">Diagnóstico para Soporte</p>
+                        <div className="bg-gray-50 p-3 rounded-lg font-mono text-[10px] text-gray-500 space-y-1 overflow-hidden">
+                            <p>Rol: {claims?.role || 'No detectado'}</p>
+                            <p>Holding: {holdingId || 'No detectado'}</p>
+                            <p>UID: {user?.uid.slice(0, 8)}...</p>
+                            <p>Email: {user?.email}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -381,18 +483,10 @@ export default function RecruiterDashboard() {
 
                 {
                     activeTab === 'analitica' && (
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
-                            <div className="text-6xl mb-4">📊</div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Dashboard de Analítica</h2>
-                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                                Visualiza métricas de reclutamiento, funnel de candidatos y tendencias operativas.
-                            </p>
-                            <a
-                                href="/analytics"
-                                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95"
-                            >
-                                Abrir Dashboard Completo →
-                            </a>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="p-6">
+                                <AnalyticsUnifiedView isEmbedded={true} initialHoldingId={holdingId} />
+                            </div>
                         </div>
                     )
                 }

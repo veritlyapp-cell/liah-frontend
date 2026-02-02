@@ -36,6 +36,15 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     // Approval Matrix
     const [approvalLevels, setApprovalLevels] = useState<any[]>([]);
 
+    // Employer Branding
+    const [brandingEnabled, setBrandingEnabled] = useState(false);
+    const [primaryColor, setPrimaryColor] = useState('#7c3aed');
+    const [secondaryColor, setSecondaryColor] = useState('#4f46e5');
+    const [brandPhrases, setBrandPhrases] = useState<string[]>([]);
+    const [brandGallery, setBrandGallery] = useState<string[]>([]);
+    const [brandVideos, setBrandVideos] = useState<{ id: string, title: string }[]>([]);
+    const [brandDescription, setBrandDescription] = useState('');
+
     // Actualizar valores cuando cambia el holding
     useEffect(() => {
         if (holding) {
@@ -61,6 +70,15 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
             // Products
             setHasLiahFlow(config?.hasLiahFlow !== false); // Default true
             setHasLiahTalent(config?.hasLiahTalent || false);
+
+            // Branding
+            setBrandingEnabled(config?.branding?.enabled || false);
+            setPrimaryColor(config?.branding?.primaryColor || '#7c3aed');
+            setSecondaryColor(config?.branding?.secondaryColor || '#4f46e5');
+            setBrandPhrases(config?.branding?.phrases || []);
+            setBrandGallery(config?.branding?.gallery || []);
+            setBrandVideos(config?.branding?.videos || []);
+            setBrandDescription(config?.branding?.description || '');
         }
     }, [holding]);
 
@@ -84,7 +102,17 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 approvalLevels,
                 // Products
                 hasLiahFlow,
-                hasLiahTalent
+                hasLiahTalent,
+                // Branding
+                branding: {
+                    enabled: brandingEnabled,
+                    primaryColor,
+                    secondaryColor,
+                    phrases: brandPhrases,
+                    gallery: brandGallery,
+                    videos: brandVideos,
+                    description: brandDescription
+                }
             }
         });
     };
@@ -353,6 +381,113 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                             + Agregar Nivel de Aprobación
                         </button>
                     </div>
+                </div>
+
+                {/* Marca Empleadora CMS */}
+                <div className="mb-8 border-t pt-6 bg-orange-50/30 -mx-6 px-6 pb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-md font-bold text-gray-900 flex items-center gap-2">
+                            <span className="text-xl">✨</span> Marca Empleadora (Portal)
+                        </h4>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={brandingEnabled}
+                                onChange={(e) => setBrandingEnabled(e.target.checked)}
+                                className="w-5 h-5 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700">{brandingEnabled ? 'Activado' : 'Desactivado'}</span>
+                        </label>
+                    </div>
+
+                    {brandingEnabled && (
+                        <div className="space-y-6 animate-fade-in">
+                            {/* Colores */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Color Primario</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="color"
+                                            value={primaryColor}
+                                            onChange={(e) => setPrimaryColor(e.target.value)}
+                                            className="w-10 h-10 rounded cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={primaryColor}
+                                            onChange={(e) => setPrimaryColor(e.target.value)}
+                                            className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm font-mono"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Color Secundario</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="color"
+                                            value={secondaryColor}
+                                            onChange={(e) => setSecondaryColor(e.target.value)}
+                                            className="w-10 h-10 rounded cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={secondaryColor}
+                                            onChange={(e) => setSecondaryColor(e.target.value)}
+                                            className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Descripción */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Descripción de Marca</label>
+                                <textarea
+                                    value={brandDescription}
+                                    onChange={(e) => setBrandDescription(e.target.value)}
+                                    placeholder="Somos una empresa que..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-24"
+                                />
+                            </div>
+
+                            {/* Frases */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Frases del Hero (una por línea)</label>
+                                <textarea
+                                    value={brandPhrases.join('\n')}
+                                    onChange={(e) => setBrandPhrases(e.target.value.split('\n').filter(Boolean))}
+                                    placeholder="Sabor y Pasión&#10;Tu futuro empieza aquí"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-20"
+                                />
+                            </div>
+
+                            {/* Galería */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Galería de Fotos (URLs)</label>
+                                <textarea
+                                    value={brandGallery.join('\n')}
+                                    onChange={(e) => setBrandGallery(e.target.value.split('\n').filter(Boolean))}
+                                    placeholder="https://image1.jpg&#10;https://image2.jpg"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-24 font-mono"
+                                />
+                            </div>
+
+                            {/* Videos */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Videos (YouTube IDs, uno por línea)</label>
+                                <textarea
+                                    value={brandVideos.map(v => v.id).join('\n')}
+                                    onChange={(e) => {
+                                        const ids = e.target.value.split('\n').filter(Boolean);
+                                        setBrandVideos(ids.map(id => ({ id, title: 'Video' })));
+                                    }}
+                                    placeholder="dQw4w9WgXcQ&#10;KaTPzl88o3I"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-20 font-mono"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Password Temporal y Estado */}

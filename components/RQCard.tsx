@@ -164,6 +164,65 @@ export default function RQCard({
                 </div>
             </div>
 
+            {/* Visual Approval Stepper */}
+            {rq.approvalStatus !== 'rejected' && (
+                <div className="mb-4 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Flujo de Aprobación</span>
+                        <span className="text-[10px] font-medium text-violet-500 bg-violet-50 px-2 py-0.5 rounded">
+                            {rq.approvalStatus === 'approved' ? 'Completado' : `Nivel ${rq.currentApprovalLevel} pendiente`}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-0.5 relative">
+                        {[1, 2, 3].map((level, idx) => {
+                            const levelInfo = getLevelInfo(level);
+                            const chainItem = rq.approvalChain?.find(item => item.level === level);
+                            const isPast = level < (rq.currentApprovalLevel || 1) || rq.approvalStatus === 'approved';
+                            const isCurrent = level === (rq.currentApprovalLevel || 1) && rq.approvalStatus === 'pending';
+
+                            // Colors
+                            let circleBg = "bg-gray-200";
+                            let textColor = "text-gray-400";
+                            let icon: React.ReactNode = level;
+
+                            if (isPast) {
+                                circleBg = "bg-green-500";
+                                textColor = "text-green-600";
+                                icon = "✓";
+                            } else if (isCurrent) {
+                                circleBg = "bg-violet-600 animate-pulse";
+                                textColor = "text-violet-700 font-bold";
+                            }
+
+                            return (
+                                <div key={level} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                                    <div className={`w-6 h-6 rounded-full ${circleBg} flex items-center justify-center text-[10px] text-white transition-all shadow-sm z-10`}>
+                                        {icon}
+                                    </div>
+                                    <span className={`text-[9px] text-center leading-none ${textColor} font-medium px-1`}>
+                                        {levelInfo?.name || `Nivel ${level}`}
+                                    </span>
+
+                                    {/* Line connecting circles */}
+                                    {idx < 2 && (
+                                        <div className={`absolute h-[2px] w-[calc(100%-24px)] top-3 left-[calc(50%+12px)] ${isPast ? 'bg-green-500' : 'bg-gray-200'}`} />
+                                    )}
+
+                                    {/* Tooltip on hover with details */}
+                                    {chainItem?.approvedAt && (
+                                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-[9px] p-2 rounded-lg whitespace-nowrap z-50 shadow-xl">
+                                            {chainItem.status === 'approved' ? 'Aprobado' : 'Pendiente'} por:<br />
+                                            {chainItem.approvedByName || chainItem.approvedBy || 'N/A'}<br />
+                                            {new Date(chainItem.approvedAt.toDate()).toLocaleString()}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Detalles */}
             <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
                 <div>
@@ -175,51 +234,6 @@ export default function RQCard({
                     <span className="font-medium text-gray-900 ml-1">{rq.marcaNombre}</span>
                 </div>
             </div>
-
-            {/* Beneficios */}
-            {rq.beneficios && rq.beneficios.length > 0 && (
-                <div className="mb-3">
-                    <p className="text-xs text-gray-500 mb-1">Beneficios:</p>
-                    <div className="flex flex-wrap gap-1">
-                        {rq.beneficios.map((beneficio, idx) => (
-                            <span
-                                key={idx}
-                                className="text-xs bg-cyan-50 text-cyan-700 px-2 py-1 rounded"
-                            >
-                                {beneficio}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Time to Fill (si está en reclutamiento o finalizado) */}
-            {timeToFillDays !== null && (
-                <div className="mb-3 p-2 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-600 font-medium">
-                        ⏱ Time to Fill: {timeToFillDays} día{timeToFillDays !== 1 ? 's' : ''}
-                    </p>
-                </div>
-            )}
-
-            {/* Historial de aprobaciones (si tiene) */}
-            {rq.approvalHistory && rq.approvalHistory.length > 0 && (
-                <div className="mb-3 pb-3 border-b border-gray-200">
-                    <p className="text-xs text-gray-500 mb-2">Historial:</p>
-                    <div className="space-y-1">
-                        {rq.approvalHistory.slice(-2).map((entry, idx) => (
-                            <div key={idx} className="text-xs text-gray-600 flex items-center gap-2">
-                                <span className={entry.action === 'approved' ? 'text-green-600' : 'text-red-600'}>
-                                    {entry.action === 'approved' ? '✓' : '✗'}
-                                </span>
-                                <span>Nivel {entry.level}</span>
-                                <span className="text-gray-400">•</span>
-                                <span>{entry.approvedByEmail}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Botones de acción principal */}
             <div className="flex flex-wrap gap-2 mb-3">

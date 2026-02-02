@@ -6,16 +6,19 @@ import { getCandidatesByStore, getCandidatesByMultipleStores, getCandidatesByMar
 import type { Candidate } from '@/lib/firestore/candidates';
 import CandidateProfileModal from '@/components/CandidateProfileModal';
 import PriorityModal from '@/components/PriorityModal';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface CandidatesListViewProps {
     storeId?: string;
     storeIds?: string[]; // [NEW] For supervisors
     marcaId?: string; // [NEW] For jefe de marca
     filterStatus?: string; // [NEW] Optional filter
+    onRefresh?: () => void; // [NEW] Optional refresh callback
 }
 
-export default function CandidatesListView({ storeId, storeIds, marcaId, filterStatus }: CandidatesListViewProps) {
-    const { claims } = useAuth();
+export default function CandidatesListView({ storeId, storeIds, marcaId, filterStatus, onRefresh }: CandidatesListViewProps) {
+    const { user, claims } = useAuth();
     const isStoreManager = claims?.role === 'store_manager';
     const isSupervisor = claims?.role === 'supervisor';
     const isJefeMarca = claims?.role === 'jefe_marca';
@@ -29,6 +32,9 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
     const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
     // State for PriorityModal
     const [candidateToApprove, setCandidateToApprove] = useState<{ candidate: Candidate; appId: string } | null>(null);
+    const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+    // State for Reingreso detection
+    const [bajasMap, setBajasMap] = useState<Map<string, { motivoLabel: string; noRecomendar: boolean }>>(new Map());
 
     const toggleHistory = (candidateId: string) => {
         setExpandedHistory(prev => {
@@ -58,6 +64,8 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                 data = await getCandidatesByStore(storeId);
             }
             setCandidates(data);
+            // Fetch bajas for reingreso detection
+            await loadBajasData();
         } catch (error) {
             console.error('Error loading candidates:', error);
         } finally {
@@ -72,8 +80,9 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
         const { candidate, appId } = candidateToApprove;
         const { approveCandidate } = await import('@/lib/firestore/candidate-actions');
 
+        setProcessingIds(prev => new Set(prev).add(candidate.id));
         try {
-            await approveCandidate(candidate.id, appId, 'store-manager-user', priority);
+            await approveCandidate(candidate.id, appId, user?.uid || 'system', priority);
 
             // NOTE: Email removed - Recruiter sends email when marking CUL as 'Apto'
             alert(`✅ Candidato aprobado como ${priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'}`);
@@ -82,12 +91,42 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
             console.error('Error approving:', error);
             alert('Error al aprobar');
         } finally {
+            setProcessingIds(prev => {
+                const next = new Set(prev);
+                next.delete(candidate.id);
+                return next;
+            });
             setCandidateToApprove(null);
         }
     };
 
 
     const [listFilter, setListFilter] = useState<'pending' | 'process' | 'selected' | 'hired' | 'rejected'>('pending');
+
+    // Load bajas data for Reingreso detection
+    async function loadBajasData() {
+        try {
+            const holdingId = (claims as any)?.tenant_id;
+            if (!holdingId) return;
+            const bajasRef = collection(db, 'bajas_colaboradores');
+            const q = query(bajasRef, where('holdingId', '==', holdingId));
+            const snapshot = await getDocs(q);
+            const newMap = new Map<string, { motivoLabel: string; noRecomendar: boolean }>();
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const dni = data.numeroDocumento;
+                if (dni && dni !== 'DESCONOCIDO') {
+                    newMap.set(dni, {
+                        motivoLabel: data.motivoLabel || 'Desconocido',
+                        noRecomendar: data.noRecomendar || false
+                    });
+                }
+            });
+            setBajasMap(newMap);
+        } catch (err) {
+            console.error('Error loading bajas for reingreso detection:', err);
+        }
+    }
 
     // Calculate counts for tabs
     const relevantStoreIds = storeIds || (storeId ? [storeId] : []);
@@ -128,6 +167,9 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
         }) || [];
         const latestApp = storeApplications[storeApplications.length - 1];
 
+        // Must have an application for this store/marca
+        if (!latestApp) return false;
+
         // Search filter first
         const search = searchTerm.toLowerCase();
         const matchesSearch = (
@@ -145,32 +187,28 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
             return latestApp?.status === filterStatus;
         }
 
-        // Default behavior: Categorize by listFilter
-        if (listFilter === 'pending') {
-            // Pendientes: No aprobados aún por supervisor/SM
-            if (latestApp?.status === 'approved' || latestApp?.status === 'rejected' || candidate.selectionStatus === 'selected' || latestApp?.hiredStatus) {
-                return false;
-            }
-        } else if (listFilter === 'process') {
-            // En Proceso: Aprobados por supervisor/SM pero no seleccionados por Recruiter
-            if (latestApp?.status !== 'approved' || candidate.selectionStatus === 'selected' || latestApp?.hiredStatus) {
-                return false;
-            }
-        } else if (listFilter === 'selected') {
-            // Seleccionados: Marcados como 'selected' por recruiter pero no ingresados
-            const isSelected = candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId);
-            if (!isSelected || latestApp?.hiredStatus) return false;
-        } else if (listFilter === 'hired') {
-            // Ingreso: Marcados como contratados
-            if (latestApp?.hiredStatus !== 'hired') return false;
-        } else if (listFilter === 'rejected') {
-            // Rechazados o No Ingreso
-            const isRejected = latestApp?.status === 'rejected';
-            const isNotHired = latestApp?.hiredStatus === 'not_hired';
-            if (!isRejected && !isNotHired) return false;
+        // Calculate categorization (same logic as tab counts)
+        const isHired = latestApp.hiredStatus === 'hired';
+        const isNotHired = latestApp.hiredStatus === 'not_hired';
+        const isRejected = latestApp.status === 'rejected';
+        const isSelectedForThisRQ = candidate.selectionStatus === 'selected' && (candidate.selectedForRQ === latestApp?.rqId);
+        const isApprovedBySM = latestApp?.status === 'approved';
+
+        // Categorize using the SAME logic as tab counts
+        let category: 'pending' | 'process' | 'selected' | 'hired' | 'rejected' = 'pending';
+        if (isHired) {
+            category = 'hired';
+        } else if (isNotHired || isRejected) {
+            category = 'rejected';
+        } else if (isSelectedForThisRQ) {
+            category = 'selected';
+        } else if (isApprovedBySM) {
+            category = 'process';
+        } else {
+            category = 'pending';
         }
 
-        return true;
+        return category === listFilter;
     });
 
     const getCULStatusColor = (status: string) => {
@@ -375,11 +413,44 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 </span>
                                             )}
 
+                                            {/* REINGRESO Badge - Based on bajas_colaboradores */}
+                                            {candidate.dni && bajasMap.has(candidate.dni) && (() => {
+                                                const bajaInfo = bajasMap.get(candidate.dni)!;
+                                                return (
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 ${bajaInfo.noRecomendar
+                                                        ? 'bg-red-100 text-red-800 border border-red-300'
+                                                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                                        }`}>
+                                                        {bajaInfo.noRecomendar ? '⛔' : '🔄'} REINGRESO ({bajaInfo.motivoLabel})
+                                                        {bajaInfo.noRecomendar && <span className="font-black"> - NO RECOMENDABLE</span>}
+                                                    </span>
+                                                );
+                                            })()}
+
+                                            {/* Other Active Processes Badge */}
+                                            {(() => {
+                                                const otherActiveApps = candidate.applications?.filter((app: any) =>
+                                                    app.tiendaId !== storeId &&
+                                                    app.status !== 'rejected' &&
+                                                    app.hiredStatus !== 'hired' &&
+                                                    app.hiredStatus !== 'not_hired'
+                                                ) || [];
+                                                if (otherActiveApps.length > 0) {
+                                                    const otherBrands = [...new Set(otherActiveApps.map((app: any) => app.marcaNombre))].join(', ');
+                                                    return (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                                                            <span>📍</span> También en: {otherBrands}
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+
                                             {/* Priority Badge from Gerente de Tienda - Visible to Recruiters */}
                                             {latestApp?.priority && (
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${latestApp.priority === 'principal'
-                                                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                                        : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                    : 'bg-gray-100 text-gray-700 border border-gray-200'
                                                     }`}>
                                                     {latestApp.priority === 'principal' ? '⭐ Principal' : '📋 Backup'}
                                                 </span>
@@ -576,10 +647,19 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                         {latestApp && latestApp.status === 'completed' && (
                                             <>
                                                 <button
-                                                    onClick={() => setCandidateToApprove({ candidate, appId: latestApp.id })}
-                                                    className="px-4 py-2 text-sm bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                                    onClick={() => {
+                                                        setCandidateToApprove({ candidate, appId: latestApp.id });
+                                                        setProcessingIds(prev => new Set(prev).add(candidate.id));
+                                                    }}
+                                                    disabled={processingIds.has(candidate.id)}
+                                                    className="px-4 py-2 text-sm bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    <span>✓</span> Aprobar
+                                                    {processingIds.has(candidate.id) ? (
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <span>✓</span>
+                                                    )}
+                                                    Aprobar
                                                 </button>
 
                                                 <button
@@ -588,8 +668,9 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                         if (!reason) return;
 
                                                         const { rejectCandidate } = await import('@/lib/firestore/candidate-actions');
+                                                        setProcessingIds(prev => new Set(prev).add(candidate.id));
                                                         try {
-                                                            await rejectCandidate(candidate.id, latestApp.id, 'store-manager-user', reason);
+                                                            await rejectCandidate(candidate.id, latestApp.id, user?.uid || 'system', reason);
                                                             // REMOVED: updateCULStatus - Recruiter should do this evaluation
 
                                                             loadCandidates();
@@ -597,11 +678,107 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                         } catch (error) {
                                                             console.error('Error rejecting:', error);
                                                             alert('Error al rechazar');
+                                                        } finally {
+                                                            setProcessingIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(candidate.id);
+                                                                return next;
+                                                            });
                                                         }
                                                     }}
-                                                    className="px-4 py-2 text-sm bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                                    disabled={processingIds.has(candidate.id)}
+                                                    className="px-4 py-2 text-sm bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    <span>✕</span> Rechazar
+                                                    {processingIds.has(candidate.id) ? (
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <span>✕</span>
+                                                    )}
+                                                    Rechazar
+                                                </button>
+                                            </>
+                                        )}
+
+                                        {/* Ingreso Actions - For candidates in 'selected' status */}
+                                        {candidate.selectionStatus === 'selected' && candidate.selectedForRQ === latestApp?.rqId && !latestApp?.hiredStatus && (
+                                            <>
+                                                <button
+                                                    onClick={async () => {
+                                                        const confirm = window.confirm(`¿Confirmar INGRESO de ${candidate.nombre} ${candidate.apellidoPaterno}?`);
+                                                        if (!confirm) return;
+
+                                                        const dateStr = window.prompt('Ingresa la fecha de ingreso (DD/MM/YYYY):', new Date().toLocaleDateString('es-PE'));
+                                                        if (!dateStr) return;
+
+                                                        const parts = dateStr.split('/');
+                                                        const startDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+
+                                                        setProcessingIds(prev => new Set(prev).add(candidate.id));
+                                                        try {
+                                                            const { markCandidateHired } = await import('@/lib/firestore/hiring-actions');
+                                                            await markCandidateHired(candidate.id, latestApp.id, 'store-manager', startDate);
+                                                            alert('✅ Candidato marcado como INGRESADO');
+                                                            onRefresh ? onRefresh() : loadCandidates();
+                                                        } catch (error) {
+                                                            console.error('Error marking hired:', error);
+                                                            alert('Error al confirmar ingreso');
+                                                        } finally {
+                                                            setProcessingIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(candidate.id);
+                                                                return next;
+                                                            });
+                                                        }
+                                                    }}
+                                                    disabled={processingIds.has(candidate.id)}
+                                                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {processingIds.has(candidate.id) ? (
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <span>✅</span>
+                                                    )}
+                                                    Confirmar Ingreso
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        const reasons = ['Desistió', 'No pasó examen médico', 'Encontró mejor oferta', 'No se presentó', 'Documentación incompleta', 'Otro'];
+                                                        const reasonIndex = window.prompt(
+                                                            'Selecciona razón:\n' + reasons.map((r, i) => `${i + 1}. ${r}`).join('\n') + '\n\nIngresa el número:'
+                                                        );
+                                                        if (!reasonIndex) return;
+
+                                                        let reason = reasons[parseInt(reasonIndex) - 1] || 'Otro';
+                                                        if (reason === 'Otro') {
+                                                            reason = window.prompt('Especifica la razón:') || 'Otro';
+                                                        }
+
+                                                        setProcessingIds(prev => new Set(prev).add(candidate.id));
+                                                        try {
+                                                            const { markCandidateNotHired } = await import('@/lib/firestore/hiring-actions');
+                                                            await markCandidateNotHired(candidate.id, latestApp.id, 'store-manager', reason);
+                                                            alert('❌ Candidato marcado como NO INGRESADO');
+                                                            onRefresh ? onRefresh() : loadCandidates();
+                                                        } catch (error) {
+                                                            console.error('Error marking not hired:', error);
+                                                            alert('Error al marcar como no ingresado');
+                                                        } finally {
+                                                            setProcessingIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(candidate.id);
+                                                                return next;
+                                                            });
+                                                        }
+                                                    }}
+                                                    disabled={processingIds.has(candidate.id)}
+                                                    className="px-4 py-2 text-sm bg-gray-600 text-white rounded-full hover:bg-gray-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {processingIds.has(candidate.id) ? (
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <span>❌</span>
+                                                    )}
+                                                    No Ingresó
                                                 </button>
                                             </>
                                         )}
@@ -638,7 +815,17 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                 isOpen={!!candidateToApprove}
                 candidateName={candidateToApprove?.candidate.nombre || ''}
                 onSelect={handleApproveWithPriority}
-                onClose={() => setCandidateToApprove(null)}
+                onClose={() => {
+                    if (candidateToApprove) {
+                        const id = candidateToApprove.candidate.id;
+                        setProcessingIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(id);
+                            return next;
+                        });
+                    }
+                    setCandidateToApprove(null);
+                }}
             />
         </div>
     );

@@ -34,41 +34,46 @@ Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones:
   "observacion": "cualquier nota relevante"
 }`;
 
-const CUL_PROMPT = `Analiza este Certificado Único Laboral (CUL) del Perú.
-Este documento contiene el historial laboral y posibles denuncias de un trabajador.
+const CUL_PROMPT = `Analiza este Certificado Único Laboral (CUL) del Perú (Certificado CERTIJOVEN o CERTIADULTO).
+Este documento es CRÍTICO para la seguridad de la empresa. Contiene el historial laboral y antecedentes penales, judiciales y policiales.
 
-Busca cuidadosamente:
-1. ¿Tiene denuncias laborales registradas? (demandas, multas, sanciones)
-2. ¿Tiene antecedentes negativos? (despidos por falta grave, etc.)
-3. ¿El documento parece auténtico? (sellos, formato oficial)
-4. Nombre del titular
-5. DNI del titular
-6. FECHA DE EMISIÓN del documento (muy importante - busca la fecha en que se generó el CUL)
+INSTRUCCIONES DE ANÁLISIS:
+1. ANTECEDENTES: Busca CUALQUIER mención de "ANTECEDENTES PENALES", "ANTECEDENTES POLICIALES" o "ANTECEDENTES JUDICIALES". Reporta si hay registros o si está limpio.
+2. DENUNCIAS: Busca tablas o secciones de "DENUNCIAS" o "PROCESSES".
+3. FECHA DE EMISIÓN: Busca la fecha en que se generó este documento (generalmente dice "Fecha de emisión" o aparece cerca del código QR).
+4. VALIDACIÓN: El documento debe ser un PDF oficial del Ministerio de Trabajo.
 
-Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones:
+Responde ÚNICAMENTE con JSON válido:
 {
-  "tieneDenuncias": true o false,
-  "tieneAntecedentesNegativos": true o false,
-  "documentoAutentico": true, false, o "no_claro",
-  "nombreTitular": "string",
-  "dniTitular": "string",
-  "fechaEmision": "DD/MM/AAAA" o null si no se encuentra,
-  "denunciasEncontradas": ["lista de denuncias si las hay"],
-  "observacion": "Descripción detallada de lo encontrado",
-  "recomendacion": "aprobar" o "rechazar" o "revisar_manual",
-  "confidence": número del 0 al 100
+  "tieneDenuncias": true/false (true si hay CUALQUIER antecedente o denuncia),
+  "tieneAntecedentesNegativos": true/false,
+  "documentoAutentico": true/false/"no_claro",
+  "nombreTitular": "Nombre completo",
+  "dniTitular": "DNI",
+  "fechaEmision": "DD/MM/AAAA",
+  "denunciasEncontradas": ["Lista detallada de antecedentes o denuncias detectadas"],
+  "observacion": "Resumen ejecutivo del perfil de seguridad",
+  "recomendacion": "aprobar" (si no hay nada), "rechazar" (si hay antecedentes graves), "revisar_manual" (si hay dudas o es antiguo),
+  "confidence": 0-100
 }`;
 
 // Detect MIME type from URL
 function getMimeType(url: string): string {
     const lowerUrl = url.toLowerCase();
+
+    // Check by extension in path
     if (lowerUrl.includes('.pdf')) return 'application/pdf';
     if (lowerUrl.includes('.png')) return 'image/png';
     if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) return 'image/jpeg';
     if (lowerUrl.includes('.webp')) return 'image/webp';
-    // For Firebase Storage URLs, try to detect from token part or default to PDF for CUL
+
+    // If extensions are not present (common in storage URLs with tokens),
+    // check for keywords in the URL or default to application/pdf for CUL and image/jpeg for rest
     if (lowerUrl.includes('pdf')) return 'application/pdf';
-    return 'image/jpeg';  // fallback
+    if (lowerUrl.includes('image')) return 'image/jpeg';
+
+    // Last resort based on the document's nature in this app
+    return lowerUrl.includes('cul') ? 'application/pdf' : 'image/jpeg';
 }
 
 async function analyzeWithVision(documentUrl: string, prompt: string): Promise<any> {

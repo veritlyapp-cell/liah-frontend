@@ -2,22 +2,10 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit as firestoreLimit } from 'firebase/firestore';
 import type { Candidate } from './candidates';
 
-// Cache for loaded candidates
-let storeCache: { storeId: string; candidates: Candidate[]; timestamp: number } | null = null;
-const CACHE_TTL = 60000; // 1 minute cache
-
 /**
  * Obtener candidatos por tienda (basado en sus applications)
  */
 export async function getCandidatesByStore(storeId: string, maxResults: number = 150): Promise<Candidate[]> {
-    // Check cache
-    if (storeCache &&
-        storeCache.storeId === storeId &&
-        (Date.now() - storeCache.timestamp) < CACHE_TTL) {
-        console.log('[getCandidatesByStore] Using cache');
-        return storeCache.candidates;
-    }
-
     console.log('[getCandidatesByStore] Fetching from Firestore...');
     const candidatesRef = collection(db, 'candidates');
     const q = query(candidatesRef, firestoreLimit(maxResults));
@@ -33,20 +21,13 @@ export async function getCandidatesByStore(storeId: string, maxResults: number =
             candidate.applications?.some(app => app.tiendaId === storeId)
         );
 
-    // Cache results
-    storeCache = {
-        storeId,
-        candidates,
-        timestamp: Date.now()
-    };
-
     console.log('[getCandidatesByStore] Found:', candidates.length);
     return candidates;
 }
 
-// Clear store cache function
+// Clear store cache function (legacy)
 export function clearStoreCache() {
-    storeCache = null;
+    // No-op after cache removal
 }
 
 /**

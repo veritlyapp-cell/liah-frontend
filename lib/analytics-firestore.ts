@@ -154,58 +154,88 @@ export async function getRQsForAnalytics(filters: AnalyticsFilters) {
     }
 }
 
-// Get candidates (applications) from Firestore with filters
+// Get candidates from both 'candidates' (Massive Flow) and 'talent_applications' (Corporate Talent)
 export async function getCandidatesForAnalytics(filters: AnalyticsFilters) {
     try {
-        const candidatesRef = collection(db, 'talent_applications');
-        let q = query(candidatesRef);
-        // Filter by date range
-        if (filters.dateRange) {
-            const start = Timestamp.fromDate(filters.dateRange.start);
-            const end = Timestamp.fromDate(filters.dateRange.end);
-            q = query(q,
-                where('createdAt', '>=', start),
-                where('createdAt', '<=', end)
-            );
+        const brands = filters.brandIds || [];
+        const start = filters.dateRange ? Timestamp.fromDate(filters.dateRange.start) : null;
+        const end = filters.dateRange ? Timestamp.fromDate(filters.dateRange.end) : null;
+
+        // 1. Fetch from talent_applications (Corporate)
+        const talentRef = collection(db, 'talent_applications');
+        let talentQ = query(talentRef);
+        if (start && end) {
+            talentQ = query(talentQ, where('createdAt', '>=', start), where('createdAt', '<=', end));
         }
+        const talentSnap = await getDocs(talentQ);
 
-        const snapshot = await getDocs(q);
-        const candidates: DocumentData[] = [];
+        // 2. Fetch from candidates (Massive/Flow)
+        const flowRef = collection(db, 'candidates');
+        let flowQ = query(flowRef);
+        if (start && end) {
+            flowQ = query(flowQ, where('createdAt', '>=', start), where('createdAt', '<=', end));
+        }
+        const flowSnap = await getDocs(flowQ);
 
-        snapshot.forEach(doc => {
+        const allApplications: DocumentData[] = [];
+
+        // Process Talent Applications
+        talentSnap.forEach(doc => {
             const data = doc.data();
-            // Apply brand filter
-            if (filters.brandIds?.length) {
-                if (!filters.brandIds.includes(data.marcaId || data.holdingId)) return;
-            }
+            if (brands.length && !brands.includes(data.marcaId || data.holdingId)) return;
+            if (filters.category && filters.category !== 'all' && data.categoria !== filters.category) return;
+            if (filters.positionIds?.length && !filters.positionIds.includes(data.jobId) && !filters.positionIds.includes(data.posicion)) return;
+            if (filters.storeIds?.length && !filters.storeIds.includes(data.tiendaId)) return;
+            if (filters.districtIds?.length && !filters.districtIds.includes(data.distrito)) return;
 
-            // Apply category filter
-            if (filters.category && filters.category !== 'all') {
-                if (data.categoria !== filters.category) return;
-            }
-
-            // Apply position filter
-            if (filters.positionIds?.length) {
-                if (!filters.positionIds.includes(data.jobId) && !filters.positionIds.includes(data.posicion)) return;
-            }
-
-            // Apply store filter
-            if (filters.storeIds?.length) {
-                if (!filters.storeIds.includes(data.tiendaId)) return;
-            }
-
-            // Apply district filter
-            if (filters.districtIds?.length) {
-                if (!filters.districtIds.includes(data.distrito)) return;
-            }
-
-            candidates.push({ id: doc.id, ...data });
+            allApplications.push({ id: doc.id, collection: 'talent_applications', ...data });
         });
 
-        console.log(`Fetched ${candidates.length} applications from talent_applications for brands:`, filters.brandIds);
-        return candidates;
+        // Process Flow Candidates (Flattening their applications array)
+        flowSnap.forEach(doc => {
+            const candidate = doc.data();
+            if (!candidate.applications || !Array.isArray(candidate.applications)) return;
+
+            candidate.applications.forEach((app: any) => {
+                // Apply filters to each application
+                if (brands.length && !brands.includes(app.marcaId)) return;
+
+                // If we have date filters, check against application date
+                if (start && end && app.appliedAt) {
+                    const appTime = app.appliedAt.toDate ? app.appliedAt.toDate() : new Date(app.appliedAt);
+                    if (appTime < filters.dateRange.start || appTime > filters.dateRange.end) return;
+                }
+
+                if (filters.category && filters.category !== 'all' && app.categoria !== filters.category) return;
+                if (filters.positionIds?.length && !filters.positionIds.includes(app.rqId) && !filters.positionIds.includes(app.posicion)) return;
+                if (filters.storeIds?.length && !filters.storeIds.includes(app.tiendaId)) return;
+                if (filters.districtIds?.length && !filters.districtIds.includes(candidate.distrito)) return;
+
+                // Map Flow application to analytics structure
+                allApplications.push({
+                    id: `${doc.id}_${app.id}`,
+                    candidateId: doc.id,
+                    collection: 'candidates',
+                    nombre: candidate.nombre,
+                    dni: candidate.dni,
+                    source: candidate.source || app.origenConvocatoria || 'Directo',
+                    status: app.status,
+                    culStatus: candidate.culStatus,
+                    selectionStatus: candidate.selectionStatus,
+                    hiredStatus: app.hiredStatus,
+                    ...app,
+                    // Ensure demographics are preserved for calculations
+                    edad: candidate.edad,
+                    distrito: candidate.distrito,
+                    appliedAt: app.appliedAt || candidate.createdAt
+                });
+            });
+        });
+
+        console.log(`📊 Unified Analytics: ${allApplications.length} apps (${talentSnap.size} talent, ${flowSnap.size} candidates processed)`);
+        return allApplications;
     } catch (error) {
-        console.error('Error fetching candidates for analytics:', error);
+        console.error('❌ Error fetching candidates for analytics:', error);
         return [];
     }
 }
@@ -213,28 +243,38 @@ export async function getCandidatesForAnalytics(filters: AnalyticsFilters) {
 /**
  * Fetch real filter options from Firestore based on tenant
  */
-export async function getAnalyticsFilterOptions(holdingId: string) {
+export async function getAnalyticsFilterOptions(holdingId: string, allowedBrandIds?: string[]) {
     try {
-        console.log('Fetching filter options for holding:', holdingId);
+        console.log('Fetching filter options for holding:', holdingId, 'Allowed Brands:', allowedBrandIds);
 
         // Fetch Marcas
         const marcasRef = collection(db, 'marcas');
-        const marcasQ = query(marcasRef, where('holdingId', '==', holdingId));
+        let marcasQ = query(marcasRef, where('holdingId', '==', holdingId));
         const marcasSnapshot = await getDocs(marcasQ);
-        const brands = marcasSnapshot.docs.map(doc => ({
+        let brands = marcasSnapshot.docs.map(doc => ({
             id: doc.id,
             name: doc.data().nombre
         }));
 
+        // Filter brands if restricted
+        if (allowedBrandIds && allowedBrandIds.length > 0) {
+            brands = brands.filter(b => allowedBrandIds.includes(b.id));
+        }
+
         // Fetch Tiendas
         const tiendasRef = collection(db, 'tiendas');
-        const tiendasQ = query(tiendasRef, where('holdingId', '==', holdingId));
+        let tiendasQ = query(tiendasRef, where('holdingId', '==', holdingId));
         const tiendasSnapshot = await getDocs(tiendasQ);
-        const stores = tiendasSnapshot.docs.map(doc => ({
+        let stores = tiendasSnapshot.docs.map(doc => ({
             id: doc.id,
             name: doc.data().nombre,
             brandId: doc.data().marcaId
         }));
+
+        // Filter stores if brands restricted
+        if (allowedBrandIds && allowedBrandIds.length > 0) {
+            stores = stores.filter(s => s.brandId && allowedBrandIds.includes(s.brandId));
+        }
 
         // Extract Districts from stores
         const districtsSet = new Set<string>();

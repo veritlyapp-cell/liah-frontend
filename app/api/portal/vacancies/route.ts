@@ -23,6 +23,9 @@ export async function GET() {
                 marcaId: data.marcaId || '',
                 vacantes: data.vacantes || 1,
                 categoria: data.categoria || 'operativo',
+                storeCoordinates: data.storeCoordinates || null,
+                tiendaSlug: data.tiendaSlug || '',
+                marcaSlug: data.marcaSlug || '',
                 createdAt: data.createdAt?.toDate?.() || new Date()
             };
         });

@@ -3,6 +3,16 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Plus, Trash2, HelpCircle, CheckCircle2 } from 'lucide-react';
+
+interface KillerQuestion {
+    id: string;
+    question: string;
+    type: 'boolean' | 'multiple';
+    options?: string[];
+    correctAnswer: string;
+    isMandatory: boolean;
+}
 
 interface JobProfile {
     id: string;
@@ -13,6 +23,9 @@ interface JobProfile {
     marcaIds?: string[]; // Multiple marcas
     marcaNombre: string;
     categoria: 'operativo' | 'gerencial';
+    requisitos?: {
+        killerQuestions?: KillerQuestion[];
+    };
     isActive: boolean;
     createdAt?: any;
     updatedAt?: any;
@@ -42,7 +55,8 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
         salario: 0,
         marcaId: '', // Default primary marca
         marcaIds: [] as string[], // Selected marcas
-        categoria: 'operativo' as 'operativo' | 'gerencial'
+        categoria: 'operativo' as 'operativo' | 'gerencial',
+        killerQuestions: [] as KillerQuestion[]
     });
 
     useEffect(() => {
@@ -95,7 +109,10 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
                 marcaId: primaryMarcaId,
                 marcaNombre: primaryMarca?.nombre || '',
                 isActive: true,
-                updatedAt: Timestamp.now()
+                updatedAt: Timestamp.now(),
+                requisitos: {
+                    killerQuestions: formData.killerQuestions
+                }
             };
 
             if (editingProfile) {
@@ -111,7 +128,8 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
                         edadMax: 65,
                         experiencia: { requerida: false, meses: 0 },
                         disponibilidad: { horarios: ['mañana', 'tarde'], dias: ['lunes', 'sábado'] },
-                        distanciaMax: 10
+                        distanciaMax: 10,
+                        killerQuestions: formData.killerQuestions
                     },
                     createdAt: Timestamp.now()
                 });
@@ -146,8 +164,32 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
             salario: 0,
             marcaId: marcas[0]?.id || '',
             marcaIds: [],
-            categoria: 'operativo'
+            categoria: 'operativo',
+            killerQuestions: []
         });
+    }
+
+    function addKillerQuestion() {
+        const newQuestion: KillerQuestion = {
+            id: Math.random().toString(36).substring(7),
+            question: '',
+            type: 'boolean',
+            correctAnswer: 'yes',
+            isMandatory: true
+        };
+        setFormData({ ...formData, killerQuestions: [...formData.killerQuestions, newQuestion] });
+    }
+
+    function removeKillerQuestion(index: number) {
+        const newKQs = [...formData.killerQuestions];
+        newKQs.splice(index, 1);
+        setFormData({ ...formData, killerQuestions: newKQs });
+    }
+
+    function updateKillerQuestion(index: number, field: keyof KillerQuestion, value: any) {
+        const newKQs = [...formData.killerQuestions];
+        newKQs[index] = { ...newKQs[index], [field]: value };
+        setFormData({ ...formData, killerQuestions: newKQs });
     }
 
     function openEditModal(profile: JobProfile) {
@@ -158,7 +200,8 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
             salario: profile.salario,
             marcaId: profile.marcaId,
             marcaIds: profile.marcaIds || [profile.marcaId],
-            categoria: profile.categoria || 'operativo'
+            categoria: profile.categoria || 'operativo',
+            killerQuestions: profile.requisitos?.killerQuestions || []
         });
         setShowCreateModal(true);
     }
@@ -386,6 +429,86 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm min-h-[100px] placeholder:text-gray-300"
                                     placeholder="Resume los requisitos o funciones principales..."
                                 />
+                            </div>
+
+                            {/* Killer Questions Section */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Killer Questions</label>
+                                        <div className="group relative">
+                                            <HelpCircle size={14} className="text-gray-400 cursor-help" />
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-gray-900 text-[10px] text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
+                                                Preguntas rápidas para filtrar candidatos. Si fallan una pregunta obligatoria, serán rechazados automáticamente.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={addKillerQuestion}
+                                        type="button"
+                                        className="text-xs font-bold text-violet-600 hover:text-violet-700 flex items-center gap-1 bg-violet-50 px-2 py-1 rounded-lg transition-colors"
+                                    >
+                                        <Plus size={14} /> Agregar
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {formData.killerQuestions.length === 0 ? (
+                                        <div className="text-center py-4 border-2 border-dashed border-gray-100 rounded-xl">
+                                            <p className="text-[10px] text-gray-400 italic">No hay preguntas de filtro configuradas</p>
+                                        </div>
+                                    ) : (
+                                        formData.killerQuestions.map((kq, idx) => (
+                                            <div key={kq.id} className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-3">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={kq.question}
+                                                        onChange={(e) => updateKillerQuestion(idx, 'question', e.target.value)}
+                                                        placeholder="Ej: ¿Tienes disponibilidad fines de semana?"
+                                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                                    />
+                                                    <button
+                                                        onClick={() => removeKillerQuestion(idx)}
+                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-gray-400 font-bold uppercase">Resp. Requerida:</span>
+                                                        <div className="flex p-0.5 bg-gray-200 rounded-lg">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updateKillerQuestion(idx, 'correctAnswer', 'yes')}
+                                                                className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${kq.correctAnswer === 'yes' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'}`}
+                                                            >
+                                                                SÍ
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updateKillerQuestion(idx, 'correctAnswer', 'no')}
+                                                                className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${kq.correctAnswer === 'no' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500'}`}
+                                                            >
+                                                                NO
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={kq.isMandatory}
+                                                            onChange={(e) => updateKillerQuestion(idx, 'isMandatory', e.target.checked)}
+                                                            className="rounded text-violet-600 w-3 h-3"
+                                                        />
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase">Obligatoria</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
 

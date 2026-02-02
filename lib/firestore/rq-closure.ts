@@ -50,6 +50,31 @@ export async function checkAndCloseRQ(rqId: string): Promise<boolean> {
                 closedBy: 'system',
                 closureReason: `Todas las ${vacantes} vacantes han sido cubiertas`
             });
+
+            // [NEW] Reject all remaining 'pending', 'approved', or 'selected' candidates for this RQ
+            const REJECTION_REASON = 'Vacante cubierta - El proceso de selección para esta posición ha finalizado.';
+
+            for (const candidateDoc of snapshot.docs) {
+                const candidate = candidateDoc.data();
+                const hasActiveApp = candidate.applications?.some((app: any) =>
+                    app.rqId === rqId && (app.status === 'approved' || app.status === 'completed' || app.status === 'invited') && app.hiredStatus !== 'hired'
+                );
+
+                if (hasActiveApp) {
+                    const { rejectCandidate } = await import('./candidate-actions');
+                    // Find the specific application ID
+                    const appToReject = candidate.applications.find((app: any) => app.rqId === rqId);
+                    if (appToReject) {
+                        try {
+                            await rejectCandidate(candidateDoc.id, appToReject.id, 'system', REJECTION_REASON);
+                            console.log(`🚫 Mass rejection: Rejected candidate ${candidateDoc.id} for RQ ${rqId}`);
+                        } catch (rejError) {
+                            console.error(`Error rejecting candidate ${candidateDoc.id}:`, rejError);
+                        }
+                    }
+                }
+            }
+
             return true;
         } else {
             // Update filled count even if not completely filled

@@ -25,6 +25,10 @@ import PipelineView from '@/components/talent/PipelineView';
 import NuevosColaboradoresTab from '@/components/talent/NuevosColaboradoresTab';
 import CompensacionesTab from '@/components/talent/CompensacionesTab';
 import { Job } from '@/components/talent/types';
+import TalentPoolList from '@/components/talent/TalentPoolList';
+import HoldingLogoUpload from '@/components/admin/HoldingLogoUpload';
+import FinancialConfig from '@/components/admin/FinancialConfig';
+import HoldingOperationalConfig from '@/components/admin/HoldingOperationalConfig';
 
 /**
  * Liah Talent - Main Dashboard
@@ -404,15 +408,20 @@ function TalentDashboardContent() {
         { id: 'vacantes', label: 'Vacantes', icon: '📋', visible: canManageVacantes },
         { id: 'colaboradores', label: 'Nuevos Colaboradores', icon: '🎉', visible: canManageVacantes },
         { id: 'compensaciones', label: 'Compensaciones', icon: '📑', visible: isCompensaciones },
+        { id: 'talent-pool', label: 'Talent Pool', icon: '🧬', visible: canManageVacantes },
         { id: 'analytics', label: 'Analytics', icon: '📊', visible: canManageVacantes },
+        { id: 'settings', label: 'Marca Empleadora', icon: '✨', visible: true },
     ];
 
     const visibleSidebarTabs = sidebarTabs.filter(t => t.visible);
 
     const configTabs = [
         { id: 'estructura', label: 'Organización', icon: '🏢', visible: isAdmin },
+        { id: 'branding', label: 'Marca Empleadora', icon: '✨', visible: true },
         { id: 'usuarios', label: 'Usuarios', icon: '👤', visible: isAdmin },
         { id: 'etapas', label: 'Funnel', icon: '🗂️', visible: isAdmin },
+        { id: 'finanzas', label: 'Finanzas', icon: '💰', visible: isAdmin },
+        { id: 'operaciones', label: 'Operaciones', icon: '⚙️', visible: isAdmin },
         { id: 'plantillas', label: 'Plantillas', icon: '📧', visible: userCapacidades.some(c => ['admin', 'lider_reclutamiento', 'recruiter'].includes(c)) },
         { id: 'calendars', label: 'Calendarios', icon: '📅', visible: true },
         { id: 'security', label: 'Seguridad', icon: '🔒', visible: true },
@@ -515,6 +524,7 @@ function TalentDashboardContent() {
                                     <button
                                         onClick={() => {
                                             setActiveTab('settings');
+                                            setConfigTab('branding');
                                             setShowUserMenu(false);
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors"
@@ -553,7 +563,10 @@ function TalentDashboardContent() {
                         {visibleSidebarTabs.map(tab => (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    if (tab.id === 'settings') setConfigTab('branding');
+                                }}
                                 className={`px-4 py-3 text-sm font-medium transition-all relative border-b-2 mt-1 ${activeTab === tab.id
                                     ? 'text-violet-600 border-violet-600'
                                     : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-200'
@@ -579,6 +592,10 @@ function TalentDashboardContent() {
                         initialJobs={jobs}
                         isSuperAdmin={isAdmin}
                     />
+                )}
+
+                {activeTab === 'talent-pool' && (
+                    <TalentPoolList holdingId={holdingId} />
                 )}
 
                 {activeTab === 'requerimientos' && (
@@ -951,9 +968,9 @@ function TalentDashboardContent() {
                 {activeTab === 'settings' && (
                     <div className="flex gap-8">
                         {/* Sidebar Config */}
-                        <div className="w-64 shrink-0 space-y-1">
+                        <div className="w-64 shrink-0 space-y-1 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto pr-2">
                             <h2 className="text-lg font-bold text-gray-900 px-4 mb-4">Configuración</h2>
-                            {visibleSidebarTabs.map(tab => (
+                            {visibleSidebarTabs.filter(t => t.id !== 'settings').map(tab => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
@@ -966,7 +983,8 @@ function TalentDashboardContent() {
                                     {tab.label}
                                 </button>
                             ))}
-
+                            <div className="h-4" />
+                            <h3 className="text-xs font-bold text-gray-400 px-4 uppercase tracking-widest mb-2">Ajustes del Sistema</h3>
 
                             {visibleConfigTabs.map(tab => (
                                 <button
@@ -995,12 +1013,36 @@ function TalentDashboardContent() {
                                 </div>
                             )}
 
+                            {configTab === 'branding' && (
+                                <div className="space-y-6">
+                                    <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                                        <h2 className="text-xl font-bold text-gray-900 mb-2">Marca Empleadora</h2>
+                                        <p className="text-sm text-gray-500">Configura el portal de empleos, colores y fotos de tu empresa.</p>
+                                    </div>
+                                    <HoldingLogoUpload holdingId={holdingId} />
+                                </div>
+                            )}
+
                             {configTab === 'usuarios' && (
                                 <TalentUsers holdingId={holdingId} />
                             )}
 
                             {configTab === 'etapas' && holdingId && (
                                 <FunnelStagesConfig holdingId={holdingId} />
+                            )}
+
+                            {configTab === 'finanzas' && holdingId && (
+                                <div className="space-y-6">
+                                    <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                                        <h2 className="text-xl font-bold text-gray-900 mb-2">Costos y Finanzas</h2>
+                                        <p className="text-sm text-gray-500">Gestiona los rubros económicos que impactan en la analítica de rotación.</p>
+                                    </div>
+                                    <FinancialConfig holdingId={holdingId} />
+                                </div>
+                            )}
+
+                            {configTab === 'operaciones' && holdingId && (
+                                <HoldingOperationalConfig holdingId={holdingId} />
                             )}
 
                             {configTab === 'calendars' && user && holdingId && (
@@ -1028,7 +1070,7 @@ function TalentDashboardContent() {
             </main>
 
             {/* Create Job Modal */}
-            <CreateJobModal
+            < CreateJobModal
                 show={showCreateModal}
                 holdingId={holdingId}
                 onCancel={() => setShowCreateModal(false)}
@@ -1036,7 +1078,7 @@ function TalentDashboardContent() {
             />
 
             {/* Create RQ Modal */}
-            <CreateRQModal
+            < CreateRQModal
                 show={showRQModal}
                 holdingId={holdingId}
                 creatorEmail={user?.email || ''}
@@ -1047,7 +1089,7 @@ function TalentDashboardContent() {
             />
 
             {/* Publish RQ Modal */}
-            <PublishRQModal
+            < PublishRQModal
                 show={showPublishModal}
                 holdingId={holdingId}
                 rq={selectedRQForPublish}
@@ -1062,6 +1104,6 @@ function TalentDashboardContent() {
                     loadJobs();
                 }}
             />
-        </div>
+        </div >
     );
 }

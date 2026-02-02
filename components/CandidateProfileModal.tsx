@@ -248,6 +248,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
             alert('🎉 Candidato SELECCIONADO. Se ha enviado el correo de notificación.');
             onRefresh();
+            onClose(); // Automatically close modal after selection as requested
         } catch (error) {
             console.error('Error selecting candidate:', error);
             alert('Error al seleccionar candidato');
@@ -263,10 +264,10 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         const selectedRQ = availableRQs.find(r => r.id === selectedRQId);
         if (!selectedRQ) return;
 
-        // Block if candidate is already selected
-        if (candidate.selectionStatus === 'selected') {
-            const selectedForApp = candidate.applications?.find(app => app.rqId === candidate.selectedForRQ);
-            alert(`❌ No es posible mover a este candidato.\n\nYa fue SELECCIONADO para:\n🏪 ${selectedForApp?.tiendaNombre}\n📋 ${selectedForApp?.posicion}\n\nDebe ser rechazado primero para reasignarlo.`);
+        // Block only if candidate is currently selected for THIS SPECIFIC RQ
+        // For reingresos (previously hired then terminated), the selectionStatus should have been cleared on baja
+        if (candidate.selectionStatus === 'selected' && candidate.selectedForRQ === selectedRQ.id) {
+            alert(`❌ No es posible mover a este candidato.\n\nYa está SELECCIONADO para este mismo RQ.`);
             return;
         }
 
@@ -304,6 +305,50 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         }
     }
 
+    // NEW: Clean candidate for reingreso (release old assignments, clear selection)
+    async function handleCleanForReingreso() {
+        const confirm = window.confirm(
+            '🔄 ¿Limpiar este candidato para Reingreso?\n\n' +
+            'Esto hará:\n' +
+            '• Liberar asignaciones anteriores\n' +
+            '• Limpiar estado de selección\n\n' +
+            'Esto permitirá asignarlo a nuevas vacantes.'
+        );
+        if (!confirm) return;
+
+        setProcessing(true);
+        try {
+            // Mark all active assignments as 'released'
+            const updatedAssignments = (localCandidate.assignments || []).map((a: any) => ({
+                ...a,
+                status: (a.status === 'assigned' || a.status === 'confirmed') ? 'released' : a.status
+            }));
+
+            // Update the candidate document
+            await updateDoc(doc(db, 'candidates', localCandidate.id), {
+                assignments: updatedAssignments,
+                selectionStatus: null,
+                selectedForRQ: null,
+                updatedAt: Timestamp.now()
+            });
+
+            // Update local state
+            setLocalCandidate(prev => ({
+                ...prev,
+                assignments: updatedAssignments,
+                selectionStatus: undefined,
+                selectedForRQ: undefined
+            }));
+
+            alert('✅ Candidato limpiado para reingreso. Ahora puedes asignarlo a nuevas vacantes.');
+            onRefresh();
+        } catch (error) {
+            console.error('Error cleaning for reingreso:', error);
+            alert('Error al limpiar candidato');
+        } finally {
+            setProcessing(false);
+        }
+    }
 
     async function handleAnalyzeCUL() {
         const culUrl = localCandidate.certificadoUnicoLaboral || localCandidate.documents?.cul;
@@ -560,57 +605,97 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
                         {/* AI Result Display */}
                         {(aiResult || localCandidate.culAiObservation) && (
-                            <div className="mb-4 p-4 bg-violet-50 border border-violet-200 rounded-xl">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-lg">🤖</span>
-                                    <p className="font-medium text-violet-900">Resultado del Análisis IA</p>
+                            <div className="mb-4 bg-violet-50 border border-violet-200 rounded-2xl overflow-hidden shadow-sm">
+                                <div className="bg-violet-600 px-4 py-2 flex items-center justify-between text-white">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">🤖</span>
+                                        <p className="font-bold text-sm tracking-wide">ANÁLISIS LIAH IA</p>
+                                    </div>
                                     {(aiResult?.confidence || (localCandidate as any).culConfidence) && (
-                                        <span className="text-xs bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full">
-                                            {aiResult?.confidence || (localCandidate as any).culConfidence}% confianza
-                                        </span>
+                                        <div className="flex items-center gap-2 bg-violet-500 px-3 py-1 rounded-full border border-violet-400">
+                                            <span className="text-[10px] font-bold uppercase">Confianza</span>
+                                            <span className="text-sm font-black">{aiResult?.confidence || (localCandidate as any).culConfidence}%</span>
+                                        </div>
                                     )}
                                 </div>
-                                <p className="text-sm text-violet-800">
-                                    {aiResult?.aiObservation || localCandidate.culAiObservation}
-                                </p>
-                                {(aiResult?.denunciasEncontradas?.length > 0 || (localCandidate as any).culDenunciasEncontradas?.length > 0) && (
-                                    <div className="mt-2 p-2 bg-red-50 rounded">
-                                        <p className="text-sm font-medium text-red-800">⚠️ Hallazgos detectados:</p>
-                                        <ul className="list-disc list-inside text-sm text-red-700">
-                                            {(aiResult?.denunciasEncontradas || (localCandidate as any).culDenunciasEncontradas || []).map((d: string, i: number) => (
-                                                <li key={i}>{d}</li>
-                                            ))}
-                                        </ul>
+
+                                <div className="p-4 space-y-3">
+                                    <div>
+                                        <p className="text-xs font-bold text-violet-400 uppercase mb-1">Observación de Inteligencia Artificial</p>
+                                        <p className="text-sm text-violet-900 leading-relaxed font-medium">
+                                            {aiResult?.aiObservation || localCandidate.culAiObservation}
+                                        </p>
                                     </div>
-                                )}
+
+                                    {(aiResult?.denunciasEncontradas?.length > 0 || (localCandidate as any).culDenunciasEncontradas?.length > 0) && (
+                                        <div className="p-3 bg-red-100/50 border border-red-200 rounded-xl">
+                                            <p className="text-xs font-black text-red-600 uppercase mb-2 flex items-center gap-1">
+                                                🚨 Antecedentes/Denuncias Detectadas
+                                            </p>
+                                            <ul className="space-y-1">
+                                                {(aiResult?.denunciasEncontradas || (localCandidate as any).culDenunciasEncontradas || []).map((d: string, i: number) => (
+                                                    <li key={i} className="text-xs text-red-800 flex items-start gap-2 bg-white/50 p-2 rounded-lg border border-red-100">
+                                                        <span className="mt-0.5">•</span>
+                                                        <span className="font-medium">{d}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {!aiResult?.denunciasEncontradas?.length && !(localCandidate as any).culDenunciasEncontradas?.length && (
+                                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                                            <span className="text-sm">🛡️</span>
+                                            <span className="text-xs font-bold uppercase tracking-tight">No se detectaron antecedentes penales ni judiciales</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        {/* CUL Actions Bar - Manual overrides (validación automática al subir CUL) */}
+                        {/* CUL Actions Bar */}
                         <div className="flex gap-2 flex-wrap items-center">
-                            <p className="text-xs text-gray-500 w-full mb-2">
-                                ℹ️ La validación con IA se ejecuta automáticamente al subir el CUL. Usa estos botones solo para correcciones manuales:
-                            </p>
+                            <div className="w-full mb-3 flex items-center justify-between">
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Controles Manuales de Reclutador</p>
+                                {!(aiResult || localCandidate.culAiObservation) && (candidate.certificadoUnicoLaboral || candidate.documents?.cul) && (
+                                    <button
+                                        onClick={handleAnalyzeCUL}
+                                        disabled={analyzingCUL}
+                                        className="text-xs bg-violet-100 text-violet-700 px-3 py-1.5 rounded-full font-bold hover:bg-violet-200 transition-colors flex items-center gap-2 border border-violet-200"
+                                    >
+                                        {analyzingCUL ? (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-violet-700 border-t-transparent rounded-full animate-spin"></div>
+                                                Analizando con IA...
+                                            </>
+                                        ) : (
+                                            <>
+                                                🤖 Disparar Análisis IA
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                             <button
                                 onClick={() => handleUpdateCUL('apto')}
                                 disabled={processing}
-                                className="px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
+                                className="px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-bold hover:bg-emerald-600 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
-                                <span>✓</span> Marcar como Apto
+                                <span className="bg-white/20 p-1 rounded-full text-[10px]">✓</span> Marcar Apto
                             </button>
                             <button
                                 onClick={() => handleUpdateCUL('no_apto', 'Revisión manual - observaciones encontradas')}
                                 disabled={processing}
-                                className="px-4 py-2 bg-rose-600 text-white rounded-full text-sm font-medium hover:bg-rose-700 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
+                                className="px-4 py-2 bg-rose-600 text-white rounded-full text-sm font-bold hover:bg-rose-700 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
-                                <span>✕</span> Marcar como No Apto
+                                <span className="bg-white/20 p-1 rounded-full text-[10px]">✕</span> Marcar No Apto
                             </button>
                             <button
                                 onClick={() => handleUpdateCUL('manual_review')}
                                 disabled={processing}
-                                className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-medium hover:bg-amber-600 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
+                                className="px-4 py-2 bg-amber-500 text-white rounded-full text-sm font-bold hover:bg-amber-600 disabled:opacity-50 shadow-sm flex items-center gap-2 transition-all"
                             >
-                                <span>⚠</span> Requiere Revisión
+                                <span className="bg-white/20 p-1 rounded-full text-[10px]">⚠</span> Revisión Manual
                             </button>
                         </div>
                     </div>
@@ -775,13 +860,26 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
                 {/* Footer */}
                 <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
-                    {/* Blacklist Button - visible for rejected or any candidate */}
-                    <button
-                        onClick={() => setShowBlacklistModal(true)}
-                        className="px-4 py-2 bg-red-100 text-red-700 border border-red-300 rounded-full font-medium hover:bg-red-200 transition-colors shadow-sm flex items-center gap-2"
-                    >
-                        🚫 Agregar a Blacklist
-                    </button>
+                    <div className="flex gap-2">
+                        {/* Blacklist Button - visible for rejected or any candidate */}
+                        <button
+                            onClick={() => setShowBlacklistModal(true)}
+                            className="px-4 py-2 bg-red-100 text-red-700 border border-red-300 rounded-full font-medium hover:bg-red-200 transition-colors shadow-sm flex items-center gap-2"
+                        >
+                            🚫 Agregar a Blacklist
+                        </button>
+
+                        {/* Clean for Reingreso - visible when candidate has selection status or assignments */}
+                        {(localCandidate.selectionStatus || (localCandidate.assignments && localCandidate.assignments.some(a => a.status === 'assigned' || a.status === 'confirmed'))) && (
+                            <button
+                                onClick={handleCleanForReingreso}
+                                disabled={processing}
+                                className="px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded-full font-medium hover:bg-blue-200 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
+                            >
+                                🔄 Limpiar para Reingreso
+                            </button>
+                        )}
+                    </div>
 
                     <button
                         onClick={onClose}

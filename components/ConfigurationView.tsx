@@ -21,6 +21,14 @@ export default function ConfigurationView() {
     const [backupUserId, setBackupUserId] = useState('');
     const [potentialBackups, setPotentialBackups] = useState<UserAssignment[]>([]);
 
+    // Availability state
+    const [availability, setAvailability] = useState<{ startHour: string, endHour: string, days: string[] }>({
+        startHour: '09:00',
+        endHour: '16:00',
+        days: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
+    });
+    const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
     useEffect(() => {
         if (user) {
             loadAssignment();
@@ -35,6 +43,9 @@ export default function ConfigurationView() {
                 setAssignment(ua);
                 setVacationMode(ua.vacationMode || false);
                 setBackupUserId(ua.backupUserId || '');
+                if (ua.availability) {
+                    setAvailability(ua.availability);
+                }
 
                 // Load supervisors and jefes de marca from the SAME BRAND as potential backups
                 if (ua.role === 'supervisor' || ua.role === 'jefe_marca') {
@@ -134,11 +145,115 @@ export default function ConfigurationView() {
         }
     }
 
+    async function handleSaveAvailability() {
+        if (!assignment) return;
+        setAvailabilityLoading(true);
+        setMessage(null);
+
+        try {
+            await updateUserAssignment(assignment.id, {
+                availability: availability
+            });
+            setMessage({ type: 'success', text: '✅ Disponibilidad actualizada correctamente' });
+        } catch (error) {
+            console.error('Error saving availability:', error);
+            setMessage({ type: 'error', text: 'Error al guardar disponibilidad' });
+        } finally {
+            setAvailabilityLoading(false);
+        }
+    }
+
+    const toggleDay = (day: string) => {
+        setAvailability(prev => ({
+            ...prev,
+            days: prev.days.includes(day)
+                ? prev.days.filter(d => d !== day)
+                : [...prev.days, day]
+        }));
+    };
+
+    const DAYS_OF_WEEK = [
+        { id: 'lunes', label: 'L' },
+        { id: 'martes', label: 'M' },
+        { id: 'miercoles', label: 'X' },
+        { id: 'jueves', label: 'J' },
+        { id: 'viernes', label: 'V' },
+        { id: 'sabado', label: 'S' },
+        { id: 'domingo', label: 'D' }
+    ];
+
     const showVacationSection = assignment?.role === 'supervisor' || assignment?.role === 'jefe_marca';
+    const showAvailabilitySection = assignment?.role === 'store_manager';
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-12">
             <h2 className="text-xl font-bold text-gray-900">⚙️ Configuración</h2>
+
+            {/* Availability Section (for SMs) */}
+            {showAvailabilitySection && (
+                <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-violet-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="text-2xl">📅</span>
+                        <h3 className="text-lg font-semibold text-gray-900">Disponibilidad para Entrevistas</h3>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-6">
+                        Configura los días y horarios en los que puedes recibir candidatos para entrevistas. El bot agendará automáticamente dentro de este rango.
+                    </p>
+
+                    <div className="space-y-6">
+                        {/* Days Selector */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-3">Días Disponibles</label>
+                            <div className="flex gap-2">
+                                {DAYS_OF_WEEK.map(day => (
+                                    <button
+                                        key={day.id}
+                                        type="button"
+                                        onClick={() => toggleDay(day.id)}
+                                        className={`w-10 h-10 rounded-full font-bold transition-all ${availability.days.includes(day.id)
+                                            ? 'bg-violet-600 text-white shadow-md scale-110'
+                                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        {day.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Hours Selector */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Hora Inicio</label>
+                                <input
+                                    type="time"
+                                    value={availability.startHour}
+                                    onChange={(e) => setAvailability(prev => ({ ...prev, startHour: e.target.value }))}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Hora Fin</label>
+                                <input
+                                    type="time"
+                                    value={availability.endHour}
+                                    onChange={(e) => setAvailability(prev => ({ ...prev, endHour: e.target.value }))}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleSaveAvailability}
+                            disabled={availabilityLoading}
+                            className="w-full px-6 py-3 bg-violet-600 text-white font-semibold rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {availabilityLoading ? 'Guardando...' : '💾 Guardar Disponibilidad'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Vacation Mode Section */}
             {showVacationSection && (
@@ -267,7 +382,12 @@ export default function ConfigurationView() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">👤 Información de Cuenta</h3>
                 <div className="space-y-3">
                     <p className="text-gray-600"><span className="font-medium">Email:</span> {user?.email}</p>
-                    <p className="text-gray-600"><span className="font-medium">Rol:</span> <span className="capitalize">{assignment?.role.replace('_', ' ')}</span></p>
+                    <p className="text-gray-600">
+                        <span className="font-medium">Rol:</span>
+                        <span className="capitalize ml-1">
+                            {assignment?.role ? assignment.role.replace('_', ' ') : 'Cargando...'}
+                        </span>
+                    </p>
 
                     <div className="pt-4 border-t border-gray-100">
                         <button

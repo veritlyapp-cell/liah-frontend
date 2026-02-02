@@ -1,0 +1,36 @@
+﻿­ƒÜÇ Starting Store Manager Diagnosis (Admin SDK)...
+
+Ô£à Firebase Admin initialized.
+
+--- ­ƒøí´©Å User Assignments (Store Managers) ---
+Found 2 Store Manager assignments.
+
+­ƒæñ User: Jose Castillo (tiendadd@ngr.pe)
+   ID: 2hDSmJZdlrdgm0J0c4YqCprAmRl1
+   Active: true
+   Holding ID: ngr
+   ­ƒôì Assigned Store: Dunkin Javier Prado (KKpXUnlSuFb41IoRSd4P)
+   ­ƒÅÀ´©Å Brand ID: eZ6WZGL6rYSX63JlyH5X
+   Ô£à Brand Document found: Dunkin
+   Ô£à Holding Document found: NGR
+   ­ƒöÆ Block RQ Creation: false
+---
+­ƒæñ User: Rosario Galvez (tiendajockey@ngr.pe)
+   ID: w0mhIEbortO8PdbmBeNAJyOYwb63
+   Active: true
+   Holding ID: ngr
+   ­ƒôì Assigned Store: Bembos Jockey Plaza (VhshdSDHdsa33VIcz71i)
+   ­ƒÅÀ´©Å Brand ID: 7MeW5A85sr9m2yxhedAI
+   Ô£à Brand Document found: Bembos
+   Ô£à Holding Document found: NGR
+   ­ƒöÆ Block RQ Creation: false
+---
+
+--- ­ƒôï RQs Snapshot ---
+Recent RQs Sample (4):
+- RQ: RQ-7ME-00003, Posicion: Servicio, Status: filled
+- RQ: RQ-7ME-00001, Posicion: Servicio, Status: filled
+- RQ: RQ-7ME-00002, Posicion: Servicio, Status: filled
+- RQ: RQ-7ME-00002, Posicion: Servicio, Status: active
+
+Ô£à Diagnosis Complete.

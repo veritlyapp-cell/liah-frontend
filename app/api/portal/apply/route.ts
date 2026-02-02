@@ -32,6 +32,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Sesión inválida' }, { status: 401 });
         }
 
+        // Duplicate Check: Same RQ within last 30 days
+        const existingApp = (candidateData.applications || []).find((app: any) => {
+            if (app.rqId !== rqId) return false;
+
+            // Check recency (optional but good practice)
+            const appDate = app.appliedAt?.toDate() || new Date(0);
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            return appDate > thirtyDaysAgo;
+        });
+
+        if (existingApp) {
+            return NextResponse.json({
+                error: 'Ya tienes una postulación activa para esta posición.',
+                alreadyApplied: true
+            }, { status: 400 });
+        }
+
         // Get RQ data
         const rqDoc = await getDoc(doc(db, 'rqs', rqId));
         if (!rqDoc.exists()) {
