@@ -21,6 +21,10 @@ interface TurnoverStats {
     byReason: { reason: string; count: number }[];
     liahVsOther: { type: string; tenure: number; count: number }[];
     recentAlerts: any[];
+    npsScore: number | null;
+    npsCount: number;
+    surveysCompleted: number;
+    surveyComments: any[];
 }
 
 export default function AdvancedAnalyticsDashboard({ holdingId, filters }: AdvancedAnalyticsDashboardProps) {
@@ -37,8 +41,10 @@ export default function AdvancedAnalyticsDashboard({ holdingId, filters }: Advan
                 // 1. Cargar configuración de la holding
                 const holdingRef = doc(db, 'holdings', holdingId);
                 const holdingDoc = await getDoc(holdingRef);
+                let holdingName = '';
                 if (holdingDoc.exists()) {
                     const hData = holdingDoc.data();
+                    holdingName = hData.nombre || '';
                     if (hData.settings?.costItems && Array.isArray(hData.settings.costItems)) {
                         const total = hData.settings.costItems.reduce((acc: number, item: any) => acc + (item.amount || 0), 0);
                         if (total > 0) setCostoReposicion(total);
@@ -130,6 +136,32 @@ export default function AdvancedAnalyticsDashboard({ holdingId, filters }: Advan
                     typeMap[type].count++;
                 });
 
+                // Fetch Exit Surveys
+                let exitSurveys: any[] = [];
+                if (holdingName) {
+                    const surveyRef = collection(db, 'exit_surveys');
+                    const sq = query(surveyRef, where('empresa', '==', holdingName));
+                    const sqSnap = await getDocs(sq);
+                    exitSurveys = sqSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+
+                let totalNps = 0;
+                let npsCount = 0;
+                let surveyComments: any[] = [];
+                exitSurveys.forEach(s => {
+                    if (s.nps !== undefined && s.nps !== null) {
+                        totalNps += Number(s.nps);
+                        npsCount++;
+                    }
+                    if (s.comentarioMejora) {
+                        surveyComments.push({
+                            comentario: s.comentarioMejora,
+                            fecha: s.createdAt?.toDate?.() || new Date(s.createdAt) || new Date()
+                        });
+                    }
+                });
+                surveyComments.sort((a, b) => b.fecha - a.fecha);
+
                 setStats({
                     totalBajas: bajas.length,
                     sunkCost: totalSunkCost,
@@ -146,7 +178,11 @@ export default function AdvancedAnalyticsDashboard({ holdingId, filters }: Advan
                         tenure: data.count > 0 ? Math.round(data.total / data.count) : 0,
                         count: data.count
                     })),
-                    recentAlerts: bajas.slice(0, 5)
+                    recentAlerts: bajas.slice(0, 5),
+                    npsScore: npsCount > 0 ? (totalNps / npsCount) : null,
+                    npsCount: npsCount,
+                    surveysCompleted: exitSurveys.length,
+                    surveyComments: surveyComments.slice(0, 5)
                 });
 
             } catch (error) {
@@ -173,33 +209,38 @@ export default function AdvancedAnalyticsDashboard({ holdingId, filters }: Advan
     return (
         <div className="space-y-8 pb-10">
             {/* Header / CEO View Widgets */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
-                    <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">Capital Hundido (Sunk Cost)</p>
+                    <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">Capital Hundido</p>
                     <p className="text-4xl font-black text-white mt-2">S/ {stats.sunkCost.toLocaleString()}</p>
                     <div className="mt-4 flex items-center gap-2">
                         <span className="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs font-bold">Pérdida &lt; 90 días</span>
-                        <span className="text-slate-500 text-[10px]">Costo reposición: S/ {costoReposicion}</span>
                     </div>
                 </div>
 
                 <div className={`p-6 rounded-2xl shadow-xl border ${stats.earlyAttrition > 15 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}>
-                    <p className={`${stats.earlyAttrition > 15 ? 'text-red-600' : 'text-gray-500'} text-sm font-bold uppercase tracking-wider`}>Muerte Temprana (Early Attrition)</p>
+                    <p className={`${stats.earlyAttrition > 15 ? 'text-red-600' : 'text-gray-500'} text-sm font-bold uppercase tracking-wider`}>Early Attrition</p>
                     <p className={`text-4xl font-black mt-2 ${stats.earlyAttrition > 15 ? 'text-red-700' : 'text-gray-900'}`}>{stats.earlyAttrition.toFixed(1)}%</p>
                     <div className="mt-4 flex items-center gap-2">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${stats.earlyAttrition > 15 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
                             {stats.earlyAttrition > 15 ? '🔥 CRÍTICO (>15%)' : '✅ SALUDABLE'}
                         </span>
-                        <span className="text-gray-400 text-[10px]">Bajas antes de los 30 días</span>
                     </div>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-                    <p className="text-gray-500 text-sm font-bold uppercase tracking-wider">Permanencia Promedio</p>
+                    <p className="text-gray-500 text-sm font-bold uppercase tracking-wider">Permanencia</p>
                     <p className="text-4xl font-black text-violet-600 mt-2">{Math.round(stats.avgTenure)} días</p>
                     <div className="mt-4 flex items-center gap-2">
                         <span className="bg-violet-50 text-violet-600 px-2 py-1 rounded text-xs font-bold">Ciclo de Vida</span>
-                        <span className="text-gray-400 text-[10px]">Basado en {stats.totalBajas} bajas</span>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
+                    <p className="text-gray-500 text-sm font-bold uppercase tracking-wider">eNPS Salida</p>
+                    <p className="text-4xl font-black text-amber-500 mt-2">{stats.npsScore !== null ? stats.npsScore.toFixed(1) : '-'}</p>
+                    <div className="mt-4 flex items-center gap-2">
+                        <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded text-xs font-bold">{stats.surveysCompleted} encuestas</span>
                     </div>
                 </div>
             </div>
@@ -309,6 +350,24 @@ export default function AdvancedAnalyticsDashboard({ holdingId, filters }: Advan
                             </div>
                         ))}
                     </div>
+                </div>
+
+                {/* Survey Comments */}
+                <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 lg:col-span-2 mt-8">
+                    <h4 className="font-bold text-gray-900 mb-6 flex items-center gap-2">
+                        🗣️ Comentarios Recientes (Encuestas de Salida)
+                    </h4>
+                    {stats.surveyComments.length > 0 ? (
+                        <div className="space-y-4">
+                            {stats.surveyComments.map((comment, i) => (
+                                <div key={i} className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 border border-gray-200 italic">
+                                    "{comment.comentario}"
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-gray-400 text-sm italic">No hay comentarios en encuestas de salida en el periodo seleccionado.</p>
+                    )}
                 </div>
             </div>
 

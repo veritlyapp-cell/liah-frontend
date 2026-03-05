@@ -12,11 +12,12 @@ import { DemographicMetrics } from '@/types/analytics';
 interface UnifiedAnalyticsProps {
     holdingId: string;
     marcas: { id: string; nombre: string }[];
+    hasExitAnalytics?: boolean;
 }
 
 type AnalyticsTab = 'reclutamiento' | 'demografia' | 'impacto';
 
-export default function UnifiedAnalytics({ holdingId, marcas }: UnifiedAnalyticsProps) {
+export default function UnifiedAnalytics({ holdingId, marcas, hasExitAnalytics = true }: UnifiedAnalyticsProps) {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('reclutamiento');
     const [filters, setFilters] = useState<FilterValues>({
         dateRange: 'month',
@@ -95,15 +96,17 @@ export default function UnifiedAnalytics({ holdingId, marcas }: UnifiedAnalytics
                     >
                         👥 Demografía
                     </button>
-                    <button
-                        onClick={() => setActiveTab('impacto')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'impacto'
-                            ? 'bg-white text-violet-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        💰 Impacto & ROI
-                    </button>
+                    {hasExitAnalytics && (
+                        <button
+                            onClick={() => setActiveTab('impacto')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'impacto'
+                                ? 'bg-white text-violet-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            💰 Impacto & ROI
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -152,7 +155,7 @@ export default function UnifiedAnalytics({ holdingId, marcas }: UnifiedAnalytics
                     </div>
                 )}
 
-                {activeTab === 'impacto' && (
+                {activeTab === 'impacto' && hasExitAnalytics && (
                     <div className="space-y-8">
                         <div>
                             <h3 className="text-lg font-extrabold text-gray-900 mb-2">Analítica de Retención y ROI</h3>

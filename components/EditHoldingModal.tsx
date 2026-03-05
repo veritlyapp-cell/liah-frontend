@@ -29,6 +29,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     // Product Access Control
     const [hasLiahFlow, setHasLiahFlow] = useState(true);
     const [hasLiahTalent, setHasLiahTalent] = useState(false);
+    const [hasExitAnalytics, setHasExitAnalytics] = useState(true);
 
     // Dynamic Documents
     const [requiredDocuments, setRequiredDocuments] = useState<any[]>([]);
@@ -70,6 +71,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
             // Products
             setHasLiahFlow(config?.hasLiahFlow !== false); // Default true
             setHasLiahTalent(config?.hasLiahTalent || false);
+            setHasExitAnalytics(config?.hasExitAnalytics !== false); // Default true
 
             // Branding
             setBrandingEnabled(config?.branding?.enabled || false);
@@ -103,6 +105,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 // Products
                 hasLiahFlow,
                 hasLiahTalent,
+                hasExitAnalytics,
                 // Branding
                 branding: {
                     enabled: brandingEnabled,
@@ -203,6 +206,20 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                     <span className="text-xl">💼</span> Liah Talent
                                 </p>
                                 <p className="text-xs text-gray-500">Reclutamiento Corporativo (AI Matching)</p>
+                            </div>
+                        </label>
+                        <label className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 cursor-pointer transition-all hover:border-blue-300" style={{ borderColor: hasExitAnalytics ? '#3b82f6' : '#e5e7eb' }}>
+                            <input
+                                type="checkbox"
+                                checked={hasExitAnalytics}
+                                onChange={(e) => setHasExitAnalytics(e.target.checked)}
+                                className="w-5 h-5 text-blue-500 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <div>
+                                <p className="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span className="text-xl">📊</span> Analítica Salida
+                                </p>
+                                <p className="text-xs text-gray-500">Dashboard de Retención/Impacto</p>
                             </div>
                         </label>
                     </div>

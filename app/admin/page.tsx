@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     const [holdingId, setHoldingId] = useState<string>('');
 
     const [storeCounts, setStoreCounts] = useState<Record<string, number>>({});
-    const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string; isTrial?: boolean } | null>(null);
+    const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string; isTrial?: boolean; hasExitAnalytics?: boolean } | null>(null);
 
     const { hasFeature, isTrial } = useFeatures();
 
@@ -498,6 +498,7 @@ export default function AdminDashboard() {
                         <UnifiedAnalytics
                             holdingId={holdingId}
                             marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))}
+                            hasExitAnalytics={holdingInfo?.hasExitAnalytics !== false}
                         />
                     )
                 }

@@ -201,8 +201,10 @@ export default function PremiumCareerPortal() {
             setBrands(brandsList);
 
             // Apply branding config if available
+            console.log("[DEBUG] Holding Doc loaded:", holdingId, !!holdingDocData);
             if (holdingDocData) {
-                const b = holdingDocData.config?.branding;
+                const b = holdingDocData.config?.branding || holdingDocData.branding; // Catch both locations
+                console.log("[DEBUG] Branding found:", b);
                 if (b) {
                     const holdingData = holdingDocData;
                     setConfig(prev => {
@@ -240,15 +242,15 @@ export default function PremiumCareerPortal() {
             const allJobsList: any[] = [];
 
             // a. RQs
-            const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('holdingId', 'in', possibleHoldingIds), limit(20)));
+            const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('holdingId', 'in', possibleHoldingIds), limit(50)));
             rqsSnap.docs.forEach(doc => {
                 const data = doc.data();
-                if (data.status === 'recruiting') {
+                if (data.status === 'recruiting' || data.status === 'approved' || data.estado === 'aprobado' || data.status === 'activo') {
                     allJobsList.push({
                         id: doc.id,
                         titulo: data.posicionNombre || data.title,
                         tiendaNombre: data.tiendaNombre || 'Sede Central',
-                        tiendaDistrito: data.distrito,
+                        tiendaDistrito: data.distrito || data.provincia,
                         marcaId: data.marcaId,
                         modalidad: data.modalidad,
                         turno: data.turno,
@@ -259,10 +261,12 @@ export default function PremiumCareerPortal() {
             });
 
             // b. Talent Jobs
-            const talentJobsSnap = await getDocs(query(collection(db, 'talent_jobs'), where('holdingId', 'in', possibleHoldingIds), limit(20)));
+            const talentJobsSnap = await getDocs(query(collection(db, 'talent_jobs'), where('holdingId', 'in', possibleHoldingIds), limit(50)));
             talentJobsSnap.docs.forEach(doc => {
                 const data = doc.data();
-                allJobsList.push({ id: doc.id, holdingSlug: holdingSlug, ...data });
+                if (data.status === 'published' || data.status === 'active' || data.status === 'recruiting') {
+                    allJobsList.push({ id: doc.id, holdingSlug: holdingSlug, ...data });
+                }
             });
 
             // c. Nested Vacantes (Legacy/Alternative)
