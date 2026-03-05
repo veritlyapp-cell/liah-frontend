@@ -240,7 +240,7 @@ export default function PremiumCareerPortal() {
             const allJobsList: any[] = [];
 
             // a. RQs
-            const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('holdingSlug', '==', holdingSlug), limit(20)));
+            const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('holdingId', 'in', possibleHoldingIds), limit(20)));
             rqsSnap.docs.forEach(doc => {
                 const data = doc.data();
                 if (data.status === 'recruiting') {
@@ -252,16 +252,17 @@ export default function PremiumCareerPortal() {
                         marcaId: data.marcaId,
                         modalidad: data.modalidad,
                         turno: data.turno,
-                        createdAt: data.createdAt
+                        createdAt: data.createdAt,
+                        holdingSlug: holdingSlug // Explicitly tag with current holding
                     });
                 }
             });
 
             // b. Talent Jobs
-            const talentJobsSnap = await getDocs(query(collection(db, 'talent_jobs'), where('holdingSlug', '==', holdingSlug), limit(20)));
+            const talentJobsSnap = await getDocs(query(collection(db, 'talent_jobs'), where('holdingId', 'in', possibleHoldingIds), limit(20)));
             talentJobsSnap.docs.forEach(doc => {
                 const data = doc.data();
-                allJobsList.push({ id: doc.id, ...data });
+                allJobsList.push({ id: doc.id, holdingSlug: holdingSlug, ...data });
             });
 
             // c. Nested Vacantes (Legacy/Alternative)
