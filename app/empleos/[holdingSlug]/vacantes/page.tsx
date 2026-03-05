@@ -58,10 +58,10 @@ const modalidadLabels: Record<string, string> = {
 export default function VacantesPage() {
     const params = useParams();
     const holdingSlug = (params?.holdingSlug as string)?.toLowerCase() || 'llamagas';
-    const config = HOLDING_CONFIGS[holdingSlug] || HOLDING_CONFIGS['llamagas'];
 
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
+    const [config, setConfig] = useState(HOLDING_CONFIGS[holdingSlug] || HOLDING_CONFIGS['llamagas']);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -76,11 +76,48 @@ export default function VacantesPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Load jobs
+    // Load jobs and holding config
     useEffect(() => {
-        async function loadJobs() {
+        async function loadData() {
             setLoading(true);
             try {
+                // 1. Fetch holding branding config
+                const holdingsQuery = query(collection(db, 'holdings'), where('slug', '==', holdingSlug));
+                const holdingsSnap = await getDocs(holdingsQuery);
+
+                if (!holdingsSnap.empty) {
+                    const hData = holdingsSnap.docs[0].data();
+                    const branding = hData.config?.branding;
+
+                    setConfig(prev => ({
+                        name: hData.nombre || prev.name,
+                        logo: hData.logoUrl || prev.logo,
+                        colors: {
+                            primary: branding?.primaryColor || prev.colors.primary,
+                            accent: branding?.primaryColor || prev.colors.accent, // Use primary as accent
+                            light: branding?.secondaryColor || prev.colors.light,
+                        }
+                    }));
+                } else {
+                    // Fallback to direct ID fetch
+                    const { getDoc, doc } = await import('firebase/firestore');
+                    const directDoc = await getDoc(doc(db, 'holdings', holdingSlug));
+                    if (directDoc.exists()) {
+                        const hData = directDoc.data();
+                        const branding = hData.config?.branding;
+                        setConfig(prev => ({
+                            name: hData.nombre || prev.name,
+                            logo: hData.logoUrl || prev.logo,
+                            colors: {
+                                primary: branding?.primaryColor || prev.colors.primary,
+                                accent: branding?.primaryColor || prev.colors.accent,
+                                light: branding?.secondaryColor || prev.colors.light,
+                            }
+                        }));
+                    }
+                }
+
+                // 2. Fetch Jobs
                 const jobsRef = collection(db, 'talent_jobs');
 
                 // Try to find jobs with various holdingId formats
@@ -123,7 +160,7 @@ export default function VacantesPage() {
             }
             setLoading(false);
         }
-        loadJobs();
+        loadData();
     }, [holdingSlug]);
 
     // Extract unique filter options

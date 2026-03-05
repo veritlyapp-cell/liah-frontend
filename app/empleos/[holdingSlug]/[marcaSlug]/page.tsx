@@ -57,7 +57,7 @@ export default function BrandPortal({ params }: BrandPortalProps) {
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: brand?.color || '#6366f1' }}></div>
             </div>
         );
     }
@@ -67,7 +67,7 @@ export default function BrandPortal({ params }: BrandPortalProps) {
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 text-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Marca no encontrada</h1>
-                    <Link href={`/empleos/${holdingSlug}`} className="text-violet-600 font-medium">
+                    <Link href={`/empleos/${holdingSlug}`} className="font-medium" style={{ color: '#6366f1' }}>
                         Volver al portal principal
                     </Link>
                 </div>
@@ -100,7 +100,7 @@ export default function BrandPortal({ params }: BrandPortalProps) {
                         className="text-center"
                     >
                         <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-6 tracking-tight leading-none uppercase italic">
-                            Tu próximo <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">gran reto</span> está aquí.
+                            Tu próximo <span style={{ color: brandColor }}>gran reto</span> está aquí.
                         </h1>
                         <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
                             Únete al equipo de {brand.nombre}. Buscamos personas con pasión, actitud y ganas de crecer con nosotros.
@@ -118,19 +118,19 @@ export default function BrandPortal({ params }: BrandPortalProps) {
             {/* Values / Features */}
             <section className="py-20 bg-white">
                 <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
-                    <div className="p-8 rounded-3xl bg-gray-50 border border-gray-100 italic">
-                        <Zap className="text-violet-600 mb-4" size={32} />
-                        <h3 className="text-xl font-bold text-gray-900 mb-2 underline decoration-violet-200">Ingreso Inmediato</h3>
+                    <div className="p-8 rounded-3xl bg-gray-50 border border-gray-100 italic" style={{ borderBottomColor: brandColor, borderBottomWidth: 4 }}>
+                        <Zap style={{ color: brandColor }} className="mb-4" size={32} />
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Ingreso Inmediato</h3>
                         <p className="text-gray-600 text-sm">Nuestro proceso es ágil. Si haces match, puedes empezar en menos de 48 horas.</p>
                     </div>
-                    <div className="p-8 rounded-3xl bg-gray-50 border border-gray-100 italic">
-                        <MapPin className="text-violet-600 mb-4" size={32} />
-                        <h3 className="text-xl font-bold text-gray-900 mb-2 underline decoration-violet-200">Cerca de tu Casa</h3>
+                    <div className="p-8 rounded-3xl bg-gray-50 border border-gray-100 italic" style={{ borderBottomColor: brandColor, borderBottomWidth: 4 }}>
+                        <MapPin style={{ color: brandColor }} className="mb-4" size={32} />
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Cerca de tu Casa</h3>
                         <p className="text-gray-600 text-sm">Tenemos {brand.nombre} en todo el país. Trabajamos para asignarte a la tienda más cercana.</p>
                     </div>
-                    <div className="p-8 rounded-3xl bg-gray-50 border border-gray-100 italic">
-                        <Clock className="text-violet-600 mb-4" size={32} />
-                        <h3 className="text-xl font-bold text-gray-900 mb-2 underline decoration-violet-200">Horarios Flexibles</h3>
+                    <div className="p-8 rounded-3xl bg-gray-50 border border-gray-100 italic" style={{ borderBottomColor: brandColor, borderBottomWidth: 4 }}>
+                        <Clock style={{ color: brandColor }} className="mb-4" size={32} />
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Horarios Flexibles</h3>
                         <p className="text-gray-600 text-sm">Part-time o Full-time. Nos adaptamos a tus estudios o responsabilidades personales.</p>
                     </div>
                 </div>
@@ -141,7 +141,7 @@ export default function BrandPortal({ params }: BrandPortalProps) {
                 <div className="max-w-4xl mx-auto">
                     <div className="flex items-center justify-between mb-12 border-b-4 border-gray-900 pb-4">
                         <h2 className="text-4xl font-black text-gray-900 italic tracking-tighter uppercase">Vacantes Disponibles</h2>
-                        <span className="px-4 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-black uppercase">{jobs.length} Posiciones</span>
+                        <span className="px-4 py-1 rounded-full text-xs font-black uppercase" style={{ backgroundColor: brandColor + '20', color: brandColor }}>{jobs.length} Posiciones</span>
                     </div>
 
                     {jobs.length === 0 ? (
@@ -156,16 +156,24 @@ export default function BrandPortal({ params }: BrandPortalProps) {
                                 <Link
                                     key={job.id}
                                     href={`/empleos/${holdingSlug}/${marcaSlug}/${job.tiendaSlug || job.tiendaId}/aplicar?rqId=${job.id}`}
-                                    className="group bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-violet-200 transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
+                                    className="group bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden"
                                 >
+                                    <div className="absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: brandColor }} />
                                     <div>
-                                        <h4 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-violet-600 transition-colors uppercase italic">{job.posicion}</h4>
+                                        <h4 className="text-2xl font-black text-gray-900 mb-2 uppercase italic transition-colors" style={{ color: 'inherit' }}
+                                            onMouseEnter={(e) => e.currentTarget.style.color = brandColor}
+                                            onMouseLeave={(e) => e.currentTarget.style.color = '#111827'}
+                                        >{job.posicion}</h4>
                                         <div className="flex flex-wrap gap-4 text-sm text-gray-500 font-bold uppercase tracking-tight">
-                                            <span className="flex items-center gap-1"><MapPin size={16} className="text-violet-400" /> {job.tiendaNombre} ({job.tiendaDistrito})</span>
-                                            <span className="flex items-center gap-1"><Clock size={16} className="text-violet-400" /> {job.turno}</span>
+                                            <span className="flex items-center gap-1"><MapPin size={16} style={{ color: brandColor }} /> {job.tiendaNombre} ({job.tiendaDistrito})</span>
+                                            <span className="flex items-center gap-1"><Clock size={16} style={{ color: brandColor }} /> {job.turno}</span>
                                         </div>
                                     </div>
-                                    <div className="w-12 h-12 rounded-full bg-gray-900 text-white flex items-center justify-center group-hover:bg-violet-600 transition-all group-hover:scale-110 shadow-lg">
+                                    <div className="w-12 h-12 rounded-full text-white flex items-center justify-center transition-all group-hover:scale-110 shadow-lg"
+                                        style={{ backgroundColor: '#111827' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = brandColor}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#111827'}
+                                    >
                                         <ChevronRight size={24} />
                                     </div>
                                 </Link>

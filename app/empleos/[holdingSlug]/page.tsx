@@ -311,7 +311,30 @@ export default function PremiumCareerPortal() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', color: 'white', fontFamily: "'Inter', sans-serif", backgroundColor: config.colors.purpleDeep }}>
+        <div style={{
+            minHeight: '100vh',
+            color: 'white',
+            fontFamily: "'Inter', sans-serif",
+            backgroundColor: config.colors.purpleDeep,
+            // Setup CSS variables for children hover effects
+            '--portal-primary': config.colors.purple,
+            '--portal-accent': config.colors.yellow,
+        } as React.CSSProperties}>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .job-card-hover:hover {
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important;
+                    border-color: var(--portal-accent) !important;
+                    transform: translateY(-4px);
+                }
+                .job-card-hover:hover .arrow-circle {
+                    background-color: var(--portal-accent) !important;
+                    color: var(--portal-primary) !important;
+                    transform: scale(1.1);
+                    border-color: var(--portal-accent) !important;
+                }
+            `}} />
+
             {/* NAVBAR */}
             <nav style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px 48px', zIndex: 20 }}>
                 <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
