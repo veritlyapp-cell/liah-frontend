@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import DashboardHeader from '@/components/DashboardHeader';
+import { useFeatures } from '@/hooks/useFeatures';
 import UserManagementView from '@/components/admin/UserManagementView';
 import CreateBrandModal from '@/components/admin/CreateBrandModal';
 import EditBrandModal from '@/components/admin/EditBrandModal';
@@ -48,14 +49,25 @@ export default function AdminDashboard() {
     const [holdingId, setHoldingId] = useState<string>('');
 
     const [storeCounts, setStoreCounts] = useState<Record<string, number>>({});
-    const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string } | null>(null);
+    const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string; isTrial?: boolean } | null>(null);
 
-    // Features based on plan
-    const currentPlan = holdingInfo?.plan || 'full_stack';
-    const hasRQFeature = currentPlan === 'rq_only' || currentPlan === 'full_stack';
+    const { hasFeature, isTrial } = useFeatures();
+
+    // Impersonation support for Super Admins
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const impersonatedHoldingId = urlParams.get('holdingId');
+
+            if (impersonatedHoldingId && claims?.role === 'super_admin') {
+                console.log('🛡️ Super Admin Impersonation:', impersonatedHoldingId);
+                setHoldingId(impersonatedHoldingId);
+            }
+        }
+    }, [claims]);
 
     useEffect(() => {
-        const allowedRoles = ['client_admin', 'admin', 'gerente'];
+        const allowedRoles = ['client_admin', 'admin', 'gerente', 'super_admin'];
         if (!loading && user) {
             const role = claims?.role || '';
             if (['recruiter', 'brand_recruiter'].includes(role)) {
@@ -98,7 +110,11 @@ export default function AdminDashboard() {
                 }
 
                 if (foundHoldingId) {
-                    setHoldingId(foundHoldingId);
+                    // Only set holdingId if not already set by impersonation
+                    setHoldingId(prev => {
+                        if (prev && claims?.role === 'super_admin') return prev;
+                        return foundHoldingId;
+                    });
 
                     // NGR Specific Redirect: If they only have flow/RQs, go straight there
                     if ((foundHoldingId === 'ngr' || foundHoldingId === 'ktJgslYzcGSD2hIPnvvLk') && claims?.role !== 'compensaciones') {
@@ -113,7 +129,8 @@ export default function AdminDashboard() {
                         setHoldingInfo({
                             nombre: data.nombre || foundHoldingId,
                             plan: data.plan || 'full_stack',
-                            logo: data.logo
+                            logo: data.logo,
+                            isTrial: data.isTrial
                         });
                     } else {
                         setHoldingInfo({
@@ -128,7 +145,7 @@ export default function AdminDashboard() {
             }
         }
         loadUserHolding();
-    }, [user]);
+    }, [user, claims]); // Added claims to dependencies to re-run after role is available
 
     // Load brands from Firestore
     useEffect(() => {
@@ -304,7 +321,7 @@ export default function AdminDashboard() {
                             >
                                 👥 Gestión de Usuarios
                             </button>
-                            {hasRQFeature && (
+                            {hasFeature('rq_management') && (
                                 <button
                                     onClick={() => setActiveTab('rqs')}
                                     className={`px-4 py-2 font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === 'rqs' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -326,7 +343,7 @@ export default function AdminDashboard() {
                             </button>
                             <button
                                 onClick={() => setActiveTab('analitica')}
-                                className={`px-4 py-2 font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === 'analitica' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                                className={`px-4 py-2 font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === 'analitica' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-500 hover:text-gray-700'} ${!hasFeature('advanced_analytics') ? 'hidden' : ''}`}
                             >
                                 📈 Analítica
                             </button>
@@ -472,7 +489,7 @@ export default function AdminDashboard() {
                 }
 
                 {activeTab === 'usuarios' && <UserManagementView holdingId={holdingId} />}
-                {activeTab === 'rqs' && hasRQFeature && <RQTrackingView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
+                {activeTab === 'rqs' && hasFeature('rq_management') && <RQTrackingView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
                 {activeTab === 'candidatos' && <AdminCandidatesView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} tiendas={stores.map(s => ({ id: s.id, nombre: s.nombre, marcaId: s.marcaId }))} />}
                 {activeTab === 'perfiles' && <JobProfilesManagement holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
 

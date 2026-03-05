@@ -11,14 +11,15 @@ interface HoldingLogoUploadProps {
 
 export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps) {
     const [holdingName, setHoldingName] = useState('');
+    const [holdingSlug, setHoldingSlug] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
     const [branding, setBranding] = useState({
         enabled: false,
-        primaryColor: '#E30613',
-        secondaryColor: '#1A1A1A',
+        primaryColor: '#7c3aed',
+        secondaryColor: '#4f46e5',
         phrases: [] as string[],
         gallery: [] as string[],
         videos: [] as { id: string, title: string }[],
@@ -40,25 +41,26 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                 if (holdingDoc.exists()) {
                     const data = holdingDoc.data();
                     setHoldingName(data.nombre || '');
+                    setHoldingSlug(data.slug || '');
                     setLogoUrl(data.logoUrl || '');
                     setPreviewUrl(data.logoUrl || '');
                     if (data.config?.branding) {
                         setBranding({
                             enabled: data.config.branding.enabled ?? true, // Default to true if configuring
-                            primaryColor: data.config.branding.primaryColor || '#E30613',
-                            secondaryColor: data.config.branding.secondaryColor || '#1A1A1A',
+                            primaryColor: data.config.branding.primaryColor || '#7c3aed',
+                            secondaryColor: data.config.branding.secondaryColor || '#4f46e5',
                             phrases: data.config.branding.phrases || [],
                             gallery: data.config.branding.gallery || [],
                             videos: data.config.branding.videos || [],
                             description: data.config.branding.description || ''
                         });
                     } else {
-                        // Default presets for Phillip Chu Joy or generic premium
+                        // Default premium presets
                         setBranding(prev => ({
                             ...prev,
                             enabled: true,
-                            primaryColor: '#E30613',
-                            secondaryColor: '#1A1A1A'
+                            primaryColor: '#7c3aed',
+                            secondaryColor: '#4f46e5'
                         }));
                     }
                 }
@@ -191,6 +193,16 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                             placeholder="Nombre de la Marca"
                         />
                         <p className="text-sm text-gray-500 mt-1">Configuración de Identidad y Portal</p>
+                        {holdingSlug && (
+                            <a
+                                href={`/empleos/${holdingSlug}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-violet-600 hover:text-violet-700 bg-violet-50 px-3 py-1.5 rounded-lg transition-colors border border-violet-100"
+                            >
+                                🔗 Ver Portal de Empleos
+                            </a>
+                        )}
                     </div>
                     <button
                         onClick={handleSave}
@@ -244,12 +256,6 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setBranding({ ...branding, primaryColor: '#E30613', secondaryColor: '#1A1A1A' })}
-                            className="text-xs font-bold text-red-600 hover:text-red-700 underline"
-                        >
-                            Aplicar Paleta Phill-Chu-Joy
-                        </button>
                     </section>
 
                     {/* Content CMS */}

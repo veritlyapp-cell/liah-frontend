@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import SessionMonitor from "@/components/SessionMonitor";
+import TrialBanner from "@/components/TrialBanner";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import Script from "next/script";
 
@@ -66,6 +67,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
+          <TrialBanner />
           <SessionMonitor />
           {children}
           <PWAInstallPrompt />

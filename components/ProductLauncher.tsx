@@ -27,6 +27,12 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
         async function fetchHoldingConfig() {
             if (!user?.email) return;
 
+            // Check if trial is expired
+            if (claims?.isTrial && claims?.trialStatus === 'expired') {
+                router.replace('/trial-expired');
+                return;
+            }
+
             setLoading(true);
             try {
                 let foundHoldingId: string | null = (claims?.holdingId as string) || (claims?.tenant_id as string) || null;

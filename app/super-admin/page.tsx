@@ -409,6 +409,34 @@ export default function SuperAdminDashboard() {
                             </div>
                         </div>
 
+                        {/* Trial Credentials Info Box */}
+                        <div className="bg-violet-50 border border-violet-200 rounded-2xl p-6 mb-8">
+                            <h3 className="text-lg font-bold text-violet-900 flex items-center gap-2 mb-2">
+                                🧪 Info: Cuentas de Prueba (Trials)
+                            </h3>
+                            <p className="text-sm text-violet-700 mb-4">
+                                Al crear un trial, se generan automáticamente estos accesos con la clave: <code className="bg-violet-100 px-2 py-1 rounded font-bold">DemoLiah2026!</code>
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="bg-white p-3 rounded-xl border border-violet-100">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Admin</p>
+                                    <p className="text-sm font-mono text-violet-600 truncate">admin@[id].com</p>
+                                </div>
+                                <div className="bg-white p-3 rounded-xl border border-violet-100">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Jefe Marca</p>
+                                    <p className="text-sm font-mono text-violet-600 truncate">jefe@[id].com</p>
+                                </div>
+                                <div className="bg-white p-3 rounded-xl border border-violet-100">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Supervisor</p>
+                                    <p className="text-sm font-mono text-violet-600 truncate">supervisor@[id].com</p>
+                                </div>
+                                <div className="bg-white p-3 rounded-xl border border-violet-100">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Manager</p>
+                                    <p className="text-sm font-mono text-violet-600 truncate">sm@[id].com</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* KPIs */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="glass-card rounded-xl p-4">
@@ -472,6 +500,12 @@ export default function SuperAdminDashboard() {
                                                 }`}>
                                                 {holding.activo ? '✓ Activo' : '○ Inactivo'}
                                             </span>
+                                            <button
+                                                onClick={() => router.push(`/admin?holdingId=${holding.id || holding.firestoreId}`)}
+                                                className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 transition-colors"
+                                            >
+                                                🚀 Gestionar
+                                            </button>
                                             <button
                                                 onClick={() => handleEditHolding(holding)}
                                                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"

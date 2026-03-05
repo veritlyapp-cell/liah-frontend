@@ -159,8 +159,13 @@ export default function AnalyticsUnifiedView({ isEmbedded = false, initialHoldin
         }
     }
 
-    const handleFilterChange = (filters: FilterValues) => {
-        setCurrentFilters(filters);
+    const handleExport = (type: 'csv' | 'excel' | 'pdf') => {
+        if (!data) return;
+        const filename = `Reporte_LIAH_${currentFilters.category}_${new Date().toISOString().split('T')[0]}`;
+
+        if (type === 'csv') downloadCSV(data, `${filename}.csv`);
+        else if (type === 'excel') downloadExcel(data, `${filename}.xls`);
+        else if (type === 'pdf') exportToPDF();
     };
 
     if (authLoading || (loading && !data)) {
@@ -189,7 +194,12 @@ export default function AnalyticsUnifiedView({ isEmbedded = false, initialHoldin
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                <button className="px-4 py-2 text-sm bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-lg hover:opacity-90 transition-all">📥 Exportar</button>
+                                <button
+                                    onClick={() => handleExport('excel')}
+                                    className="px-4 py-2 text-sm bg-gradient-to-r from-violet-600 to-cyan-500 text-white rounded-lg hover:opacity-90 transition-all font-bold shadow-md active:scale-95"
+                                >
+                                    📥 Exportar Excel
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -205,6 +215,12 @@ export default function AnalyticsUnifiedView({ isEmbedded = false, initialHoldin
                                 {useMockData ? 'Modo Demo' : 'Datos Reales'}
                             </span>
                         </div>
+                        <button
+                            onClick={() => handleExport('excel')}
+                            className="px-4 py-2 text-xs bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all font-bold flex items-center gap-2 shadow-sm active:scale-95"
+                        >
+                            <span>📥</span> Exportar Datos
+                        </button>
                     </div>
                 )}
 

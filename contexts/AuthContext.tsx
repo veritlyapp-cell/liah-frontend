@@ -21,6 +21,11 @@ interface UserClaims {
     entity_id?: string | null;
     authorized_stores?: string[] | null;
     capacidades?: string[];
+    // Trial Mode Metadata
+    isTrial?: boolean;
+    trialExpiresAt?: any;
+    trialStatus?: 'active' | 'expired';
+    plan?: 'bot_only' | 'rq_only' | 'full_stack';
 }
 
 interface AuthContextType {
@@ -47,7 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return null;
             }
 
-            // First, try userAssignments collection (for Flow users)
+            let baseClaims: UserClaims | null = null;
+
+            // 1. Try userAssignments collection (for Flow users)
             const assignmentsRef = collection(db, 'userAssignments');
             const q = query(assignmentsRef, where('userId', '==', userId));
             const snapshot = await getDocs(q);
@@ -55,84 +62,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!snapshot.empty) {
                 const userData = snapshot.docs[0].data();
                 const isUserActive = userData.isActive === true || userData.active === true;
-                if (!isUserActive) {
-                    console.log('⚠️ User found but not active:', userId);
-                    return null;
+                if (isUserActive) {
+                    baseClaims = {
+                        role: userData.role as any,
+                        tenant_id: userData.holdingId || null,
+                        holdingId: userData.holdingId || null,
+                        marcaId: userData.marcaId || userData.assignedMarca?.marcaId || null,
+                        storeId: userData.storeId || userData.assignedStore?.tiendaId || null,
+                        authorized_entities: userData.assignedMarca ? [userData.assignedMarca.marcaId] : null,
+                        entity_id: userData.assignedMarca?.marcaId || null,
+                        authorized_stores: userData.assignedStores?.map((s: any) => s.tiendaId) || null
+                    };
                 }
-                return {
-                    role: userData.role as any,
-                    tenant_id: userData.holdingId || null,
-                    holdingId: userData.holdingId || null,
-                    marcaId: userData.marcaId || userData.assignedMarca?.marcaId || null,
-                    storeId: userData.storeId || userData.assignedStore?.tiendaId || null,
-                    authorized_entities: userData.assignedMarca ? [userData.assignedMarca.marcaId] : null,
-                    entity_id: userData.assignedMarca?.marcaId || null,
-                    authorized_stores: userData.assignedStores?.map((s: any) => s.tiendaId) || null
-                };
             }
 
-            // If not found, try talent_users collection (for Talent users)
-            if (userEmail) {
-                console.log('🔍 Checking talent_users for:', userEmail);
+            // 2. Try talent_users collection (for Talent users)
+            if (!baseClaims && userEmail) {
                 const talentRef = collection(db, 'talent_users');
                 const talentQ = query(talentRef, where('email', '==', userEmail.toLowerCase()));
                 const talentSnap = await getDocs(talentQ);
 
                 if (!talentSnap.empty) {
                     const talentData = talentSnap.docs[0].data();
-                    if (!talentData.activo) {
-                        console.log('⚠️ Talent user found but not active:', userEmail);
-                        return null;
+                    if (talentData.activo) {
+                        const capacidades = talentData.capacidades || [talentData.rol];
+                        let role: any = 'hiring_manager';
+                        if (capacidades.includes('admin')) role = 'admin';
+                        else if (capacidades.includes('lider_reclutamiento')) role = 'lider_reclutamiento';
+                        else if (capacidades.includes('recruiter')) role = 'recruiter';
+                        else if (capacidades.includes('hiring_manager')) role = 'hiring_manager';
+
+                        baseClaims = {
+                            role,
+                            tenant_id: talentData.holdingId || null,
+                            holdingId: talentData.holdingId || null,
+                            marcaId: null,
+                            storeId: null,
+                            authorized_entities: null,
+                            entity_id: null,
+                            authorized_stores: null,
+                            capacidades
+                        };
                     }
-
-                    // Map capacidades to role for proper redirect
-                    const capacidades = talentData.capacidades || [talentData.rol];
-                    let role: any = 'hiring_manager'; // Default
-
-                    // Priority: admin > lider_reclutamiento > recruiter > hiring_manager
-                    if (capacidades.includes('admin')) role = 'admin';
-                    else if (capacidades.includes('lider_reclutamiento')) role = 'lider_reclutamiento';
-                    else if (capacidades.includes('recruiter')) role = 'recruiter';
-                    else if (capacidades.includes('hiring_manager')) role = 'hiring_manager';
-
-                    console.log('✅ Found talent_user:', userEmail, 'role:', role);
-                    return {
-                        role,
-                        tenant_id: talentData.holdingId || null,
-                        holdingId: talentData.holdingId || null,
-                        marcaId: null,
-                        storeId: null,
-                        authorized_entities: null,
-                        entity_id: null,
-                        authorized_stores: null,
-                        capacidades
-                    };
                 }
             }
 
-            // Finally, try legacy users collection
-            const usersRef = collection(db, 'users');
-            const userQ = query(usersRef, where('email', '==', userEmail || ''));
-            const userSnap = await getDocs(userQ);
-            if (!userSnap.empty) {
-                const userData = userSnap.docs[0].data();
-                if (userData.activo !== false && userData.active !== false) {
-                    console.log('✅ Found legacy user in users collection:', userEmail);
-                    return {
-                        role: userData.role as any,
-                        tenant_id: userData.tenant_id || userData.holdingId || null,
-                        holdingId: userData.tenant_id || userData.holdingId || null,
-                        marcaId: userData.marcaId || null,
-                        storeId: userData.storeId || null,
-                        authorized_entities: userData.authorized_entities || null,
-                        entity_id: userData.entity_id || null,
-                        authorized_stores: userData.authorized_stores || null
-                    };
+            // 3. Try legacy users collection
+            if (!baseClaims && userEmail) {
+                const usersRef = collection(db, 'users');
+                const userQ = query(usersRef, where('email', '==', userEmail));
+                const userSnap = await getDocs(userQ);
+                if (!userSnap.empty) {
+                    const userData = userSnap.docs[0].data();
+                    if (userData.activo !== false && userData.active !== false) {
+                        baseClaims = {
+                            role: userData.role as any,
+                            tenant_id: userData.tenant_id || userData.holdingId || null,
+                            holdingId: userData.tenant_id || userData.holdingId || null,
+                            marcaId: userData.marcaId || null,
+                            storeId: userData.storeId || null,
+                            authorized_entities: userData.authorized_entities || null,
+                            entity_id: userData.entity_id || null,
+                            authorized_stores: userData.authorized_stores || null
+                        };
+                    }
                 }
             }
 
-            console.log('⚠️ No user found in userAssignments or talent_users');
-            return null;
+            // 4. If found a holdingId, fetch holding trial status
+            if (baseClaims?.holdingId) {
+                const { getDoc, doc } = await import('firebase/firestore');
+                const holdingDoc = await getDoc(doc(db, 'holdings', baseClaims.holdingId));
+                if (holdingDoc.exists()) {
+                    const hData = holdingDoc.data();
+                    if (hData.isTrial) {
+                        baseClaims.isTrial = true;
+                        baseClaims.trialExpiresAt = hData.trialExpiresAt;
+
+                        // Check if expired
+                        const expiresAt = hData.trialExpiresAt?.toDate ? hData.trialExpiresAt.toDate() : new Date(hData.trialExpiresAt);
+                        baseClaims.trialStatus = expiresAt < new Date() ? 'expired' : 'active';
+                        console.log('🕒 Trial Status:', baseClaims.trialStatus, 'expires at:', expiresAt);
+                    }
+                }
+            }
+
+            return baseClaims;
         } catch (error) {
             console.error('Error fetching role from Firestore:', error);
             return null;

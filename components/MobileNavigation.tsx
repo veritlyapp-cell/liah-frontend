@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
+import { useFeatures } from '@/hooks/useFeatures';
 
 interface MobileNavigationProps {
     role: 'admin' | 'recruiter' | 'store_manager' | 'jefe_marca';
@@ -37,8 +38,20 @@ const navigationConfig = {
 export default function MobileNavigation({ role }: MobileNavigationProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const { hasFeature } = useFeatures();
 
-    const items = navigationConfig[role] || navigationConfig.recruiter;
+    const rawItems = navigationConfig[role] || navigationConfig.recruiter;
+
+    // Filter items based on features
+    const items = rawItems.filter(item => {
+        if (item.label === 'Analytics' || item.label === 'Analítica') {
+            return hasFeature('advanced_analytics');
+        }
+        if (item.label === 'RQs') {
+            return hasFeature('rq_management');
+        }
+        return true;
+    });
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden safe-area-inset-bottom">

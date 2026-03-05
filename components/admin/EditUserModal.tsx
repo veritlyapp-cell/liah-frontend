@@ -15,6 +15,7 @@ interface EditUserModalProps {
 
 export default function EditUserModal({ user, holdingId, onClose, onSuccess }: EditUserModalProps) {
     const [displayName, setDisplayName] = useState(user.displayName);
+    const [role, setRole] = useState(user.role);
 
     // Get user's current marcaId from their assignment
     const userMarcaId = user.marcaId ||
@@ -126,10 +127,11 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
         try {
             const updateData: Partial<UserAssignment> = {
                 displayName,
+                role
             };
 
             // Update role-specific assignments
-            if (user.role === 'supervisor') {
+            if (role === 'supervisor') {
                 const assignedStores = selectedStores.map(sid => {
                     const store = availableStores.find(s => s.id === sid);
                     const marca = marcas.find(m => m.id === store?.marcaId);
@@ -147,7 +149,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     // Adding this for future consistency
                     (updateData as any).marcaNombre = assignedStores[0].marcaNombre;
                 }
-            } else if (user.role === 'jefe_marca') {
+            } else if (role === 'jefe_marca') {
                 if (marcaId) {
                     const marca = marcas.find(m => m.id === marcaId);
                     updateData.assignedMarca = {
@@ -157,7 +159,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     updateData.marcaId = marcaId;
                     (updateData as any).marcaNombre = marca?.nombre;
                 }
-            } else if (user.role === 'recruiter') {
+            } else if (role === 'recruiter') {
                 // Recruiters can have multiple marcas
                 const assignedMarcas = selectedMarcas.map(mid => {
                     const marca = marcas.find(m => m.id === mid);
@@ -173,7 +175,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     updateData.marcaId = assignedMarcas[0].marcaId;
                     (updateData as any).marcaNombre = assignedMarcas[0].marcaNombre;
                 }
-            } else if (user.role === 'store_manager') {
+            } else if (role === 'store_manager') {
                 if (storeId) {
                     const store = availableStores.find(s => s.id === storeId);
                     const marca = marcas.find(m => m.id === store?.marcaId);
@@ -213,15 +215,15 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
         return labels[role] || role;
     };
 
-    const storesForRole = user.role === 'supervisor'
+    const storesForRole = role === 'supervisor'
         ? availableStores.filter(s => !s.isClaimedBySupervisor)
-        : user.role === 'store_manager'
+        : role === 'store_manager'
             ? availableStores.filter(s => !s.isClaimedByManager)
             : availableStores;
 
     // For Store Manager and Supervisor: Always filter by their assigned brand
     // For other roles: Allow filtering by selected marcaId
-    const brandToFilter = (user.role === 'store_manager' || user.role === 'supervisor')
+    const brandToFilter = (role === 'store_manager' || role === 'supervisor')
         ? userMarcaId  // Lock to user's brand
         : marcaId;     // Allow free selection
 
@@ -239,9 +241,21 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                         <h2 className="text-xl font-bold text-gray-900">Editar Usuario</h2>
                         <p className="text-sm text-gray-500">{user.email}</p>
                     </div>
-                    <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
-                        {getRoleLabel(user.role)}
-                    </span>
+                    <div className="flex flex-col items-end">
+                        <select
+                            value={role}
+                            onChange={(e) => setRole(e.target.value as any)}
+                            className="text-xs font-bold bg-violet-50 text-violet-700 border border-violet-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        >
+                            <option value="client_admin">Administrador</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="jefe_marca">Jefe de Marca</option>
+                            <option value="recruiter">Recruiter</option>
+                            <option value="store_manager">Gerente de Tienda</option>
+                            <option value="compensaciones">Compensaciones</option>
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-black tracking-widest">Rol Actual: {getRoleLabel(user.role)}</p>
+                    </div>
                 </div>
 
                 {/* Body */}
@@ -260,7 +274,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     </div>
 
                     {/* Supervisor: Store Selection */}
-                    {user.role === 'supervisor' && (
+                    {role === 'supervisor' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Tiendas Asignadas
@@ -305,7 +319,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     )}
 
                     {/* Jefe de Marca: Single Marca Selection */}
-                    {user.role === 'jefe_marca' && (
+                    {role === 'jefe_marca' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Marca Asignada
@@ -326,7 +340,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     )}
 
                     {/* Recruiter: Multi-Marca Selection */}
-                    {user.role === 'recruiter' && (
+                    {role === 'recruiter' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Marcas Asignadas (puede seleccionar varias)
@@ -358,7 +372,7 @@ export default function EditUserModal({ user, holdingId, onClose, onSuccess }: E
                     )}
 
                     {/* Store Manager: Single Store Selection */}
-                    {user.role === 'store_manager' && (
+                    {role === 'store_manager' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Tienda Asignada

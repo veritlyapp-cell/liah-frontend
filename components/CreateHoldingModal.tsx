@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { collection, addDoc, Timestamp, doc, setDoc } from 'firebase/firestore';
 
 interface CreateHoldingModalProps {
@@ -14,7 +15,9 @@ export default function CreateHoldingModal({ show, onCancel, onSave }: CreateHol
     const [nombre, setNombre] = useState('');
     const [id, setId] = useState('');
     const [plan, setPlan] = useState<'bot_only' | 'rq_only' | 'full_stack'>('full_stack');
+    const [isTrial, setIsTrial] = useState(false);
     const [saving, setSaving] = useState(false);
+    const { user } = useAuth();
 
     if (!show) return null;
 
@@ -39,8 +42,12 @@ export default function CreateHoldingModal({ show, onCancel, onSave }: CreateHol
                     maxUsuarios: plan === 'full_stack' ? 20 : plan === 'rq_only' ? 10 : 2,
                     maxMarcas: plan === 'full_stack' ? 10 : 5,
                     maxTiendas: plan === 'full_stack' ? 50 : 20,
-                    precioMensual: plan === 'full_stack' ? 499 : plan === 'rq_only' ? 199 : 99
+                    precioMensual: plan === 'full_stack' ? 499 : plan === 'rq_only' ? 199 : 99,
+                    hasLiahFlow: true,
+                    hasLiahTalent: false
                 },
+                isTrial,
+                trialExpiresAt: isTrial ? new Timestamp(Timestamp.now().seconds + 7 * 24 * 60 * 60, 0) : null,
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
@@ -48,8 +55,16 @@ export default function CreateHoldingModal({ show, onCancel, onSave }: CreateHol
             const holdingRef = doc(db, 'holdings', id);
             await setDoc(holdingRef, holdingData);
 
+            // Seed demo data if it's a trial
+            if (isTrial) {
+                const idToken = await user?.getIdToken();
+                const { seedDemoData } = await import('@/lib/firestore/demo-seeder');
+                await seedDemoData(id, nombre, idToken);
+                console.log('✅ Demo data seeded for holding:', id);
+            }
+
             console.log('✅ Empresa creada en Firestore:', id);
-            alert(`✅ Empresa "${nombre}" creada exitosamente en Firestore!`);
+            alert(`✅ Empresa "${nombre}" creada exitosamente ${isTrial ? 'con datos de prueba ' : ''}en Firestore!`);
 
             onSave(holdingData);
 
@@ -183,6 +198,29 @@ export default function CreateHoldingModal({ show, onCancel, onSave }: CreateHol
                                 </div>
                             </button>
                         </div>
+                    </div>
+
+                    {/* Modo Trial Toggle */}
+                    <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <p className="font-semibold text-violet-900 flex items-center gap-2">
+                                🧪 Modo Trial (7 días)
+                            </p>
+                            <p className="text-xs text-violet-700 mt-1">
+                                Crea automáticamente una Marca, 5 Tiendas y datos de prueba.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsTrial(!isTrial)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isTrial ? 'bg-violet-600' : 'bg-gray-300'
+                                }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isTrial ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                            />
+                        </button>
                     </div>
 
                     {/* Info */}

@@ -24,7 +24,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [maxStores, setMaxStores] = useState(5);
     const [activo, setActivo] = useState(true);
     const [precioMensual, setPrecioMensual] = useState(99);
-    const [tempPassword, setTempPassword] = useState('NGR2024!Cambiar');
+    const [tempPassword, setTempPassword] = useState('Liah2024!Cambiar');
 
     // Product Access Control
     const [hasLiahFlow, setHasLiahFlow] = useState(true);
@@ -59,7 +59,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
             setPrecioMensual(config?.precioMensual || (holding.plan === 'bot_only' ? 99 : holding.plan === 'rq_only' ? 199 : 499));
             setMaxBrands(config?.maxBrands || 1);
             setMaxStores(config?.maxStores || 5);
-            setTempPassword(config?.tempPassword || 'NGR2024!Cambiar');
+            setTempPassword(config?.tempPassword || 'Liah2024!Cambiar');
             setRequiredDocuments(config?.requiredDocuments || [
                 { id: 'cul', name: 'Certificado Único Laboral (CUL)', active: true }
             ]);

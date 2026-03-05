@@ -5,6 +5,7 @@ import { getAllUserAssignments } from '@/lib/firestore/user-assignment-actions';
 import type { UserAssignment } from '@/lib/firestore/user-assignments';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
 import BulkImportUsersModal from './BulkImportUsersModal';
@@ -14,6 +15,7 @@ interface UserManagementViewProps {
 }
 
 export default function UserManagementView({ holdingId = 'ngr' }: UserManagementViewProps) {
+    const { claims } = useAuth();
     const [assignments, setAssignments] = useState<UserAssignment[]>([]);
     const [marcas, setMarcas] = useState<{ id: string, nombre: string }[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,9 +66,17 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
 
             const normalizedHoldingId = normalizeHoldingId(holdingId);
 
-            // Filter: only users from this holding AND exclude super_admin
+            // Filter: only users from this holding
             const filtered = data.filter(user => {
                 const userHolding = normalizeHoldingId(user.holdingId);
+                const isSuperAdmin = claims?.role === 'super_admin';
+
+                // Relax filter for super_admins: they see everyone in the target holding
+                if (isSuperAdmin) {
+                    return userHolding === normalizedHoldingId;
+                }
+
+                // Regular admins only see their team but not other super_admins
                 return userHolding === normalizedHoldingId && user.role !== 'super_admin';
             });
 
@@ -131,6 +141,37 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
         if (user.assignedMarcas?.[0]?.marcaId) return user.assignedMarcas[0].marcaId;
         return null;
     };
+
+    async function handleResetPassword(userId: string, email: string) {
+        const newPass = prompt(`Establecer nueva contraseña para ${email}:`, 'Liah2026!');
+        if (!newPass) return;
+
+        try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                alert('❌ No estás autenticado');
+                return;
+            }
+            const idToken = await currentUser.getIdToken();
+
+            const response = await fetch('/api/admin/reset-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ userId, email, newPassword: newPass })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error);
+
+            alert(`✅ Contraseña restablecida.\nNueva: ${newPass}`);
+        } catch (error: any) {
+            console.error('Error resetting password:', error);
+            alert(error.message || 'Error al restablecer contraseña');
+        }
+    }
 
     // Apply both role and marca filters
     const filteredAssignments = assignments.filter(a => {
@@ -295,15 +336,21 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setEditingUser(assignment)}
-                                    className="flex-1 px-4 py-2 text-sm text-violet-600 border border-violet-300 rounded-lg hover:bg-violet-50 transition-colors"
+                                    className="flex-1 px-3 py-2 text-xs text-violet-600 border border-violet-300 rounded-lg hover:bg-violet-50 transition-colors font-bold"
                                 >
                                     ✏️ Editar
                                 </button>
                                 <button
-                                    onClick={() => handleDeleteUser(assignment.userId, assignment.email, assignment.displayName)}
-                                    className="flex-1 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                                    onClick={() => handleResetPassword(assignment.userId, assignment.email)}
+                                    className="flex-1 px-3 py-2 text-xs text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors font-bold"
                                 >
-                                    🗑️ Eliminar
+                                    🔑 Pass
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteUser(assignment.userId, assignment.email, assignment.displayName)}
+                                    className="px-3 py-2 text-xs text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                                >
+                                    🗑️
                                 </button>
                             </div>
                         </div>
