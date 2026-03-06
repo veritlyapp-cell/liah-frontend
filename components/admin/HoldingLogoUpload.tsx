@@ -183,34 +183,50 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                     </div>
                 </div>
 
-                <div className="pt-16 pb-6 px-8 flex justify-between items-end gap-6">
-                    <div className="flex-1">
-                        <input
-                            type="text"
-                            value={holdingName}
-                            onChange={(e) => setHoldingName(e.target.value)}
-                            className="text-2xl font-black text-gray-900 bg-transparent border-b border-transparent hover:border-violet-200 transition-colors focus:outline-none focus:border-violet-500 w-full"
-                            placeholder="Nombre de la Marca"
-                        />
-                        <p className="text-sm text-gray-500 mt-1">Configuración de Identidad y Portal</p>
-                        {holdingSlug && (
-                            <a
-                                href={`/empleos/${holdingSlug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-violet-600 hover:text-violet-700 bg-violet-50 px-3 py-1.5 rounded-lg transition-colors border border-violet-100"
+                <div className="pt-16 pb-6 px-8">
+                    <div className="flex justify-between items-start gap-6">
+                        <div className="flex-1 space-y-2">
+                            <input
+                                type="text"
+                                value={holdingName}
+                                onChange={(e) => setHoldingName(e.target.value)}
+                                className="text-3xl font-black text-gray-900 bg-transparent border-b-2 border-transparent hover:border-violet-200 transition-colors focus:outline-none focus:border-violet-500 w-full"
+                                placeholder="Nombre de la Marca"
+                            />
+                            <p className="text-sm font-medium text-gray-500 uppercase tracking-widest">Configuración de Identidad y Portal</p>
+
+                            {holdingSlug && (
+                                <div className="pt-2">
+                                    <a
+                                        href={`/empleos/${holdingSlug}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl transition-colors border border-indigo-200"
+                                    >
+                                        <span className="text-lg">🔗</span>
+                                        Ir al Portal de Empleos
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={handleSave}
+                                disabled={saving || uploading}
+                                className="px-8 py-3 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 active:scale-95 disabled:opacity-50 flex items-center gap-2 justify-center min-w-[180px]"
                             >
-                                🔗 Ver Portal de Empleos
-                            </a>
-                        )}
+                                {saving ? (
+                                    <>
+                                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                        <span>Guardando...</span>
+                                    </>
+                                ) : (
+                                    <span>💾 Guardar Cambios</span>
+                                )}
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving || uploading}
-                        className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50"
-                    >
-                        {saving ? 'Guardando...' : 'Guardar Cambios'}
-                    </button>
                 </div>
             </div>
 
