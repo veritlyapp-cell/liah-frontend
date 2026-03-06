@@ -8,6 +8,7 @@ import { rejectRQ } from '@/lib/firestore/rqs';
 import { useAuth } from '@/contexts/AuthContext';
 import InviteCandidateModal from '@/components/InviteCandidateModal';
 import { exportRQsExcel } from '@/lib/utils/export-excel';
+import AdminCreateRQFlow from '@/components/admin/AdminCreateRQFlow';
 
 interface RQTrackingViewProps {
     holdingId: string;
@@ -25,6 +26,7 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
     const [rejecting, setRejecting] = useState<string | null>(null);
     const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
     const [selectedRQForHistory, setSelectedRQForHistory] = useState<RQ | null>(null);
+    const [showCreateFlow, setShowCreateFlow] = useState(false);
 
     useEffect(() => {
         loadRQs();
@@ -192,6 +194,7 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
     }
 
     const canRejectRQs = claims?.role === 'recruiter' || claims?.role === 'client_admin';
+    const canCreateRQs = claims?.role === 'super_admin' || claims?.role === 'admin' || claims?.role === 'client_admin';
 
     if (loading) {
         return (
@@ -209,12 +212,22 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                 <h2 className="text-xl font-bold text-gray-900">Seguimiento de Requerimientos</h2>
                 <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">Visualiza el estado de todos los RQs de tus marcas</p>
-                    <button
-                        onClick={() => exportRQsExcel(filteredRQs)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
-                    >
-                        <span>📊 Exportar a Excel</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => exportRQsExcel(filteredRQs)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                        >
+                            <span>📊 Exportar a Excel</span>
+                        </button>
+                        {canCreateRQs && (
+                            <button
+                                onClick={() => setShowCreateFlow(true)}
+                                className="px-4 py-2 gradient-bg text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
+                            >
+                                <span>➕ Crear RQ</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -457,6 +470,19 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Create RQ Flow Modal (Admins) */}
+            {showCreateFlow && (
+                <AdminCreateRQFlow
+                    holdingId={holdingId}
+                    marcas={marcas}
+                    onClose={() => setShowCreateFlow(false)}
+                    onSuccess={() => {
+                        setShowCreateFlow(false);
+                        loadRQs(); // Refresh the list
+                    }}
+                />
             )}
 
             <p className="text-sm text-gray-500 mt-4">

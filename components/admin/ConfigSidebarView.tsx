@@ -9,12 +9,13 @@ import ConfigurationView from '../ConfigurationView';
 import ZoneManagement from './ZoneManagement';
 import FinancialConfig from './FinancialConfig';
 import HoldingOperationalConfig from './HoldingOperationalConfig';
+import ApprovalFlowConfig from './ApprovalFlowConfig';
 
 interface ConfigSidebarViewProps {
     holdingId: string;
 }
 
-type ConfigSection = 'identidad' | 'permisos' | 'zonas' | 'alertas' | 'documentos' | 'analitica' | 'cuenta' | 'operaciones';
+type ConfigSection = 'identidad' | 'permisos' | 'zonas' | 'alertas' | 'documentos' | 'analitica' | 'flujos' | 'cuenta' | 'operaciones';
 
 export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps) {
     const [activeSection, setActiveSection] = useState<ConfigSection>('identidad');
@@ -27,6 +28,7 @@ export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps)
         { id: 'documentos', label: '📁 Documentación', desc: 'Requisitos y archivos' },
         { id: 'operaciones', label: '⚙️ Configuración SaaS', desc: 'Bloqueos y ajustes generales' },
         { id: 'analitica', label: '💰 Analítica Financiera', desc: 'Costos de rotación e impacto' },
+        { id: 'flujos', label: '🔄 Flujos de Aprobación', desc: 'Gestiona los niveles de RQ' },
         { id: 'cuenta', label: '👤 Mi Cuenta', desc: 'Seguridad y perfil personal' },
     ];
 
@@ -115,6 +117,16 @@ export default function ConfigSidebarView({ holdingId }: ConfigSidebarViewProps)
                             <p className="text-sm text-gray-500">Configura los rubros de costo operativo para el cálculo de impacto de rotación.</p>
                         </div>
                         <FinancialConfig holdingId={holdingId} />
+                    </div>
+                )}
+
+                {activeSection === 'flujos' && (
+                    <div className="space-y-6">
+                        <div className="pb-4 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-900">Flujos de Aprobación</h3>
+                            <p className="text-sm text-gray-500">Personaliza la jerarquía de aprobación para los nuevos requerimientos en tu holding.</p>
+                        </div>
+                        <ApprovalFlowConfig holdingId={holdingId} />
                     </div>
                 )}
 

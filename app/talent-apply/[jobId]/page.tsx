@@ -41,6 +41,8 @@ export default function TalentApplyPage() {
     const [kqAnswers, setKqAnswers] = useState<Record<number, string>>({});
     const [culFile, setCulFile] = useState<File | null>(null);
     const [dni, setDni] = useState('');
+    const [validatingCUL, setValidatingCUL] = useState(false);
+    const [culError, setCulError] = useState<string | null>(null);
 
     useEffect(() => {
         async function loadJob() {
@@ -152,6 +154,58 @@ export default function TalentApplyPage() {
             alert('Error al enviar la aplicación');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleVerifyCUL = async () => {
+        if (!culFile) {
+            setCulError('Es necesario subir tu Certificado Único Laboral (PDF o Imagen) para continuar.');
+            return;
+        }
+
+        setValidatingCUL(true);
+        setCulError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', culFile);
+
+            const res = await fetch('/api/validate-cul', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Error procesando el documento');
+            }
+
+            const data = await res.json();
+
+            if (!data.isValid || !data.dni) {
+                setCulError('⚠️ El documento subido no parece ser válido o sus datos están ilegibles. Asegúrate de que sea tu CUL/DNI real.');
+                return;
+            }
+
+            // Verify DNI match
+            const inputDni = dni.trim();
+            const extractedDni = data.dni.trim();
+
+            if (inputDni !== extractedDni) {
+                setCulError(`❌ Error de validación: El DNI que ingresaste en el Paso 1 (${inputDni}) no coincide con el DNI extraído del documento (${extractedDni}). Por favor, corrige tus datos o sube el certificado que te corresponde.`);
+                return;
+            }
+
+            // Nombres Verification could be added here if needed, but for now DNI matching is the critical blocker indicator.
+
+            // Si pasamos todas las validaciones:
+            setStep('cv');
+
+        } catch (err: any) {
+            console.error('Validation error:', err);
+            setCulError('Hubo un error al contactar al servicio de verificación (IA). Intenta de nuevo.');
+        } finally {
+            setValidatingCUL(false);
         }
     };
 
@@ -380,20 +434,34 @@ export default function TalentApplyPage() {
                                         ✓ Archivo seleccionado: {culFile.name}
                                     </div>
                                 )}
+                                {culError && (
+                                    <div className="mt-4 p-3 bg-red-100 text-red-700 text-sm font-semibold rounded-lg border border-red-300">
+                                        {culError}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setStep(job.killerQuestions?.length ? 'kq' : 'info')}
                                     className="flex-1 py-3 border border-gray-300 rounded-xl font-medium"
+                                    disabled={validatingCUL}
                                 >
                                     ← Anterior
                                 </button>
                                 <button
-                                    onClick={() => setStep('cv')}
-                                    className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700"
+                                    onClick={handleVerifyCUL}
+                                    disabled={validatingCUL}
+                                    className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    Siguiente →
+                                    {validatingCUL ? (
+                                        <>
+                                            <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+                                            <span>Verificando IA...</span>
+                                        </>
+                                    ) : (
+                                        <span>Siguiente →</span>
+                                    )}
                                 </button>
                             </div>
                         </div>

@@ -11,7 +11,7 @@ import ConfigurationView from '@/components/ConfigurationView';
 import RQTrackingView from '@/components/admin/RQTrackingView';
 import EmailTemplatesConfig from '@/components/admin/EmailTemplatesConfig';
 import { useRouter } from 'next/navigation';
-import AnalyticsUnifiedView from '@/components/analytics/AnalyticsUnifiedView';
+import UnifiedAnalytics from '@/components/admin/UnifiedAnalytics';
 
 export default function RecruiterDashboard() {
     const { user, claims, loading: authLoading, signOut } = useAuth();
@@ -485,7 +485,11 @@ export default function RecruiterDashboard() {
                     activeTab === 'analitica' && (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                             <div className="p-6">
-                                <AnalyticsUnifiedView isEmbedded={true} initialHoldingId={holdingId} />
+                                <UnifiedAnalytics
+                                    holdingId={holdingId}
+                                    marcas={marcas}
+                                    hasExitAnalytics={true}
+                                />
                             </div>
                         </div>
                     )

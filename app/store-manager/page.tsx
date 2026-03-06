@@ -15,6 +15,7 @@ import CandidatosAptosView from '@/components/CandidatosAptosView';
 import ConfigurationView from '@/components/ConfigurationView';
 import DashboardHeader from '@/components/DashboardHeader';
 import ReportarBajaModal from '@/components/talent/ReportarBajaModal';
+import StoreScheduleConfig from '@/components/store-manager/StoreScheduleConfig';
 
 export default function StoreManagerDashboard() {
     const { user, claims, signOut } = useAuth();
@@ -25,7 +26,7 @@ export default function StoreManagerDashboard() {
     const [showCreateRQModal, setShowCreateRQModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showBajaModal, setShowBajaModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'rqs' | 'selection' | 'aptos' | 'bajas' | 'configuracion'>('rqs');
+    const [activeTab, setActiveTab] = useState<'rqs' | 'selection' | 'aptos' | 'bajas' | 'horarios' | 'configuracion'>('rqs');
 
     // Load user assignment to get assigned store
     useEffect(() => {
@@ -225,6 +226,15 @@ export default function StoreManagerDashboard() {
                         >
                             📤 Bajas
                         </button>
+                        <button
+                            onClick={() => setActiveTab('horarios')}
+                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'horarios'
+                                ? 'border-violet-600 text-violet-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            ⏱️ Horarios
+                        </button>
                     </div>
                 </div>
             </div>
@@ -353,6 +363,10 @@ export default function StoreManagerDashboard() {
                                 <p className="text-gray-500 italic text-sm">El historial de bajas procesadas se encuentra en el portal de Compensaciones.</p>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'horarios' && (
+                        <StoreScheduleConfig storeId={STORE_ID} />
                     )}
 
                     {activeTab === 'configuracion' && (
