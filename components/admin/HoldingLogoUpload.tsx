@@ -164,69 +164,73 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
     return (
         <div className="space-y-8 animate-fade-in">
             {/* Header / Brand Card */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                <div className="h-32 bg-gradient-to-r from-red-600 to-red-800 relative">
-                    <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-2xl shadow-lg border border-gray-100">
+            {/* Header / Brand Card */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                {/* Decorative background circle (optional, clean) */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-violet-50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+                {/* Logo Editor */}
+                <div className="relative shrink-0 z-10">
+                    <div className="w-32 h-32 bg-gray-50 rounded-2xl shadow-md border-2 border-dashed border-gray-200 flex items-center justify-center p-2 relative group overflow-hidden">
                         {previewUrl ? (
-                            <img src={previewUrl} alt="Logo" className="w-24 h-24 object-contain rounded-xl" />
+                            <img src={previewUrl} alt="Logo" className="w-full h-full object-contain" />
                         ) : (
-                            <div className="w-24 h-24 bg-gray-50 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-xs text-center p-2">
-                                Sin Logo
-                            </div>
+                            <span className="text-gray-400 text-sm font-medium">Sin Logo</span>
                         )}
-                        <button
+                        <div
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 cursor-pointer backdrop-blur-sm"
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute -top-2 -right-2 w-8 h-8 bg-violet-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
                         >
-                            ✏️
-                        </button>
+                            <span className="text-white text-sm font-bold flex flex-col items-center gap-1">
+                                <span>✏️</span>
+                                <span>Cambiar</span>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="pt-16 pb-6 px-8">
-                    <div className="flex justify-between items-start gap-6">
-                        <div className="flex-1 space-y-2">
-                            <input
-                                type="text"
-                                value={holdingName}
-                                onChange={(e) => setHoldingName(e.target.value)}
-                                className="text-3xl font-black text-gray-900 bg-transparent border-b-2 border-transparent hover:border-violet-200 transition-colors focus:outline-none focus:border-violet-500 w-full"
-                                placeholder="Nombre de la Marca"
-                            />
-                            <p className="text-sm font-medium text-gray-500 uppercase tracking-widest">Configuración de Identidad y Portal</p>
+                {/* Brand Info & Portal Link */}
+                <div className="flex-1 space-y-3 z-10 w-full text-center md:text-left">
+                    <input
+                        type="text"
+                        value={holdingName}
+                        onChange={(e) => setHoldingName(e.target.value)}
+                        className="text-3xl md:text-4xl font-black text-gray-900 bg-transparent border-b-2 border-transparent hover:border-violet-200 transition-colors focus:outline-none focus:border-violet-500 w-full text-center md:text-left"
+                        placeholder="Nombre de la Marca"
+                    />
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-widest">Identidad y Portal de Empleos</p>
 
-                            {holdingId && (
-                                <div className="pt-2">
-                                    <a
-                                        href={`/empleos/${holdingSlug || holdingId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl transition-colors border border-indigo-200"
-                                    >
-                                        <span className="text-lg">🔗</span>
-                                        Ir al Portal de Empleos
-                                    </a>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={handleSave}
-                                disabled={saving || uploading}
-                                className="px-8 py-3 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 active:scale-95 disabled:opacity-50 flex items-center gap-2 justify-center min-w-[180px]"
+                    {holdingId && (
+                        <div className="pt-2">
+                            <a
+                                href={`/empleos/${holdingSlug || holdingId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl transition-colors border border-indigo-200 shadow-sm"
                             >
-                                {saving ? (
-                                    <>
-                                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                        <span>Guardando...</span>
-                                    </>
-                                ) : (
-                                    <span>💾 Guardar Cambios</span>
-                                )}
-                            </button>
+                                <span className="text-xl">🔗</span>
+                                Ir al Portal de Empleos
+                            </a>
                         </div>
-                    </div>
+                    )}
+                </div>
+
+                {/* Save Button */}
+                <div className="shrink-0 z-10 w-full md:w-auto">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || uploading}
+                        className="w-full md:w-auto px-8 py-4 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {saving ? (
+                            <>
+                                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                                <span>Guardando...</span>
+                            </>
+                        ) : (
+                            <span>💾 Guardar Cambios</span>
+                        )}
+                    </button>
                 </div>
             </div>
 
