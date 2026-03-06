@@ -23,7 +23,11 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
         phrases: [] as string[],
         gallery: [] as string[],
         videos: [] as { id: string, title: string }[],
-        description: ''
+        description: '',
+        cultureTitle: '',
+        cultureDescription: '',
+        secondaryTitle: '',
+        secondaryDescription: ''
     });
     const fileInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +56,11 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                             phrases: data.config.branding.phrases || [],
                             gallery: data.config.branding.gallery || [],
                             videos: data.config.branding.videos || [],
-                            description: data.config.branding.description || ''
+                            description: data.config.branding.description || '',
+                            cultureTitle: data.config.branding.cultureTitle || '',
+                            cultureDescription: data.config.branding.cultureDescription || '',
+                            secondaryTitle: data.config.branding.secondaryTitle || '',
+                            secondaryDescription: data.config.branding.secondaryDescription || ''
                         });
                     } else {
                         // Default premium presets
@@ -300,6 +308,59 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                                 placeholder="Una frase por línea&#10;Ej: El futuro es hoy"
                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500"
                             />
+                        </div>
+                    </section>
+
+                    {/* Culture Section CMS */}
+                    <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6 mt-8">
+                        <h4 className="font-bold text-gray-900 flex items-center gap-2">🎯 ¿Por qué trabajar con nosotros?</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <h5 className="text-sm font-bold text-violet-600">Beneficio Principal</h5>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Título (Ej: Crecimiento)</label>
+                                    <input
+                                        type="text"
+                                        value={branding.cultureTitle}
+                                        onChange={(e) => setBranding({ ...branding, cultureTitle: e.target.value })}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 transition-all font-bold"
+                                        placeholder="Crecimiento"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Descripción (Ej: Desarrolla tu carrera)</label>
+                                    <input
+                                        type="text"
+                                        value={branding.cultureDescription}
+                                        onChange={(e) => setBranding({ ...branding, cultureDescription: e.target.value })}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 transition-all"
+                                        placeholder="Línea de carrera"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <h5 className="text-sm font-bold text-violet-600">Beneficio Secundario</h5>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Título (Ej: Sedes)</label>
+                                    <input
+                                        type="text"
+                                        value={branding.secondaryTitle}
+                                        onChange={(e) => setBranding({ ...branding, secondaryTitle: e.target.value })}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 transition-all font-bold"
+                                        placeholder="Sedes"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Descripción (Ej: A nivel nacional)</label>
+                                    <input
+                                        type="text"
+                                        value={branding.secondaryDescription}
+                                        onChange={(e) => setBranding({ ...branding, secondaryDescription: e.target.value })}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 transition-all"
+                                        placeholder="A nivel nacional"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </section>
                 </div>

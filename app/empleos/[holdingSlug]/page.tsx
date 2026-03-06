@@ -231,6 +231,13 @@ export default function PremiumCareerPortal() {
                                 title_line2: (b.phrases?.[1] || baseConfig.hero.title_line2 || '').toUpperCase(),
                                 subtitle: b.description || baseConfig.hero.subtitle,
                             },
+                            culture: {
+                                ...baseConfig.culture,
+                                main_title: b.cultureTitle || baseConfig.culture.main_title,
+                                main_description: b.cultureDescription || baseConfig.culture.main_description,
+                                secondary_title: b.secondaryTitle || baseConfig.culture.secondary_title,
+                                secondary_description: b.secondaryDescription || baseConfig.culture.secondary_description
+                            },
                             gallery: b.gallery?.length ? b.gallery : baseConfig.gallery,
                             videos: b.videos?.length ? b.videos : baseConfig.videos
                         };
