@@ -195,10 +195,10 @@ export default function HoldingLogoUpload({ holdingId }: HoldingLogoUploadProps)
                             />
                             <p className="text-sm font-medium text-gray-500 uppercase tracking-widest">Configuración de Identidad y Portal</p>
 
-                            {holdingSlug && (
+                            {holdingId && (
                                 <div className="pt-2">
                                     <a
-                                        href={`/empleos/${holdingSlug}`}
+                                        href={`/empleos/${holdingSlug || holdingId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl transition-colors border border-indigo-200"
