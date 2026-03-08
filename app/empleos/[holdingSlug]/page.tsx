@@ -196,7 +196,7 @@ export default function PremiumCareerPortal() {
             const possibleHoldingIds = [holdingId, holdingSlug].filter(Boolean);
 
             // 1. Fetch Brands
-            const brandsSnap = await getDocs(query(collection(db, 'brands'), where('holdingId', 'in', possibleHoldingIds)));
+            const brandsSnap = await getDocs(query(collection(db, 'marcas'), where('holdingId', 'in', possibleHoldingIds)));
             const brandsList = brandsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setBrands(brandsList);
 
@@ -244,18 +244,9 @@ export default function PremiumCareerPortal() {
                         videos: b.videos?.length ? b.videos : baseConfig.videos
                     };
                 });
-            } else if (!config) {
-                // Final fallback if no holding doc and no hardcoded config
-                setConfig({
-                    name: holdingSlug.toUpperCase(),
-                    logo_url: '',
-                    colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
-                    hero: { title_line1: 'ÚNETE A', title_line2: 'NUESTRO EQUIPO', subtitle: 'Descubre nuevas oportunidades laborales.', cta_text: 'VER POSICIONES' },
-                    culture: { main_title: 'Crecemos Contigo', main_description: 'Construye una carrera sostenible con nosotros.', secondary_title: 'Múltiples Sedes', secondary_description: 'Trabaja cerca a casa.' },
-                    gallery: [],
-                    videos: []
-                });
             }
+
+            let internalConfigSet = !!holdingDocData;
 
             // 2. Fetch Jobs (all sources)
             const allJobsList: any[] = [];
@@ -293,18 +284,22 @@ export default function PremiumCareerPortal() {
                 // Double check brand belongs to holding
                 if (b.holdingId && !possibleHoldingIds.includes(b.holdingId)) continue;
 
-                const vacSnap = await getDocs(collection(db, 'brands', b.id, 'vacantes'));
-                vacSnap.docs.forEach(doc => {
-                    const data = doc.data();
-                    if (data.active !== false) {
-                        allJobsList.push({
-                            id: doc.id,
-                            marcaId: b.id,
-                            holdingSlug: holdingSlug, // Explicitly tag with current holding
-                            ...data
-                        });
-                    }
-                });
+                try {
+                    const vacSnap = await getDocs(collection(db, 'marcas', b.id, 'vacantes'));
+                    vacSnap.docs.forEach(doc => {
+                        const data = doc.data();
+                        if (data.active !== false) {
+                            allJobsList.push({
+                                id: doc.id,
+                                marcaId: b.id,
+                                holdingSlug: holdingSlug, // Explicitly tag with current holding
+                                ...data
+                            });
+                        }
+                    });
+                } catch (vacErr) {
+                    console.warn(`[DEBUG] Could not fetch vacantes for brand ${b.id}:`, vacErr);
+                }
             }
 
             // Final safety filter before setting state
@@ -321,6 +316,20 @@ export default function PremiumCareerPortal() {
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
+            setConfig(prev => {
+                if (!prev && !HOLDING_CONFIGS[holdingSlug]) {
+                    return {
+                        name: holdingSlug.toUpperCase(),
+                        logo_url: '',
+                        colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
+                        hero: { title_line1: 'ÚNETE A', title_line2: 'NUESTRO EQUIPO', subtitle: 'Descubre nuevas oportunidades laborales.', cta_text: 'VER POSICIONES' },
+                        culture: { main_title: 'Crecemos Contigo', main_description: 'Construye una carrera sostenible con nosotros.', secondary_title: 'Múltiples Sedes', secondary_description: 'Trabaja cerca a casa.' },
+                        gallery: [],
+                        videos: []
+                    };
+                }
+                return prev;
+            });
             setLoading(false);
         }
     }
