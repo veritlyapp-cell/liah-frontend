@@ -27,7 +27,7 @@ export default function TalentApplyPage() {
     const params = useParams();
     const jobId = params.jobId as string;
 
-    const [step, setStep] = useState<'info' | 'kq' | 'cul' | 'cv' | 'done'>('info');
+    const [step, setStep] = useState<'info' | 'kq' | 'cul' | 'cv' | 'schedule' | 'done'>('info');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [job, setJob] = useState<Job | null>(null);
@@ -43,6 +43,12 @@ export default function TalentApplyPage() {
     const [dni, setDni] = useState('');
     const [validatingCUL, setValidatingCUL] = useState(false);
     const [culError, setCulError] = useState<string | null>(null);
+
+    // Scheduling data
+    const [availableSlots, setAvailableSlots] = useState<{ iso: string, display: string }[]>([]);
+    const [selectedSlot, setSelectedSlot] = useState<string>('');
+    const [loadingSlots, setLoadingSlots] = useState(false);
+    const [candidateId, setCandidateId] = useState<string | null>(null);
 
     useEffect(() => {
         async function loadJob() {
@@ -106,7 +112,7 @@ export default function TalentApplyPage() {
                 }
             }
 
-            // Save candidate application
+            // Save candidate application (Base data)
             const candidateData = {
                 jobId: job.id,
                 holdingId: job.holdingId,
@@ -126,7 +132,8 @@ export default function TalentApplyPage() {
             };
 
             const candidateDoc = await addDoc(collection(db, 'talent_candidates'), candidateData);
-            const candidateId = candidateDoc.id;
+            const newCandidateId = candidateDoc.id;
+            setCandidateId(newCandidateId);
 
             // Handle CUL Upload and Validation
             if (culFile) {
@@ -134,24 +141,70 @@ export default function TalentApplyPage() {
                     const { url } = await uploadCUL(culFile, job.holdingId, job.id, email);
 
                     // Trigger AI validation
-                    await fetch('/api/talent/auto-validate-cul', {
+                    fetch('/api/talent/auto-validate-cul', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            candidateId,
+                            candidateId: newCandidateId,
                             culUrl: url,
                             candidateDni: dni
                         })
-                    });
+                    }).catch(err => console.error('Error starting CUL AI validation:', err));
                 } catch (culErr) {
                     console.error('Error in CUL process:', culErr);
                 }
             }
 
-            setStep('done');
+            if (autoRejected) {
+                setStep('done');
+            } else {
+                // If not rejected, try to load time slots and go to schedule
+                loadTimeSlots();
+                setStep('schedule');
+            }
         } catch (err) {
             console.error('Error submitting application:', err);
             alert('Error al enviar la aplicación');
+            setSubmitting(false);
+        }
+    };
+
+    const loadTimeSlots = async () => {
+        setLoadingSlots(true);
+        try {
+            // Hardcode Tambo Store logic - we assume job.holdingId is what is used, or there's a specific store map.
+            // Using talent_jobs generally means the job ID or the JD has the tienda data. For now, fetch generic.
+            // We pass a dummy 'tienda1' just to test the concept
+            const res = await fetch(`/api/talent/schedule-interview?tiendaId=tienda_demo_tambo`);
+            const data = await res.json();
+            if (data.slots) {
+                setAvailableSlots(data.slots);
+            }
+        } catch (e) {
+            console.error('Error loading slots:', e);
+        } finally {
+            setLoadingSlots(false);
+        }
+    };
+
+    const handleConfirmSchedule = async () => {
+        if (!selectedSlot || !candidateId) return;
+        setSubmitting(true);
+        try {
+            await fetch('/api/talent/schedule-interview/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidateId,
+                    slotIso: selectedSlot,
+                    tiendaId: 'tienda_demo_tambo', // In real life, fetch from job
+                    vacanteId: job?.id
+                })
+            });
+            setStep('done');
+        } catch (e) {
+            console.error('Error confirming slot:', e);
+            alert('Error al agendar. Intenta de nuevo.');
         } finally {
             setSubmitting(false);
         }
@@ -254,15 +307,15 @@ export default function TalentApplyPage() {
 
                 {/* Step Indicator */}
                 <div className="bg-white border-b border-gray-100 px-6 py-4">
-                    <div className="flex gap-4">
-                        {['info', 'kq', 'cv'].map((s, i) => (
-                            <div key={s} className="flex items-center gap-2">
+                    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+                        {['info', 'kq', 'cv', 'schedule'].map((s, i) => (
+                            <div key={s} className="flex items-center gap-2 flex-shrink-0">
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === s ? 'bg-violet-600 text-white' : 'bg-gray-200 text-gray-600'
                                     }`}>
                                     {i + 1}
                                 </span>
                                 <span className={`text-sm ${step === s ? 'text-violet-700 font-medium' : 'text-gray-500'}`}>
-                                    {s === 'info' ? 'Datos' : s === 'kq' ? 'Preguntas' : s === 'cul' ? 'CUL' : 'CV'}
+                                    {s === 'info' ? 'Datos' : s === 'kq' ? 'Preguntas' : s === 'cul' ? 'CUL' : 'Entrevista'}
                                 </span>
                             </div>
                         ))}
@@ -492,8 +545,68 @@ export default function TalentApplyPage() {
                                     disabled={submitting}
                                     className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-medium hover:opacity-90 disabled:opacity-50"
                                 >
-                                    {submitting ? '⏳ Enviando...' : '✓ Enviar Aplicación'}
+                                    {submitting ? '⏳ Guardando Aplicación...' : 'Siguiente →'}
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 4: Schedule Interview */}
+                    {step === 'schedule' && (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-xl font-bold text-gray-900 mb-2">¡Datos verificados! ✅</h2>
+                                <p className="text-gray-600">Por favor, elige el horario de tu entrevista presencial con nuestro Gerente de Tienda.</p>
+                            </div>
+
+                            {loadingSlots ? (
+                                <div className="py-12 flex justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+                                </div>
+                            ) : availableSlots.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {availableSlots.map((slot) => (
+                                        <button
+                                            key={slot.iso}
+                                            onClick={() => setSelectedSlot(slot.iso)}
+                                            className={`p-4 rounded-xl border-2 text-left transition-all ${selectedSlot === slot.iso
+                                                ? 'border-violet-600 bg-violet-50 text-violet-900 font-semibold'
+                                                : 'border-gray-200 hover:border-violet-300 hover:bg-violet-50/50 text-gray-700'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedSlot === slot.iso ? 'border-violet-600' : 'border-gray-300'
+                                                    }`}>
+                                                    {selectedSlot === slot.iso && <div className="w-2.5 h-2.5 bg-violet-600 rounded-full" />}
+                                                </div>
+                                                {slot.display}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-6 bg-gray-50 text-center rounded-xl text-gray-600">
+                                    Todos los horarios de esta tienda están ocupados actualmente. Recurso Humanos se comunicará contigo pronto para más opciones.
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-4 border-t border-gray-100">
+                                <button
+                                    onClick={() => setStep('done')}
+                                    className="flex-1 py-3 text-gray-500 font-medium hover:text-gray-700"
+                                >
+                                    Saltar (Agendar luego)
+                                </button>
+
+                                {availableSlots.length > 0 && (
+                                    <button
+                                        onClick={handleConfirmSchedule}
+                                        disabled={!selectedSlot || submitting}
+                                        className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 disabled:opacity-50"
+                                    >
+                                        {submitting ? '⏳ Confirmando...' : '✓ Confirmar Entrevista'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
