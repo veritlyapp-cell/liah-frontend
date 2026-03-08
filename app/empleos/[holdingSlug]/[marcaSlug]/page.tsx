@@ -41,11 +41,15 @@ export default function BrandPortal({ params }: BrandPortalProps) {
             const rqsRef = collection(db, 'rqs');
             const q = query(
                 rqsRef,
-                where('marcaId', '==', b.id),
-                where('status', '==', 'recruiting')
+                where('marcaId', '==', b.id)
             );
             const snapshot = await getDocs(q);
-            setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const validStatuses = ['recruiting', 'approved', 'activo', 'active'];
+            const mappedJobs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter((job: any) => validStatuses.includes(job.status || job.estado));
+
+            setJobs(mappedJobs);
 
         } catch (error) {
             console.error('Error loading brand portal:', error);

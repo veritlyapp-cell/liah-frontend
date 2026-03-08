@@ -249,7 +249,7 @@ export default function PremiumCareerPortal() {
             const allJobsList: any[] = [];
 
             // a. RQs
-            const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('holdingId', 'in', possibleHoldingIds), limit(50)));
+            const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('tenantId', 'in', possibleHoldingIds), limit(50)));
             rqsSnap.docs.forEach(doc => {
                 const data = doc.data();
                 if (data.status === 'recruiting' || data.status === 'approved' || data.estado === 'aprobado' || data.status === 'activo') {

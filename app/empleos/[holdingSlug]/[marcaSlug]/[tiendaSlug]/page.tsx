@@ -52,11 +52,15 @@ export default function StorePortal({ params }: StorePortalProps) {
             const rqsRef = collection(db, 'rqs');
             const q = query(
                 rqsRef,
-                where('tiendaId', '==', s.id),
-                where('status', '==', 'recruiting')
+                where('tiendaId', '==', s.id)
             );
             const snapshot = await getDocs(q);
-            setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const validStatuses = ['recruiting', 'approved', 'activo', 'active'];
+            const mappedJobs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter((job: any) => validStatuses.includes(job.status || job.estado));
+
+            setJobs(mappedJobs);
 
         } catch (error) {
             console.error('Error loading store portal:', error);
