@@ -347,7 +347,8 @@ export async function createRQInstances(
                 marcaId,
                 creadoPor,
                 creadorEmail,
-                creatorRole
+                creatorRole,
+                tenantId
             );
         } catch (error) {
             console.error(`Failed to assign RQ ${rqId}:`, error);

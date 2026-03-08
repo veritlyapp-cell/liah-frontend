@@ -11,7 +11,8 @@ export async function assignRQToApprovers(
     marcaId: string,
     creatorId: string,
     creatorName: string,
-    creatorRole: 'store_manager' | 'supervisor' = 'store_manager'
+    creatorRole: 'store_manager' | 'supervisor' | string = 'store_manager',
+    tenantId?: string
 ): Promise<void> {
     // Find supervisor for this store
     const supervisor = await findSupervisorForStore(tiendaId);
@@ -19,53 +20,52 @@ export async function assignRQToApprovers(
     // Find jefe de marca for this marca
     const jefeMarca = await findJefeForMarca(marcaId);
 
-    // Initialize approval chain
-    let approvalChain;
-    let currentLevel;
-
-    if (creatorRole === 'supervisor') {
-        // SHORT FLOW (CONSISTENT LEVELS): Supervisor creates -> Jefe de Marca approves
-        // Level 2 is Supervisor (Creator), Level 3 is Jefe de Marca
-        approvalChain = [
-            {
-                level: 2,
-                role: 'supervisor' as const,
-                status: 'approved' as const, // Already approved by creator
-                approvedBy: creatorId,
-                approvedByName: creatorName,
-                approvedAt: Timestamp.now()
-            },
-            {
-                level: 3,
-                role: 'jefe_marca' as const,
-                status: 'pending' as const
-            }
-        ];
-        currentLevel = 3; // Pending jefe_marca
-    } else {
-        // STANDARD FLOW: Store Manager creates -> Supervisor approves -> Jefe de Marca approves
-        approvalChain = [
-            {
-                level: 1,
-                role: 'store_manager' as const,
-                status: 'approved' as const,
-                approvedBy: creatorId,
-                approvedByName: creatorName,
-                approvedAt: Timestamp.now()
-            },
-            {
-                level: 2,
-                role: 'supervisor' as const,
-                status: 'pending' as const
-            },
-            {
-                level: 3,
-                role: 'jefe_marca' as const,
-                status: 'pending' as const
-            }
-        ];
-        currentLevel = 2; // Pending supervisor
+    // Load dynamic approval levels
+    let customLevels: any[] = [];
+    if (tenantId) {
+        const holdingDoc = await getDoc(doc(db, 'holdings', tenantId));
+        if (holdingDoc.exists()) {
+            customLevels = holdingDoc.data()?.config?.approvalLevels || [];
+        }
     }
+
+    if (customLevels.length === 0) {
+        // Fallback to default 3 levels
+        customLevels = [
+            { level: 1, role: 'store_manager' },
+            { level: 2, role: 'supervisor' },
+            { level: 3, role: 'jefe_marca' }
+        ];
+    }
+
+    // Sort levels just in case
+    customLevels.sort((a, b) => a.level - b.level);
+
+    // Find the creator's level in the chain
+    const creatorLevelObj = customLevels.find(l => l.role === creatorRole);
+    const creatorLevelNum = creatorLevelObj ? creatorLevelObj.level : 1;
+
+    // Initialize approval chain
+    let approvalChain = customLevels.map(lvl => {
+        const isApprovedByCreator = lvl.level <= creatorLevelNum;
+
+        return {
+            level: lvl.level,
+            role: lvl.role,
+            status: isApprovedByCreator ? ('approved' as const) : ('pending' as const),
+            ...(isApprovedByCreator ? {
+                approvedBy: creatorId,
+                approvedByName: creatorName,
+                approvedAt: Timestamp.now()
+            } : {})
+        };
+    });
+
+    // Current pending level is the first level that is NOT approved
+    const firstPending = approvalChain.find(l => l.status === 'pending');
+    const currentLevel = firstPending ? firstPending.level : customLevels[customLevels.length - 1].level;
+
+
 
     // VACATION MODE: Check if titulars are on vacation and delegate to backup
     let finalSupervisor = supervisor;
@@ -84,10 +84,13 @@ export async function assignRQToApprovers(
     }
 
     // Update RQ with assignments
+    const isFullyApproved = !firstPending;
+
     const rqRef = doc(db, 'rqs', rqId);
     await updateDoc(rqRef, {
         approvalChain,
         currentApprovalLevel: currentLevel,
+        approvalStatus: isFullyApproved ? 'approved' : 'pending',
         assignedSupervisor: finalSupervisor?.userId || null,
         assignedSupervisorName: finalSupervisor?.displayName || null,
         assignedJefeMarca: finalJefeMarca?.userId || null,

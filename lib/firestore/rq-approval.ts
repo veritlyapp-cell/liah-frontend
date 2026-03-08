@@ -38,17 +38,9 @@ export async function approveRQ(
     });
 
     // Determine next level
-    let nextLevel = currentLevel;
-    let finalApprovalStatus: 'pending' | 'approved' = 'pending';
-
-    if (approverRole === 'supervisor') {
-        // Supervisor approved, move to jefe de marca level
-        nextLevel = 3;
-    } else if (approverRole === 'jefe_marca') {
-        // Jefe approved, RQ is fully approved
-        nextLevel = 3; // Stay at 3
-        finalApprovalStatus = 'approved';
-    }
+    const firstPending = updatedChain.find((item: any) => item.status === 'pending');
+    let nextLevel = firstPending ? firstPending.level : currentLevel;
+    let finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
 
     // Update RQ
     await updateDoc(rqRef, {
@@ -142,15 +134,9 @@ export async function bulkApproveRQs(
             });
 
             // Determine next level
-            let nextLevel = currentLevel;
-            let finalApprovalStatus: 'pending' | 'approved' = 'pending';
-
-            if (approverRole === 'supervisor') {
-                nextLevel = 3;
-            } else if (approverRole === 'jefe_marca') {
-                nextLevel = 3;
-                finalApprovalStatus = 'approved';
-            }
+            const firstPending = updatedChain.find((item: any) => item.status === 'pending');
+            let nextLevel = firstPending ? firstPending.level : currentLevel;
+            let finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
 
             // Add to batch
             batch.update(rqRef, {
