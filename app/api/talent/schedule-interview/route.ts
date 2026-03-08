@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export async function GET(req: NextRequest) {
     try {
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
         }
 
         // 1. Fetch Store Data
+        const db = getAdminFirestore();
         const storeDoc = await db.collection('tiendas').doc(tiendaId).get();
         if (!storeDoc.exists) {
             return NextResponse.json({ error: 'Tienda no encontrada' }, { status: 404 });
