@@ -258,10 +258,10 @@ export default function PremiumCareerPortal() {
             const rqsSnap = await getDocs(query(collection(db, 'rqs'), where('tenantId', 'in', possibleHoldingIds), limit(50)));
             rqsSnap.docs.forEach(doc => {
                 const data = doc.data();
-                if (data.status === 'recruiting' || data.status === 'approved' || data.estado === 'aprobado' || data.status === 'activo') {
+                if (data.status === 'recruiting' || data.status === 'approved' || data.estado === 'aprobado' || data.status === 'activo' || data.status === 'active' || data.status === 'published') {
                     allJobsList.push({
                         id: doc.id,
-                        titulo: data.posicionNombre || data.title,
+                        titulo: data.puesto || data.posicion || data.posicionNombre || data.title || 'Vacante',
                         tiendaNombre: data.tiendaNombre || 'Sede Central',
                         tiendaDistrito: data.distrito || data.provincia,
                         marcaId: data.marcaId,

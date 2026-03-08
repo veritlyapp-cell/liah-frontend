@@ -1,0 +1,112 @@
+{
+  "rqNumber": "RQ-GHH-00001",
+  "batchId": "batch_1772933574081_eil2f0k3x",
+  "instanceNumber": 1,
+  "jobProfileId": "AO4cFgniOxcMinyUMx0g",
+  "puesto": "MULTIFUNCIONAL",
+  "posicion": "MULTIFUNCIONAL",
+  "modalidad": "Full Time",
+  "turno": "Rotativo",
+  "tiendaId": "3Qe3HlDggS52P3qlDOe4",
+  "tiendaNombre": "San Borja",
+  "marcaId": "Ghh8BmU60r7NZaUohxn3",
+  "marcaNombre": "Tambo",
+  "vacantes": 1,
+  "descripcion": "Requisitos\n• De 18 años en adelante.\n• Secundaria completa.\n• Deseable experiencia de 6 meses en servicio al cliente o caja.\n• Colaboración, orientación al cliente y orientación a la acción.\n• Deseable vivir en zonas aledañas al distrito.\n• Disponibilidad de lunes a domingo (1 día de descanso a la semana).\n\n¿Cuáles son los beneficios que ofrecemos?\n• Ingreso a planilla y beneficios de ley desde el primer día\n• Sueldo básico más bonos.• Descuentos en Tiendas Tambo y Aruma.\n• Línea de carrera en la organización.\n• Convenios de descuentos con diferentes institutos y universidades.\n• Buen clima laboral.¿Cuáles son las principales funciones?\n• Caja, atención al cliente y ventas.\n• Preparación, horneado y reposición de los alimentos.\n• Recepción, reposición y conteo de productos de tienda y almacén.\n• Limpieza y orden de toda la tienda.",
+  "requisitos": {
+    "edadMax": 65,
+    "killerQuestions": [
+      {
+        "correctAnswer": "yes",
+        "type": "boolean",
+        "question": "¿Tienes disponibilidad de hacer turnos rotativos?",
+        "isMandatory": true,
+        "id": "1v7vf"
+      }
+    ],
+    "edadMin": 18,
+    "experiencia": {
+      "requerida": false,
+      "meses": 0
+    },
+    "distanciaMax": 10,
+    "disponibilidad": {
+      "dias": [
+        "lunes",
+        "sábado"
+      ],
+      "horarios": [
+        "mañana",
+        "tarde"
+      ]
+    }
+  },
+  "motivo": "Reemplazo",
+  "status": "active",
+  "filledCount": 0,
+  "approvalHistory": [],
+  "salario": 1200,
+  "beneficios": [],
+  "alert_unfilled": false,
+  "deletion_requested": false,
+  "deletion_approved": false,
+  "creadoPor": "6r7ywOdptJQ3rfGgWhfljiEDa762",
+  "creadorEmail": "sanborja@tambo.pe",
+  "createdByRole": "store_manager",
+  "approvalFlow": "standard",
+  "categoria": "operativo",
+  "storeCoordinates": null,
+  "tiendaSlug": "sanborja",
+  "marcaSlug": "tambo",
+  "createdAt": {
+    "_seconds": 1772933574,
+    "_nanoseconds": 81000000
+  },
+  "updatedAt": {
+    "_seconds": 1772933574,
+    "_nanoseconds": 81000000
+  },
+  "assignedSupervisor": "N5L0Gdi0EJSLoODb06OEkkiR5KY2",
+  "assignedSupervisorName": "Rosa Vargas",
+  "assignedJefeMarca": null,
+  "assignedJefeMarcaName": null,
+  "currentApprovalLevel": 3,
+  "approvalStatus": "approved",
+  "approvalChain": [
+    {
+      "status": "approved",
+      "role": "store_manager",
+      "level": 1,
+      "approvedAt": {
+        "_seconds": 1772933579,
+        "_nanoseconds": 564000000
+      },
+      "approvedBy": "6r7ywOdptJQ3rfGgWhfljiEDa762",
+      "approvedByName": "sanborja@tambo.pe"
+    },
+    {
+      "approvedAt": {
+        "_seconds": 1772933781,
+        "_nanoseconds": 29000000
+      },
+      "approvedBy": "N5L0Gdi0EJSLoODb06OEkkiR5KY2",
+      "approvedByName": "Rosa Vargas",
+      "status": "approved",
+      "role": "supervisor",
+      "level": 2
+    },
+    {
+      "status": "approved",
+      "role": "jefe_marca",
+      "level": 3,
+      "approvedBy": "qcofS5KYuZPflPTUfjEuQFztxlf1",
+      "approvedByName": "Miluska Ramirez",
+      "approvedAt": {
+        "_seconds": 1772933934,
+        "_nanoseconds": 389000000
+      }
+    }
+  ],
+  "tenantId": "tambo",
+  "holdingId": "tambo"
+}
