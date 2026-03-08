@@ -1,0 +1,52 @@
+{
+  "id": "tambo",
+  "nombre": "Tambo",
+  "plan": "full_stack",
+  "marcas": 0,
+  "usuarios": 0,
+  "activo": true,
+  "isTrial": false,
+  "trialExpiresAt": null,
+  "createdAt": {
+    "_seconds": 1772766470,
+    "_nanoseconds": 859000000
+  },
+  "logoUrl": "https://firebasestorage.googleapis.com/v0/b/botwhatsapp-5dac9.firebasestorage.app/o/logos%2Fholdings%2Ftambo_1772774260917.jpeg?alt=media&token=89406e84-e4b0-49ff-ad16-0bf9f220f0bd",
+  "updatedAt": {
+    "_seconds": 1772774825,
+    "_nanoseconds": 915000000
+  },
+  "config": {
+    "branding": {
+      "enabled": true,
+      "primaryColor": "#a51890",
+      "secondaryColor": "#fce024",
+      "phrases": [
+        "  Únete a Tambo"
+      ],
+      "gallery": [
+        "https://firebasestorage.googleapis.com/v0/b/botwhatsapp-5dac9.firebasestorage.app/o/branding%2Ftambo%2Fgallery%2F1772774819360_tambo2.webp?alt=media&token=5d1c9c95-1e2e-4300-b684-0b50db54cdae",
+        "https://firebasestorage.googleapis.com/v0/b/botwhatsapp-5dac9.firebasestorage.app/o/branding%2Ftambo%2Fgallery%2F1772774821603_tambo1.jpeg?alt=media&token=ed3efc0e-2555-47b5-bc24-5b92f8cd4dda"
+      ],
+      "videos": [
+        {
+          "id": "W9d02V0ZEzs",
+          "title": "Video Corportativo"
+        }
+      ],
+      "description": "Somos la Tienda del Perú. \nElaboramos y ofrecemos a nuestros clientes\nproductos variados de calidad a precios accesibles,\nes una experiencia de compra dácil y rápida"
+    },
+    "approvalLevels": [
+      {
+        "level": 1,
+        "name": "Gerente de Tienda",
+        "role": "store_manager"
+      },
+      {
+        "level": 2,
+        "name": "Supervisor de Tienda",
+        "role": "supervisor"
+      }
+    ]
+  }
+}

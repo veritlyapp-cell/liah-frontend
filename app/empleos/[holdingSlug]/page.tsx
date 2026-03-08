@@ -172,6 +172,8 @@ export default function PremiumCareerPortal() {
             setConfig(HOLDING_CONFIGS[holdingSlug]);
         }
 
+        let finalConfig: any = null;
+
         try {
             const holdingsQuery = query(collection(db, 'holdings'), where('slug', '==', holdingSlug));
             let holdingsSnap = await getDocs(holdingsQuery);
@@ -202,51 +204,52 @@ export default function PremiumCareerPortal() {
 
             // Apply branding config if available
             console.log("[DEBUG] Holding Doc loaded:", holdingId, !!holdingDocData);
+
             if (holdingDocData) {
                 const b = holdingDocData.config?.branding || holdingDocData.branding || {}; // Catch both locations
                 console.log("[DEBUG] Branding found:", b);
 
                 const holdingData = holdingDocData;
-                setConfig(prev => {
-                    const baseConfig = prev || HOLDING_CONFIGS[holdingSlug] || {
-                        name: holdingData.nombre || holdingSlug,
-                        logo_url: holdingData.logoUrl || '',
-                        colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
-                        hero: { title_line1: 'ÚNETE A', title_line2: 'NOSOTROS.', subtitle: 'Descubre oportunidades.', cta_text: 'VER' },
-                        culture: { main_title: 'Crecimiento', main_description: 'Desarrolla tu carrera', secondary_title: 'Sedes', secondary_description: 'Nacional' },
-                        gallery: [],
-                        videos: []
-                    };
-                    return {
-                        ...baseConfig,
-                        name: holdingData.nombre || baseConfig.name,
-                        logo_url: holdingData.logoUrl || baseConfig.logo_url,
-                        colors: {
-                            ...baseConfig.colors,
-                            purple: b.primaryColor || baseConfig.colors.purple,
-                            purpleDeep: b.secondaryColor || baseConfig.colors.purpleDeep,
-                            yellow: b.primaryColor || baseConfig.colors.yellow, // Use primary for accents too
-                        },
-                        hero: {
-                            ...baseConfig.hero,
-                            title_line1: (b.phrases?.[0] || baseConfig.hero?.title_line1 || '').toUpperCase(),
-                            title_line2: (b.phrases?.[1] || baseConfig.hero?.title_line2 || '').toUpperCase(),
-                            subtitle: b.description || baseConfig.hero?.subtitle,
-                        },
-                        culture: {
-                            ...baseConfig.culture,
-                            main_title: b.cultureTitle || baseConfig.culture?.main_title,
-                            main_description: b.cultureDescription || baseConfig.culture?.main_description,
-                            secondary_title: b.secondaryTitle || baseConfig.culture?.secondary_title,
-                            secondary_description: b.secondaryDescription || baseConfig.culture?.secondary_description
-                        },
-                        gallery: b.gallery?.length ? b.gallery : baseConfig.gallery,
-                        videos: b.videos?.length ? b.videos : baseConfig.videos
-                    };
-                });
+                const baseConfig = HOLDING_CONFIGS[holdingSlug] || {
+                    name: holdingData.nombre || holdingSlug,
+                    logo_url: holdingData.logoUrl || '',
+                    colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
+                    hero: { title_line1: 'ÚNETE A', title_line2: 'NOSOTROS.', subtitle: 'Descubre oportunidades.', cta_text: 'VER' },
+                    culture: { main_title: 'Crecimiento', main_description: 'Desarrolla tu carrera', secondary_title: 'Sedes', secondary_description: 'Nacional' },
+                    gallery: [],
+                    videos: []
+                };
+
+                finalConfig = {
+                    ...baseConfig,
+                    name: holdingData.nombre || baseConfig.name,
+                    logo_url: holdingData.logoUrl || baseConfig.logo_url,
+                    colors: {
+                        ...baseConfig.colors,
+                        purple: b.primaryColor || baseConfig.colors.purple,
+                        purpleDeep: b.secondaryColor || baseConfig.colors.purpleDeep,
+                        yellow: b.primaryColor || baseConfig.colors.yellow, // Use primary for accents too
+                    },
+                    hero: {
+                        ...baseConfig.hero,
+                        title_line1: (b.phrases?.[0] || baseConfig.hero?.title_line1 || '').toUpperCase(),
+                        title_line2: (b.phrases?.[1] || baseConfig.hero?.title_line2 || '').toUpperCase(),
+                        subtitle: b.description || baseConfig.hero?.subtitle,
+                    },
+                    culture: {
+                        ...baseConfig.culture,
+                        main_title: b.cultureTitle || baseConfig.culture?.main_title,
+                        main_description: b.cultureDescription || baseConfig.culture?.main_description,
+                        secondary_title: b.secondaryTitle || baseConfig.culture?.secondary_title,
+                        secondary_description: b.secondaryDescription || baseConfig.culture?.secondary_description
+                    },
+                    gallery: b.gallery?.length ? b.gallery : baseConfig.gallery,
+                    videos: b.videos?.length ? b.videos : baseConfig.videos
+                };
             }
 
             let internalConfigSet = !!holdingDocData;
+
 
             // 2. Fetch Jobs (all sources)
             const allJobsList: any[] = [];
@@ -316,20 +319,19 @@ export default function PremiumCareerPortal() {
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
-            setConfig(prev => {
-                if (!prev && !HOLDING_CONFIGS[holdingSlug]) {
-                    return {
-                        name: holdingSlug.toUpperCase(),
-                        logo_url: '',
-                        colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
-                        hero: { title_line1: 'ÚNETE A', title_line2: 'NUESTRO EQUIPO', subtitle: 'Descubre nuevas oportunidades laborales.', cta_text: 'VER POSICIONES' },
-                        culture: { main_title: 'Crecemos Contigo', main_description: 'Construye una carrera sostenible con nosotros.', secondary_title: 'Múltiples Sedes', secondary_description: 'Trabaja cerca a casa.' },
-                        gallery: [],
-                        videos: []
-                    };
-                }
-                return prev;
-            });
+            if (finalConfig) {
+                setConfig(finalConfig);
+            } else if (!HOLDING_CONFIGS[holdingSlug]) {
+                setConfig({
+                    name: holdingSlug.toUpperCase(),
+                    logo_url: '',
+                    colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
+                    hero: { title_line1: 'ÚNETE A', title_line2: 'NUESTRO EQUIPO', subtitle: 'Descubre nuevas oportunidades laborales.', cta_text: 'VER POSICIONES' },
+                    culture: { main_title: 'Crecemos Contigo', main_description: 'Construye una carrera sostenible con nosotros.', secondary_title: 'Múltiples Sedes', secondary_description: 'Trabaja cerca a casa.' },
+                    gallery: [],
+                    videos: []
+                });
+            }
             setLoading(false);
         }
     }

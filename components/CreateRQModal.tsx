@@ -48,7 +48,7 @@ export default function CreateRQModal({ isOpen, onClose, onSuccess, storeId, sto
     const uniquePositions = Array.from(new Set(filteredProfiles.map(p => p.posicion)));
     const selectedProfileData = selectedPosicion ? filteredProfiles.find(p => p.posicion === selectedPosicion) : null;
 
-    const tenantId = claims?.tenant_id || 'ngr_holding';
+    const tenantId = claims?.holdingId || claims?.tenant_id || (user as any)?.holdingId || 'ngr_holding';
 
     // Effect to handle auto-setting fields for Gerencial positions
     // IMPORTANT: This must be before any early return to avoid hooks order violation
