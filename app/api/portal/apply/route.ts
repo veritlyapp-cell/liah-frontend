@@ -129,6 +129,41 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        // Send confirmation email via Resend
+        try {
+            const { Resend } = await import('resend');
+            const resend = new Resend(process.env.RESEND_API_KEY);
+
+            const brandName = application.marcaNombre || 'LIAH';
+            const accentColor = rqData.config?.branding?.primaryColor || '#a51890';
+            const holdingName = rqData.holdingName || brandName;
+
+            await resend.emails.send({
+                from: `${brandName} - LIAH <noreply@getliah.com>`,
+                to: candidateData.email,
+                subject: `🚀 Postulación recibida: ${application.posicion}`,
+                html: `
+                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f7f6;">
+                        <div style="background: white; border-radius: 12px; padding: 30px; border: 1px solid #e1e8e5;">
+                            <h1 style="color: ${accentColor}; font-size: 24px;">¡Hola, ${candidateData.nombre}!</h1>
+                            <p style="font-size: 16px; color: #333;">Hemos recibido tu postulación para el puesto de <strong>${application.posicion}</strong>.</p>
+                            <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>Empresa:</strong> ${brandName}</p>
+                                <p style="margin: 5px 0;"><strong>Tienda:</strong> ${application.tiendaNombre}</p>
+                                <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-PE')}</p>
+                            </div>
+                            <p style="font-size: 14px; color: #666;">Nuestro equipo de selección revisará tu perfil. Te contactaremos pronto por este medio o vía WhatsApp.</p>
+                            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                            <p style="font-size: 12px; color: #999; text-align: center;">Powered by LIAH</p>
+                        </div>
+                    </div>
+                `
+            });
+            console.log('[Portal Apply] Confirmation email sent to:', candidateData.email);
+        } catch (emailError) {
+            console.error('[Portal Apply] Error sending confirmation email:', emailError);
+        }
+
         console.log('[Portal Apply] Success:', { candidateId, rqId, flow: application.flow, applicationId });
 
         return NextResponse.json({

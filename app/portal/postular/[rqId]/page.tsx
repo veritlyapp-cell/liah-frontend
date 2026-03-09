@@ -38,28 +38,7 @@ interface CandidateSession {
 }
 
 // Default KQ if none configured
-const DEFAULT_KQ: KQQuestion[] = [
-    {
-        id: 'disponibilidad',
-        question: '¿Tienes disponibilidad para trabajar en el horario indicado?',
-        type: 'boolean',
-        requiredAnswer: 'yes',
-        isRequired: true
-    },
-    {
-        id: 'experiencia',
-        question: '¿Tienes experiencia en atención al cliente?',
-        type: 'boolean',
-        isRequired: false
-    },
-    {
-        id: 'transporte',
-        question: '¿Cómo te trasladarías al lugar de trabajo?',
-        type: 'select',
-        options: ['Transporte público', 'Vehículo propio', 'A pie', 'Bicicleta'],
-        isRequired: true
-    }
-];
+const DEFAULT_KQ: KQQuestion[] = [];
 
 function PostularContent() {
     const params = useParams();
@@ -287,14 +266,13 @@ function PostularContent() {
                     </div>
                     <button
                         onClick={() => {
-                            let url = `/portal/vacantes?token=${token}`;
-                            if (holdingSlug) url += `&holding=${holdingSlug}`;
+                            let url = `/empleos/${holdingSlug || vacancy?.holdingSlug || 'tambo'}`;
                             router.push(url);
                         }}
-                        className="px-6 py-3 text-white rounded-xl font-medium transition-all hover:brightness-110"
+                        className="px-8 py-3 text-white rounded-2xl font-bold transition-all hover:brightness-110 shadow-lg"
                         style={{ backgroundColor: accentColor }}
                     >
-                        Ver más vacantes
+                        Volver al Portal
                     </button>
                 </div>
             </div>
@@ -320,11 +298,11 @@ function PostularContent() {
                             </div>
                         )}
                     </div>
-                    <div className="inline-flex px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest mb-3">
+                    <div className="inline-flex px-3 py-1 bg-white/20 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                         Proceso de Postulación
                     </div>
-                    <h1 className="text-4xl font-black italic uppercase tracking-tighter leading-none mb-2">{vacancy?.posicion}</h1>
-                    <p className="text-white/70 text-sm font-bold uppercase tracking-tight">
+                    <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter leading-tight mb-3 px-4">{vacancy?.posicion}</h1>
+                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest bg-black/10 inline-block px-4 py-1.5 rounded-full">
                         {vacancy?.tiendaNombre} {vacancy?.tiendaDistrito ? ` • ${vacancy.tiendaDistrito}` : ''}
                     </p>
                 </div>
@@ -334,15 +312,15 @@ function PostularContent() {
             <div className="max-w-4xl mx-auto px-5 -mt-6">
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 md:p-12 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]">
                     <div className="mb-10 text-center">
-                        <h2 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">Preguntas de Filtro</h2>
-                        <p className="text-gray-400 text-sm font-medium mt-1">Valida tus requisitos para completar tu postulación a <strong>{brandName || vacancy?.marcaNombre}</strong></p>
+                        <h2 className="text-xl font-black text-gray-900 uppercase italic tracking-tight">Preguntas de Filtro</h2>
+                        <p className="text-gray-400 text-[13px] font-medium mt-1">Valida tus requisitos para completar tu postulación a <strong>{brandName || vacancy?.marcaNombre}</strong></p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-10">
                         {kqList.map((kq, index) => (
                             <div key={kq.id} className="group">
-                                <label className="block text-gray-900 font-black uppercase italic tracking-tight text-lg mb-4 flex items-center gap-3">
-                                    <span className="w-8 h-8 rounded-xl flex items-center justify-center text-xs not-italic border-2 transition-colors group-focus-within:bg-gray-900 group-focus-within:text-white group-focus-within:border-gray-900" style={{ borderColor: accentColor + '40', color: accentColor }}>
+                                <label className="block text-gray-900 font-black uppercase italic tracking-tight text-base mb-4 flex items-center gap-3">
+                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] not-italic border-2 transition-colors group-focus-within:bg-gray-900 group-focus-within:text-white group-focus-within:border-gray-900" style={{ borderColor: accentColor + '40', color: accentColor }}>
                                         {index + 1}
                                     </span>
                                     {kq.question}
@@ -358,9 +336,9 @@ function PostularContent() {
                                             ].map(val => (
                                                 <label
                                                     key={val.id}
-                                                    className={`flex-1 flex items-center justify-center gap-2 cursor-pointer px-6 py-4 rounded-2xl border-2 transition-all font-black uppercase italic text-sm tracking-tight ${answers[kq.id] === val.id
-                                                        ? 'border-transparent text-white shadow-lg'
-                                                        : 'border-gray-100 bg-gray-50/50 text-gray-400 hover:border-gray-200'
+                                                    className={`flex-1 flex items-center justify-center gap-2 cursor-pointer px-5 py-3.5 rounded-xl border-2 transition-all font-black uppercase italic text-xs tracking-tight ${answers[kq.id] === val.id
+                                                        ? 'border-transparent text-white shadow-md scale-[1.02]'
+                                                        : 'border-gray-100 bg-gray-50/30 text-gray-400 hover:border-gray-200'
                                                         }`}
                                                     style={answers[kq.id] === val.id ? { backgroundColor: accentColor, borderColor: accentColor } : {}}
                                                 >
@@ -400,7 +378,7 @@ function PostularContent() {
                                             value={answers[kq.id] || ''}
                                             onChange={(e) => setAnswers({ ...answers, [kq.id]: e.target.value })}
                                             placeholder="Escribe tu respuesta aquí..."
-                                            className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl hover:border-gray-200 focus:bg-white focus:ring-4 focus:ring-opacity-10 font-bold text-gray-900 transition-all outline-none"
+                                            className="w-full px-5 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-xl hover:border-gray-200 focus:bg-white focus:ring-4 focus:ring-opacity-5 font-bold text-gray-900 text-sm transition-all outline-none"
                                             onFocus={e => e.target.style.borderColor = accentColor}
                                             onBlur={e => e.target.style.borderColor = '#F3F4F6'}
                                         />
@@ -419,10 +397,10 @@ function PostularContent() {
                             ) : (
                                 <button
                                     type="submit"
-                                    className="w-full py-5 text-white font-black uppercase italic tracking-widest text-lg rounded-[1.5rem] transition-all hover:brightness-110 hover:-translate-y-1 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] active:scale-[0.98] flex items-center justify-center gap-3"
-                                    style={{ backgroundColor: accentColor }}
+                                    className="w-full py-4.5 text-white font-black uppercase italic tracking-widest text-base rounded-2xl transition-all hover:brightness-110 hover:-translate-y-0.5 shadow-xl active:scale-[0.98] flex items-center justify-center gap-3"
+                                    style={{ backgroundColor: accentColor, padding: '1.2rem' }}
                                 >
-                                    📨 Enviar mi Postulación Ahora
+                                    📨 Enviar mi Postulación
                                 </button>
                             )}
                         </div>

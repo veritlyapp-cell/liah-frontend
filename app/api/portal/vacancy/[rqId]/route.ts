@@ -45,11 +45,16 @@ export async function GET(
             const jobProfileId = data.jobProfileId || data.perfilId || null;
             if (jobProfileId) {
                 try {
-                    const profileDoc = await db.collection('jobProfiles').doc(jobProfileId).get();
+                    // Try both collections for compatibility, but prioritize 'job_profiles'
+                    let profileDoc = await db.collection('job_profiles').doc(jobProfileId).get();
+                    if (!profileDoc.exists) {
+                        profileDoc = await db.collection('jobProfiles').doc(jobProfileId).get();
+                    }
+
                     if (profileDoc.exists) {
                         const profileData = profileDoc.data()!;
-                        const profileKQs = profileData.requisitos?.killerQuestions
-                            || profileData.killerQuestions
+                        const profileKQs = profileData.killerQuestions
+                            || profileData.requisitos?.killerQuestions
                             || [];
                         if (Array.isArray(profileKQs) && profileKQs.length > 0) {
                             killerQuestions = profileKQs.map((kq: any, i: number) => ({
@@ -67,14 +72,24 @@ export async function GET(
                     const posicion = data.puesto || data.posicion || data.posicionNombre || '';
                     const holdingId = data.tenantId || data.holdingId || '';
                     if (posicion && holdingId) {
-                        const profilesSnap = await db.collection('jobProfiles')
-                            .where('holdingId', '==', holdingId)
-                            .where('nombre', '==', posicion)
+                        // Check both collection names
+                        let profilesSnap = await db.collection('job_profiles')
+                            .where('holdingId', 'in', [holdingId, 'tambo']) // Fallback to explicitly check tambo if needed
+                            .where('posicion', '==', posicion)
                             .limit(1).get();
+
+                        if (profilesSnap.empty) {
+                            profilesSnap = await db.collection('jobProfiles')
+                                .where('holdingId', '==', holdingId)
+                                .where('nombre', '==', posicion)
+                                .limit(1).get();
+                        }
+
                         if (!profilesSnap.empty) {
                             const profileData = profilesSnap.docs[0].data();
-                            const profileKQs = profileData.requisitos?.killerQuestions
-                                || profileData.killerQuestions || [];
+                            const profileKQs = profileData.killerQuestions
+                                || profileData.requisitos?.killerQuestions
+                                || [];
                             if (Array.isArray(profileKQs) && profileKQs.length > 0) {
                                 killerQuestions = profileKQs.map((kq: any, i: number) => ({
                                     id: kq.id || `kq_${i}`,

@@ -248,7 +248,7 @@ function RegistroContent() {
                             <img src={brandLogo} alt="Logo" className="w-full h-full object-contain p-2" />
                         </div>
                     )}
-                    <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
+                    <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
                         {step === 'email' ? 'Empecemos' : step === 'found' ? '¡Te encontramos!' : step === 'duplicate' ? 'Ya postulaste' : 'Registro'}
                     </h1>
                     <p className="text-white/70 mt-1 text-sm">
