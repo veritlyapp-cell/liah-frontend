@@ -136,20 +136,23 @@ export async function POST(request: NextRequest) {
             const { Resend } = await import('resend');
             const resend = new Resend(process.env.RESEND_API_KEY);
 
+            // Correct color management
+            const finalBrandColor = brandColor || '#a51890'; // Tambo purple fallback
+
             // Calendar link
             const calendarTitle = encodeURIComponent(`Entrevista - ${position}`);
             const calendarLoc = encodeURIComponent(`${storeName} - ${storeAddress}`);
             const calLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&location=${calendarLoc}`;
 
             await resend.emails.send({
-                from: `${brandName} - LIAH <noreply@getliah.com>`,
+                from: `${brandName} - LIAH <noreply@notifications.getliah.com>`,
                 to: candidateData.email,
                 subject: '✅ Entrevista Confirmada',
                 html: `
                     <div style="font-family: 'Helvetica Neue', sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 20px; background: #f9fafb;">
                         <div style="background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 30px rgba(0,0,0,0.08);">
-                            <div style="background: ${brandColor}; padding: 40px 32px; text-align: center;">
-                                <h1 style="color: white; font-size: 28px; font-weight: 900; margin: 0; font-style: italic; text-transform: uppercase; letter-spacing: -1px;">¡Entrevista Confirmada!</h1>
+                            <div style="background: ${finalBrandColor}; padding: 40px 32px; text-align: center;">
+                                <h1 style="color: white; font-size: 24px; font-weight: 900; margin: 0; font-style: italic; text-transform: uppercase; letter-spacing: -1px;">¡Entrevista Confirmada!</h1>
                                 <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 15px;">Todo listo, ${candidateData.nombre}</p>
                             </div>
                             <div style="padding: 32px;">

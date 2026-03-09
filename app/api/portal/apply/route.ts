@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
             const holdingName = rqData.holdingName || brandName;
 
             await resend.emails.send({
-                from: `${brandName} - LIAH <noreply@getliah.com>`,
+                from: `${brandName} - LIAH <noreply@notifications.getliah.com>`,
                 to: candidateData.email,
                 subject: `🚀 Postulación recibida: ${application.posicion}`,
                 html: `
