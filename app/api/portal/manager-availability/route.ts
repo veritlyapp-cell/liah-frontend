@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,20 +10,17 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'storeId is required' }, { status: 400 });
         }
 
-        // 1. Find the UserAssignment for this store that is a 'store_manager'
-        const assignmentsRef = collection(db, 'userAssignments');
-        const q = query(
-            assignmentsRef,
-            where('assignedStore.tiendaId', '==', storeId),
-            where('role', '==', 'store_manager'),
-            where('active', '==', true),
-            limit(1)
-        );
+        const db = getAdminFirestore();
 
-        const snapshot = await getDocs(q);
+        // Find the store manager assignment for this store
+        const snapshot = await db.collection('userAssignments')
+            .where('assignedStore.tiendaId', '==', storeId)
+            .where('role', '==', 'store_manager')
+            .where('active', '==', true)
+            .limit(1)
+            .get();
 
         if (snapshot.empty) {
-            // No custom availability, the frontend will use defaults
             return NextResponse.json({
                 success: true,
                 availability: null,
@@ -34,13 +30,22 @@ export async function GET(request: NextRequest) {
 
         const managerData = snapshot.docs[0].data();
 
+        // Also fetch already booked interviews for this store to block slots
+        const bookedSnap = await db.collection('interviews')
+            .where('storeId', '==', storeId)
+            .where('status', 'not-in', ['cancelled', 'discarded'])
+            .get();
+
+        const bookedSlots = bookedSnap.docs.map(doc => doc.data().slotId).filter(Boolean);
+
         return NextResponse.json({
             success: true,
-            availability: managerData.availability || null
+            availability: managerData.availability || null,
+            bookedSlots
         });
 
-    } catch (error) {
-        console.error('Error fetching manager availability:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('[Manager Availability] Error:', error?.message || error);
+        return NextResponse.json({ error: 'Error interno' }, { status: 500 });
     }
 }

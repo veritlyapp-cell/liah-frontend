@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 interface AggregatedVacancy {
     posicion: string;
@@ -11,17 +10,43 @@ interface AggregatedVacancy {
     tiendaNombre: string;
     tiendaDistrito: string;
     tiendaId: string;
+    tiendaProvincia?: string;
+    tiendaDepartamento?: string;
     rqIds: string[];
     totalVacantes: number;
     storeCoordinates?: { lat: number; lng: number };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        // Get all RQs that are currently in recruiting status
-        const rqsRef = collection(db, 'rqs');
-        const q = query(rqsRef, where('status', '==', 'recruiting'));
-        const snapshot = await getDocs(q);
+        const db = getAdminFirestore();
+        const { searchParams } = new URL(request.url);
+        const holdingFilter = searchParams.get('holding');
+
+        // Get all active RQs
+        const activeStatuses = ['recruiting', 'approved', 'active', 'published', 'activo', 'aprobado'];
+        const rqQuery = db.collection('rqs').where('status', 'in', activeStatuses);
+
+        // If holding filter provided, look up its IDs first
+        let holdingIds: string[] = [];
+        if (holdingFilter) {
+            const holdingsSnap = await db.collection('holdings').where('slug', '==', holdingFilter.toLowerCase()).limit(1).get();
+            if (!holdingsSnap.empty) {
+                holdingIds = [holdingsSnap.docs[0].id, holdingFilter];
+            } else {
+                holdingIds = [holdingFilter];
+            }
+        }
+
+        const snapshot = await rqQuery.limit(200).get();
+
+        // Filter in memory by holding if needed
+        const filteredDocs = holdingIds.length > 0
+            ? snapshot.docs.filter((d: any) => {
+                const data = d.data();
+                return holdingIds.includes(data.tenantId) || holdingIds.includes(data.holdingId);
+            })
+            : snapshot.docs;
 
         // Cache for store coordinates
         const storeCoordinatesCache: Record<string, { lat: number; lng: number } | null> = {};
@@ -29,18 +54,19 @@ export async function GET() {
         // Aggregate by unique key: posicion + turno + modalidad + tiendaId
         const aggregated: Record<string, AggregatedVacancy> = {};
 
-        for (const rqDoc of snapshot.docs) {
+        for (const rqDoc of filteredDocs) {
             const data = rqDoc.data();
-            const key = `${data.posicion}-${data.turno || 'Sin turno'}-${data.modalidad || 'Full Time'}-${data.tiendaId}`;
+            const keyPosicion = data.puesto || data.posicion || data.posicionNombre || data.title || '';
+            const key = `${keyPosicion}-${data.turno || 'Sin turno'}-${data.modalidad || 'Full Time'}-${data.tiendaId || rqDoc.id}`;
 
             if (!aggregated[key]) {
                 // Get store coordinates if not cached
                 let storeCoords = storeCoordinatesCache[data.tiendaId];
                 if (storeCoords === undefined && data.tiendaId) {
                     try {
-                        const storeDoc = await getDoc(doc(db, 'stores', data.tiendaId));
-                        if (storeDoc.exists()) {
-                            const storeData = storeDoc.data();
+                        const storeDoc = await db.collection('stores').doc(data.tiendaId).get();
+                        if (storeDoc.exists) {
+                            const storeData = storeDoc.data()!;
                             storeCoords = storeData.coordinates || null;
                         } else {
                             storeCoords = null;
@@ -53,13 +79,15 @@ export async function GET() {
                 }
 
                 aggregated[key] = {
-                    posicion: data.posicion || '',
+                    posicion: keyPosicion,
                     turno: data.turno || 'Sin turno',
                     modalidad: data.modalidad || 'Full Time',
                     marcaNombre: data.marcaNombre || '',
                     marcaId: data.marcaId || '',
-                    tiendaNombre: data.tiendaNombre || '',
+                    tiendaNombre: data.tiendaNombre || 'Sede Central',
                     tiendaDistrito: data.tiendaDistrito || data.distrito || '',
+                    tiendaProvincia: data.provincia || '',
+                    tiendaDepartamento: data.departamento || '',
                     tiendaId: data.tiendaId || '',
                     rqIds: [],
                     totalVacantes: 0,
@@ -73,7 +101,7 @@ export async function GET() {
 
         const vacancies = Object.values(aggregated);
 
-        console.log('[Portal Vacancies Aggregated] Found:', vacancies.length, 'unique positions');
+        console.log('[Portal Vacancies Aggregated] Found:', vacancies.length, 'unique positions from', snapshot.size, 'RQs, holding filter:', holdingFilter || 'none');
 
         return NextResponse.json({
             success: true,
@@ -81,8 +109,8 @@ export async function GET() {
             count: vacancies.length
         });
 
-    } catch (error) {
-        console.error('Error fetching aggregated vacancies:', error);
+    } catch (error: any) {
+        console.error('[Portal Vacancies Aggregated] Error:', error?.message || error);
         return NextResponse.json({ error: 'Error interno' }, { status: 500 });
     }
 }

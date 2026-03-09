@@ -44,6 +44,8 @@ export interface Application {
     notHiredReason?: string;
     startDate?: any;  // Fecha efectiva de ingreso
     categoria?: 'operativo' | 'gerencial'; // [NEW] Categoría del puesto para analítica
+    holdingId?: string; // [NEW] For multi-tenancy isolation
+    holdingSlug?: string; // [NEW] For multi-tenancy isolation
 }
 
 export interface Employment {
@@ -123,6 +125,7 @@ export interface Candidate {
     selectedAt?: any;
     selectedBy?: string;
     selectedForRQ?: string;
+    selectedForHoldingId?: string; // [NEW] For multi-tenancy isolation
 
     // Entrevista (Bot)
     entrevista?: {

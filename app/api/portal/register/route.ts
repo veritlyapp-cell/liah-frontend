@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
+import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
     try {
+        const body = await request.json();
         const {
             email,
             nombre,
             apellidos,
             celular,
+            fechaNacimiento,
             departamento,
             provincia,
             distrito,
@@ -17,78 +19,81 @@ export async function POST(request: NextRequest) {
             cvUrl,
             coordinates,
             formattedAddress,
-            holdingSlug
-        } = await request.json();
+            holdingSlug,
+            existingCandidateId
+        } = body;
 
         // Validate required fields
         if (!email || !nombre || !apellidos || !celular) {
             return NextResponse.json({ error: 'Campos obligatorios faltantes' }, { status: 400 });
         }
 
+        const db = getAdminFirestore();
+
         // Generate session token (24h validity)
         const sessionToken = uuidv4();
         const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         // Split apellidos into paterno and materno
-        const apellidosParts = apellidos.split(' ');
+        const apellidosParts = (apellidos || '').trim().split(/\s+/);
         const apellidoPaterno = apellidosParts[0] || '';
         const apellidoMaterno = apellidosParts.slice(1).join(' ') || '';
 
-        // Generate candidate code
-        const candidateCode = `PUB-${Date.now().toString(36).toUpperCase()}`;
-
-        // Create candidate document
-        const candidatesRef = collection(db, 'candidates');
-        const candidateDoc = await addDoc(candidatesRef, {
-            // Basic info
-            email: email.toLowerCase(),
-            nombre,
+        const updateData: any = {
+            email: email.toLowerCase().trim(),
+            nombre: nombre.trim(),
             apellidoPaterno,
             apellidoMaterno,
             telefono: celular,
-
-            // Location fields
             departamento: departamento || 'Lima',
             provincia: provincia || 'Lima',
             distrito: distrito || '',
             direccion: direccion || '',
-
-            candidateCode,
-
-            // Geolocation (for distance-based matching)
-            coordinates: coordinates || null,
-            formattedAddress: formattedAddress || '',
-
-            // Portal-specific fields
-            source: 'portal_publico',
-            registeredViaPortal: true,
-            holdingSlug: holdingSlug || 'ngr',
-            cvUrl: cvUrl || '',
-
-            // Session management
+            fechaNacimiento: fechaNacimiento || '',
+            holdingSlug: holdingSlug || 'public',
             portalSessionToken: sessionToken,
-            portalSessionExpiry: Timestamp.fromDate(sessionExpiry),
+            portalSessionExpiry: sessionExpiry.toISOString(),
+            updatedAt: AdminFieldValue.serverTimestamp(),
+        };
 
-            // Status
-            culStatus: 'pending',
-            hasAccount: false,
-            blacklisted: false,
+        if (cvUrl) updateData.cvUrl = cvUrl;
+        if (coordinates) updateData.coordinates = coordinates;
+        if (formattedAddress) updateData.formattedAddress = formattedAddress;
 
-            // Timestamps
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now()
-        });
+        let finalCandidateId = existingCandidateId;
 
-        console.log('[Portal Register] Created candidate:', candidateDoc.id);
+        if (existingCandidateId) {
+            await db.collection('candidates').doc(existingCandidateId).update(updateData);
+        } else {
+            // New candidate
+            const candidateCode = `PUB-${Date.now().toString(36).toUpperCase()}`;
+            const newData = {
+                ...updateData,
+                candidateCode,
+                source: 'portal_publico',
+                registeredViaPortal: true,
+                culStatus: 'pending',
+                hasAccount: false,
+                blacklisted: false,
+                createdAt: AdminFieldValue.serverTimestamp(),
+            };
+            const docRef = await db.collection('candidates').add(newData);
+            finalCandidateId = docRef.id;
+        }
+
+        console.log('[Portal Register] Success for:', finalCandidateId, email);
 
         return NextResponse.json({
             success: true,
-            candidateId: candidateDoc.id,
+            candidateId: finalCandidateId,
             sessionToken
         });
 
-    } catch (error) {
-        console.error('Error registering candidate:', error);
-        return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    } catch (error: any) {
+        console.error('[Portal Register] Error:', error?.message || error);
+        return NextResponse.json(
+            { error: 'Error interno del servidor: ' + (error?.message || 'desconocido') },
+            { status: 500 }
+        );
     }
 }

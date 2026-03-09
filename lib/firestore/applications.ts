@@ -21,6 +21,8 @@ export async function createApplication(
         sentBy?: string;
         origenConvocatoria?: string; // [NEW]
         categoria?: 'operativo' | 'gerencial'; // [NEW]
+        holdingId?: string; // [NEW]
+        holdingSlug?: string; // [NEW]
     }
 ): Promise<string> {
     if (!data.rqId || !data.rqNumber) {
@@ -44,7 +46,9 @@ export async function createApplication(
         invitationId: data.invitationId || '',
         invitedBy: data.sentBy || '',
         origenConvocatoria: data.origenConvocatoria || 'Directo',
-        categoria: data.categoria || 'operativo'
+        categoria: data.categoria || 'operativo',
+        holdingId: data.holdingId || null,
+        holdingSlug: data.holdingSlug || null
     };
 
     // Clean up undefined properties just in case

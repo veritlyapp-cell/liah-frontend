@@ -46,7 +46,9 @@ function AplicarContent({ params }: { params: Promise<{ rqId: string }> }) {
     useEffect(() => {
         async function loadData() {
             if (!token) {
-                router.push(`/portal?holding=${holdingSlug}`);
+                // No session - send to registration with rqId context
+                // After registration, user will be redirected back here
+                router.push(`/portal/registro?holding=${holdingSlug}&rqId=${rqId}`);
                 return;
             }
 

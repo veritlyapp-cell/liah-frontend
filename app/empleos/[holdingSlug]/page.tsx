@@ -136,6 +136,35 @@ const HOLDING_CONFIGS: Record<string, BrandConfig> = {
         videos: [
             { id: 'y8Xv4T0ReVw', title: 'Life at Mainframe' }
         ]
+    },
+    'tambo': {
+        name: 'Tambo',
+        logo_url: 'https://firebasestorage.googleapis.com/v0/b/botwhatsapp-5dac9.firebasestorage.app/o/logos%2Fholdings%2Ftambo_1772774260917.jpeg?alt=media&token=89406e84-e4b0-49ff-ad16-0bf9f220f0bd',
+        colors: {
+            purple: '#a51890',
+            purpleDeep: '#5b1050',
+            yellow: '#fce024',
+            lavender: '#fdf3fa'
+        },
+        hero: {
+            title_line1: 'ÚNETE A',
+            title_line2: 'TAMBO',
+            subtitle: 'Somos la Tienda del Perú. Elaboramos y ofrecemos a nuestros clientes productos variados de calidad a precios accesibles.',
+            cta_text: 'VER POSICIONES'
+        },
+        culture: {
+            main_title: 'El Sabor de Aprender',
+            main_description: 'Construye tu carrera en la cadena de tiendas más grande del país.',
+            secondary_title: 'Siempre Cerca',
+            secondary_description: 'Más de 400 tiendas esperándote.'
+        },
+        gallery: [
+            'https://firebasestorage.googleapis.com/v0/b/botwhatsapp-5dac9.firebasestorage.app/o/branding%2Ftambo%2Fgallery%2F1772774819360_tambo2.webp?alt=media&token=5d1c9c95-1e2e-4300-b684-0b50db54cdae',
+            'https://firebasestorage.googleapis.com/v0/b/botwhatsapp-5dac9.firebasestorage.app/o/branding%2Ftambo%2Fgallery%2F1772774821603_tambo1.jpeg?alt=media&token=ed3efc0e-2555-47b5-bc24-5b92f8cd4dda'
+        ],
+        videos: [
+            { id: 'W9d02V0ZEzs', title: 'Trabaja en Tambo' }
+        ]
     }
 };
 
@@ -233,7 +262,7 @@ export default function PremiumCareerPortal() {
                     hero: {
                         ...baseConfig.hero,
                         title_line1: (b.phrases?.[0] || baseConfig.hero?.title_line1 || '').toUpperCase(),
-                        title_line2: (b.phrases?.[1] || baseConfig.hero?.title_line2 || '').toUpperCase(),
+                        title_line2: (b.phrases?.[1] || (b.phrases?.[0] ? '' : baseConfig.hero?.title_line2) || '').toUpperCase(),
                         subtitle: b.description || baseConfig.hero?.subtitle,
                     },
                     culture: {
@@ -263,8 +292,11 @@ export default function PremiumCareerPortal() {
                         id: doc.id,
                         titulo: data.puesto || data.posicion || data.posicionNombre || data.title || 'Vacante',
                         tiendaNombre: data.tiendaNombre || 'Sede Central',
-                        tiendaDistrito: data.distrito || data.provincia,
+                        tiendaDistrito: data.distrito || data.tiendaDistrito || '',
+                        tiendaProvincia: data.provincia || '',
+                        tiendaDepartamento: data.departamento || '',
                         marcaId: data.marcaId,
+                        marcaNombre: data.marcaNombre || '',
                         modalidad: data.modalidad,
                         turno: data.turno,
                         createdAt: data.createdAt,
@@ -321,11 +353,13 @@ export default function PremiumCareerPortal() {
         } finally {
             if (finalConfig) {
                 setConfig(finalConfig);
-            } else if (!HOLDING_CONFIGS[holdingSlug]) {
+            } else if (HOLDING_CONFIGS[holdingSlug]) {
+                setConfig(HOLDING_CONFIGS[holdingSlug]);
+            } else {
                 setConfig({
                     name: holdingSlug.toUpperCase(),
-                    logo_url: '',
-                    colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#4F46E5', lavender: '#A5A3B3' },
+                    logo_url: '/logo-white.png',
+                    colors: { purple: '#1E1B4B', purpleDeep: '#0F0D1A', yellow: '#FF6B35', lavender: '#A5A3B3' },
                     hero: { title_line1: 'ÚNETE A', title_line2: 'NUESTRO EQUIPO', subtitle: 'Descubre nuevas oportunidades laborales.', cta_text: 'VER POSICIONES' },
                     culture: { main_title: 'Crecemos Contigo', main_description: 'Construye una carrera sostenible con nosotros.', secondary_title: 'Múltiples Sedes', secondary_description: 'Trabaja cerca a casa.' },
                     gallery: [],
@@ -411,12 +445,6 @@ export default function PremiumCareerPortal() {
             <UneteSection config={config} holdingSlug={holdingSlug} />
             <FooterSection config={config} jobsCount={allJobs.length} />
 
-            {/* DIAGNOSTICS */}
-            {allJobs.length === 0 && (
-                <div style={{ marginTop: 40, padding: 20, textAlign: 'center', fontSize: 10, opacity: 0.3 }}>
-                    DIAGNOSTICS (V1.1.5): Jobs: {allJobs.length}, Slug: {holdingSlug}
-                </div>
-            )}
         </div>
     );
 }

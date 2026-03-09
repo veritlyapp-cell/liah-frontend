@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,10 +9,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Token requerido' }, { status: 400 });
         }
 
+        const db = getAdminFirestore();
+
         // Find candidate by session token
-        const candidatesRef = collection(db, 'candidates');
-        const q = query(candidatesRef, where('portalSessionToken', '==', token), limit(1));
-        const snapshot = await getDocs(q);
+        const snapshot = await db.collection('candidates')
+            .where('portalSessionToken', '==', token)
+            .limit(1)
+            .get();
 
         if (snapshot.empty) {
             return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
@@ -22,8 +24,16 @@ export async function POST(request: NextRequest) {
         const candidateDoc = snapshot.docs[0];
         const candidateData = candidateDoc.data();
 
-        // Check if session is expired
-        const expiry = candidateData.portalSessionExpiry?.toDate();
+        // Check if session is expired - handle both ISO string and Firestore Timestamp
+        let expiry: Date | null = null;
+        if (candidateData.portalSessionExpiry) {
+            if (typeof candidateData.portalSessionExpiry === 'string') {
+                expiry = new Date(candidateData.portalSessionExpiry);
+            } else if (candidateData.portalSessionExpiry.toDate) {
+                expiry = candidateData.portalSessionExpiry.toDate();
+            }
+        }
+
         if (!expiry || new Date() > expiry) {
             return NextResponse.json({ error: 'Sesión expirada' }, { status: 401 });
         }
@@ -38,13 +48,12 @@ export async function POST(request: NextRequest) {
                 direccion: candidateData.direccion || '',
                 email: candidateData.email || '',
                 telefono: candidateData.telefono || '',
-                // Include coordinates for distance calculation
                 coordinates: candidateData.coordinates || null
             }
         });
 
-    } catch (error) {
-        console.error('Error validating session:', error);
+    } catch (error: any) {
+        console.error('[Validate Session] Error:', error?.message || error);
         return NextResponse.json({ error: 'Error interno' }, { status: 500 });
     }
 }

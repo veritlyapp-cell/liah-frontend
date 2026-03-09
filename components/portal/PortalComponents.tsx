@@ -277,6 +277,39 @@ export function JobsSection({
     holdingSlug: string;
 }) {
     const { colors } = config;
+    const [filterDistrito, setFilterDistrito] = React.useState('');
+    const [filterProvincia, setFilterProvincia] = React.useState('');
+    const [filterDepartamento, setFilterDepartamento] = React.useState('');
+
+    // Get unique values for filters from available jobs
+    const departamentos = [...new Set(allJobs.map(j => j.tiendaDepartamento).filter(Boolean))].sort();
+    const provincias = [...new Set(
+        allJobs
+            .filter(j => !filterDepartamento || j.tiendaDepartamento === filterDepartamento)
+            .map(j => j.tiendaProvincia)
+            .filter(Boolean)
+    )].sort();
+    const distritos = [...new Set(
+        allJobs
+            .filter(j => !filterProvincia || j.tiendaProvincia === filterProvincia)
+            .filter(j => !filterDepartamento || j.tiendaDepartamento === filterDepartamento)
+            .map(j => j.tiendaDistrito)
+            .filter(Boolean)
+    )].sort();
+
+    // Apply location filter on top of geo/brand filters
+    const displayJobs = filteredJobs.filter(j => {
+        if (filterDepartamento && j.tiendaDepartamento !== filterDepartamento) return false;
+        if (filterProvincia && j.tiendaProvincia !== filterProvincia) return false;
+        if (filterDistrito && j.tiendaDistrito !== filterDistrito) return false;
+        return true;
+    });
+
+    const selectStyle = {
+        padding: '10px 16px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.05)', color: colors.lavender,
+        fontSize: 13, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 140
+    };
 
     return (
         <section id="vacantes" style={{ padding: '160px 24px 160px', scrollMarginTop: 0 }}>
@@ -287,8 +320,37 @@ export function JobsSection({
                             Oportunidades<span style={{ color: colors.yellow }}>_</span>
                         </h2>
                         <span style={{ fontWeight: 700, fontSize: 14, color: colors.yellow }}>
-                            {allJobs.length} POSICIONES ABIERTAS
+                            {displayJobs.length} POSICIONES ABIERTAS
                         </span>
+                    </div>
+
+                    {/* Location filter row */}
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ color: colors.lavender, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>📍 Filtrar por zona:</span>
+                        {departamentos.length > 1 && (
+                            <select value={filterDepartamento} onChange={e => { setFilterDepartamento(e.target.value); setFilterProvincia(''); setFilterDistrito(''); }} style={selectStyle}>
+                                <option value="" style={{ backgroundColor: '#1a1a2e' }}>Todos los Deptos.</option>
+                                {departamentos.map(d => <option key={d} value={d} style={{ backgroundColor: '#1a1a2e' }}>{d}</option>)}
+                            </select>
+                        )}
+                        {(filterDepartamento || provincias.length > 0) && provincias.length > 1 && (
+                            <select value={filterProvincia} onChange={e => { setFilterProvincia(e.target.value); setFilterDistrito(''); }} style={selectStyle}>
+                                <option value="" style={{ backgroundColor: '#1a1a2e' }}>Todas las Provincias</option>
+                                {provincias.map(p => <option key={p} value={p} style={{ backgroundColor: '#1a1a2e' }}>{p}</option>)}
+                            </select>
+                        )}
+                        {distritos.length > 1 && (
+                            <select value={filterDistrito} onChange={e => setFilterDistrito(e.target.value)} style={selectStyle}>
+                                <option value="" style={{ backgroundColor: '#1a1a2e' }}>Todos los Distritos</option>
+                                {distritos.map(d => <option key={d} value={d} style={{ backgroundColor: '#1a1a2e' }}>{d}</option>)}
+                            </select>
+                        )}
+                        {(filterDepartamento || filterProvincia || filterDistrito) && (
+                            <button onClick={() => { setFilterDepartamento(''); setFilterProvincia(''); setFilterDistrito(''); }}
+                                style={{ padding: '8px 16px', backgroundColor: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, color: colors.lavender, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                ✕ Limpiar filtros
+                            </button>
+                        )}
                     </div>
 
                     {allJobs.length > 0 && [...new Set(allJobs.map(j => j.tiendaNombre).filter(Boolean))].length > 1 && (
@@ -336,7 +398,7 @@ export function JobsSection({
                     )}
                 </div>
 
-                {filteredJobs.length === 0 ? (
+                {displayJobs.length === 0 ? (
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                         style={{
@@ -363,7 +425,7 @@ export function JobsSection({
                     </motion.div>
                 ) : (
                     <div style={{ display: 'grid', gap: 16 }}>
-                        {filteredJobs.map((job, idx) => (
+                        {displayJobs.map((job, idx) => (
                             <motion.div
                                 key={job.id}
                                 initial={{ opacity: 0, x: -20 }}
@@ -371,7 +433,7 @@ export function JobsSection({
                                 transition={{ delay: idx * 0.05 }}
                             >
                                 <Link
-                                    href={`/empleos/aplicar/${job.id}?holding=${holdingSlug}`}
+                                    href={`/portal/vacante/${job.id}?holding=${holdingSlug}`}
                                     style={{ textDecoration: 'none' }}
                                 >
                                     <div style={{
@@ -387,9 +449,9 @@ export function JobsSection({
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                                                 <span style={{
                                                     padding: '6px 14px', backgroundColor: colors.yellow, color: colors.purpleDeep,
-                                                    borderRadius: 99, fontSize: 11, fontWeight: 900, letterSpacing: '1px'
+                                                    borderRadius: 99, fontSize: 11, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase'
                                                 }}>
-                                                    {job.marcaId?.toUpperCase() || (job.tiendaNombre?.toLowerCase().includes('bembos') ? 'BEMBOS' : 'NGR')}
+                                                    {job.marcaNombre || config.name || job.marcaId}
                                                 </span>
                                                 {job.distance && (
                                                     <span style={{ color: colors.lavender, fontSize: 11, fontWeight: 700 }}>
@@ -400,9 +462,13 @@ export function JobsSection({
                                             <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 8, fontStyle: 'italic', color: 'white' }}>
                                                 {job.posicion || job.titulo}
                                             </h3>
-                                            <div style={{ display: 'flex', gap: 20, color: colors.lavender, fontSize: 13, fontWeight: 600 }}>
+                                            <div style={{ display: 'flex', gap: 20, color: colors.lavender, fontSize: 13, fontWeight: 600, flexWrap: 'wrap' }}>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <MapPin size={14} style={{ color: colors.yellow }} /> {job.tiendaNombre}
+                                                    <MapPin size={14} style={{ color: colors.yellow }} />
+                                                    {job.tiendaNombre}
+                                                    {job.tiendaDistrito ? ` • ${job.tiendaDistrito}` : ''}
+                                                    {job.tiendaProvincia ? `, ${job.tiendaProvincia}` : ''}
+                                                    {job.tiendaDepartamento ? `, ${job.tiendaDepartamento}` : ''}
                                                 </span>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                     <Clock size={14} style={{ color: colors.yellow }} /> {job.turno || 'Rotativo'}
@@ -429,6 +495,7 @@ export function JobsSection({
         </section>
     );
 }
+
 
 export function UneteSection({ config, holdingSlug }: { config: any, holdingSlug: string }) {
     const { colors } = config;

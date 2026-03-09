@@ -162,8 +162,9 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         }
     }
 
-    // Check for re-entry status
-    const { isReentry, lastHire } = hasHireHistory(localCandidate.applications || []);
+    // Check for re-entry status - Isolated by holding for non-super-admins
+    const userHoldingId = claims?.role === 'super_admin' ? null : (claims?.holdingId || claims?.tenant_id);
+    const { isReentry, lastHire } = hasHireHistory(localCandidate.applications || [], userHoldingId as string);
 
 
     // NEW: Select candidate for the position (sends email notification)
@@ -176,8 +177,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         const appToSelect = localCandidate.applications?.find(app => app.id === applicationId);
         if (!appToSelect) return;
 
-        // Check if candidate is already selected for another RQ
-        if (localCandidate.selectionStatus === 'selected') {
+        // Check if candidate is already selected for another RQ IN THE SAME HOLDING
+        const isAlreadySelectedInThisHolding = localCandidate.selectionStatus === 'selected' &&
+            localCandidate.selectedForHoldingId === userHoldingId;
+
+        if (isAlreadySelectedInThisHolding) {
             const selectedForApp = localCandidate.applications?.find(app => app.rqId === localCandidate.selectedForRQ);
 
             // Check if selected in the same store (different RQ)
@@ -189,18 +193,11 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
             else if (selectedForApp?.marcaId === appToSelect.marcaId) {
                 alert(`❌ Este candidato ya fue SELECCIONADO en otra tienda de esta marca:\n\n🏪 Tienda: ${selectedForApp?.tiendaNombre}\n📋 Posición: ${selectedForApp?.posicion}\n\nNo es posible seleccionarlo para otra posición en la misma marca.`);
                 return;
-            } else {
-                // Selected in different brand - show warning
-                const proceed = window.confirm(
-                    `⚠️ ATENCIÓN: Este candidato ya está SELECCIONADO en otra marca:\n\n` +
-                    `🏢 Marca: ${selectedForApp?.marcaNombre || 'Otra marca'}\n` +
-                    `🏪 Tienda: ${selectedForApp?.tiendaNombre}\n` +
-                    `📋 Posición: ${selectedForApp?.posicion}\n\n` +
-                    `Para seleccionarlo en esta marca, primero debe ser RECHAZADO en la otra.\n\n` +
-                    `¿Deseas continuar de todas formas? (No recomendado)`
-                );
-                if (!proceed) return;
             }
+        } else if (localCandidate.selectionStatus === 'selected') {
+            // Selected in different brand - show warning if recruiter has access to know (or just allow if isolated)
+            // For true multi-tenancy, we might want to hide this or handle it if candidates are shared.
+            // But the user specifically wants to avoid showing other holdings' info.
         }
 
         // Verify CUL is approved first
@@ -235,6 +232,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 selectedAt: new Date(),
                 selectedBy: user.uid,
                 selectedForRQ: appToSelect.rqId,
+                selectedForHoldingId: userHoldingId || appToSelect.holdingId || '',
                 applications: updatedApplications
             };
 
@@ -291,7 +289,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 tiendaId: selectedRQ.tiendaId || '',
                 tiendaNombre: selectedRQ.tiendaNombre || '',
                 origenConvocatoria: 'Reasignado por Recruiter',
-                categoria: selectedRQ.categoria // [NEW] Pass category
+                categoria: selectedRQ.categoria,
+                holdingId: userHoldingId as string || selectedRQ.holdingId || ''
             });
 
             alert(`✅ Candidato postulado exitosamente a ${selectedRQ.rqNumber} en ${selectedRQ.tiendaNombre}`);
@@ -329,6 +328,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 assignments: updatedAssignments,
                 selectionStatus: null,
                 selectedForRQ: null,
+                selectedForHoldingId: null,
                 updatedAt: Timestamp.now()
             });
 
@@ -337,7 +337,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 ...prev,
                 assignments: updatedAssignments,
                 selectionStatus: undefined,
-                selectedForRQ: undefined
+                selectedForRQ: undefined,
+                selectedForHoldingId: undefined
             }));
 
             alert('✅ Candidato limpiado para reingreso. Ahora puedes asignarlo a nuevas vacantes.');
@@ -721,6 +722,9 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 // Deduplicate by rqId, keeping most recent per RQ
                                 const appsMap = new Map();
                                 localCandidate.applications?.forEach(app => {
+                                    // Filter by holding for non-super-admins
+                                    if (userHoldingId && app.holdingId && app.holdingId !== userHoldingId) return;
+
                                     const key = app.rqId || `${app.tiendaId}-${app.posicion}`;
                                     const existing = appsMap.get(key);
                                     if (!existing || (app.appliedAt?.toDate?.() || app.appliedAt) > (existing.appliedAt?.toDate?.() || existing.appliedAt)) {

@@ -71,13 +71,19 @@ export async function getBlacklistEntries(): Promise<BlacklistEntry[]> {
 
 /**
  * Check if candidate has previous hire history (re-entry detection)
+ * Optional: filter by holdingId to isolate history between different clients
  */
-export function hasHireHistory(applications: any[]): { isReentry: boolean; lastHire: any } {
+export function hasHireHistory(applications: any[], holdingId?: string | null): { isReentry: boolean; lastHire: any } {
     if (!applications || applications.length === 0) {
         return { isReentry: false, lastHire: null };
     }
 
-    const hiredApplications = applications.filter(app => app.hiredStatus === 'hired');
+    let hiredApplications = applications.filter(app => app.hiredStatus === 'hired');
+
+    // Filter by holding if provided
+    if (holdingId) {
+        hiredApplications = hiredApplications.filter(app => app.holdingId === holdingId);
+    }
 
     if (hiredApplications.length > 0) {
         // Get most recent hire

@@ -141,6 +141,7 @@ export interface RQ {
     approvalFlow?: 'standard' | 'short'; // standard = SM->Sup->JM, short = Sup->JM (when Supervisor creates)
     categoria?: 'operativo' | 'gerencial'; // NEW: for filtering and analytics
     confidencial?: boolean; // NEW: secret recruitment
+    holdingId?: string; // [NEW] Alias or explicit for tenantId
 
     // Geolocation & SEO
     storeCoordinates?: { lat: number; lng: number };
@@ -298,6 +299,7 @@ export async function createRQInstances(
             deletion_approved: false,
 
             tenantId,
+            holdingId: tenantId, // Populate new field for consistency
             creadoPor,
             creadorEmail,
             createdByRole: creatorRole,

@@ -427,13 +427,15 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 );
                                             })()}
 
-                                            {/* Other Active Processes Badge */}
+                                            {/* Other Active Processes Badge - Filtered by holding */}
                                             {(() => {
+                                                const holdingId = (claims as any)?.tenant_id;
                                                 const otherActiveApps = candidate.applications?.filter((app: any) =>
                                                     app.tiendaId !== storeId &&
                                                     app.status !== 'rejected' &&
                                                     app.hiredStatus !== 'hired' &&
-                                                    app.hiredStatus !== 'not_hired'
+                                                    app.hiredStatus !== 'not_hired' &&
+                                                    (!holdingId || app.holdingId === holdingId)
                                                 ) || [];
                                                 if (otherActiveApps.length > 0) {
                                                     const otherBrands = [...new Set(otherActiveApps.map((app: any) => app.marcaNombre))].join(', ');
@@ -456,12 +458,22 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 </span>
                                             )}
 
-                                            {/* Warning if selected for another RQ */}
-                                            {candidate.selectionStatus === 'selected' && candidate.selectedForRQ !== latestApp?.rqId && (
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
-                                                    <span>⚠️</span> Sel. en otra tienda/RQ
-                                                </span>
-                                            )}
+                                            {/* Warning if selected for another RQ IN THE SAME HOLDING */}
+                                            {(() => {
+                                                const holdingId = (claims as any)?.tenant_id;
+                                                const isSelectedInThisHolding = candidate.selectionStatus === 'selected' &&
+                                                    (candidate.selectedForHoldingId === holdingId ||
+                                                        candidate.applications?.some(app => app.rqId === candidate.selectedForRQ && app.holdingId === holdingId));
+
+                                                if (isSelectedInThisHolding && candidate.selectedForRQ !== latestApp?.rqId) {
+                                                    return (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
+                                                            <span>⚠️</span> Sel. en otra tienda/RQ
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
 
                                         {/* Info */}

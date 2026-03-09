@@ -16,6 +16,7 @@ import ConfigurationView from '@/components/ConfigurationView';
 import DashboardHeader from '@/components/DashboardHeader';
 import ReportarBajaModal from '@/components/talent/ReportarBajaModal';
 import StoreScheduleConfig from '@/components/store-manager/StoreScheduleConfig';
+import InterviewAgenda from '@/components/store-manager/InterviewAgenda';
 
 export default function StoreManagerDashboard() {
     const { user, claims, signOut } = useAuth();
@@ -26,7 +27,7 @@ export default function StoreManagerDashboard() {
     const [showCreateRQModal, setShowCreateRQModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showBajaModal, setShowBajaModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'rqs' | 'selection' | 'aptos' | 'bajas' | 'horarios' | 'configuracion'>('rqs');
+    const [activeTab, setActiveTab] = useState<'rqs' | 'entrevistas' | 'selection' | 'aptos' | 'bajas' | 'horarios' | 'configuracion'>('rqs');
 
     // Load user assignment to get assigned store
     useEffect(() => {
@@ -195,6 +196,15 @@ export default function StoreManagerDashboard() {
                             )}
                         </button>
                         <button
+                            onClick={() => setActiveTab('entrevistas')}
+                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'entrevistas'
+                                ? 'border-violet-600 text-violet-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            📅 Entrevistas
+                        </button>
+                        <button
                             onClick={() => setActiveTab('selection')}
                             className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'selection'
                                 ? 'border-violet-600 text-violet-600'
@@ -303,30 +313,27 @@ export default function StoreManagerDashboard() {
                         </div>
                     )}
 
+                    {activeTab === 'entrevistas' && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-900">📅 Entrevistas Agendadas</h2>
+                                <span className="text-sm text-gray-500">Gestiona las entrevistas y registra resultados</span>
+                            </div>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                <InterviewAgenda
+                                    storeId={STORE_ID}
+                                    holdingId={assignment?.holdingId}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'selection' && (
                         <div className="space-y-6">
-                            <div className="flex gap-4 mb-4 border-b border-gray-100">
-                                <h2 className="text-xl font-bold text-gray-900 pb-2">🎯 Proceso de Selección</h2>
-                            </div>
-
-                            {/* Candidates and Interviews grouped under Selection */}
-                            <div className="grid grid-cols-1 gap-8">
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <span>👥</span> Candidatos Disponibles
-                                    </h3>
-                                    <CandidatesListView storeId={STORE_ID} />
-                                </div>
-
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <span>📅</span> Entrevistas Agendadas (Bot)
-                                    </h3>
-                                    <CandidatesListView
-                                        storeId={STORE_ID}
-                                        filterStatus="interview_scheduled"
-                                    />
-                                </div>
+                            <h2 className="text-xl font-bold text-gray-900">🎯 Proceso de Selección</h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                <h3 className="text-lg font-semibold mb-4">👥 Candidatos Disponibles</h3>
+                                <CandidatesListView storeId={STORE_ID} />
                             </div>
                         </div>
                     )}

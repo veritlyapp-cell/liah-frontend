@@ -1,14 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
-export default function PortalPage() {
+function PortalContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const holdingSlug = searchParams.get('holding');
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [vacancyCount, setVacancyCount] = useState<number | null>(null);
     const [step, setStep] = useState<'landing' | 'email' | 'checking' | 'magic_link_sent'>('landing');
+    const [brandColor, setBrandColor] = useState<string | null>(null);
+    const [brandName, setBrandName] = useState<string | null>(null);
+    const [brandLogo, setBrandLogo] = useState<string | null>(null);
 
     useEffect(() => {
         // Fetch vacancy count
@@ -22,7 +29,25 @@ export default function PortalPage() {
             }
         }
         fetchVacancyCount();
-    }, []);
+
+        async function fetchHoldingConfig() {
+            if (!holdingSlug) return;
+            try {
+                const q = query(collection(db, 'holdings'), where('slug', '==', holdingSlug.toLowerCase()));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    const data = snap.docs[0].data();
+                    const b = data.config?.branding || data.branding || {};
+                    if (b?.primaryColor) setBrandColor(b.primaryColor);
+                    if (data.nombre) setBrandName(data.nombre);
+                    if (data.logoUrl) setBrandLogo(data.logoUrl);
+                }
+            } catch (error) {
+                console.error('Error fetching holding:', error);
+            }
+        }
+        fetchHoldingConfig();
+    }, [holdingSlug]);
 
     async function handleEmailSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -51,7 +76,9 @@ export default function PortalPage() {
                 setStep('magic_link_sent');
             } else {
                 // New user - redirect to registration
-                router.push(`/portal/registro?email=${encodeURIComponent(email)}`);
+                let url = `/portal/registro?email=${encodeURIComponent(email)}`;
+                if (holdingSlug) url += `&holding=${holdingSlug}`;
+                router.push(url);
             }
         } catch (error) {
             console.error('Error checking user:', error);
@@ -63,24 +90,27 @@ export default function PortalPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-violet-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
+        <div
+            className="min-h-screen flex items-center justify-center p-4 transition-colors duration-500"
+            style={{ backgroundColor: brandColor || '#1E1B4B' }}
+        >
             {/* Background Effects */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-20 left-10 w-72 h-72 bg-violet-500/20 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl"></div>
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-20 left-10 w-72 h-72 bg-white/5 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-20 right-10 w-96 h-96 bg-white/5 rounded-full blur-3xl"></div>
             </div>
 
             <div className="relative z-10 max-w-lg w-full">
                 {/* Logo & Title */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-xl rounded-2xl mb-4 border border-white/20">
-                        <span className="text-4xl">💼</span>
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-xl rounded-2xl mb-4 border border-white/20 overflow-hidden">
+                        {brandLogo ? <img src={brandLogo} alt="Logo" className="w-full h-full object-cover p-2" /> : <span className="text-4xl">💼</span>}
                     </div>
-                    <h1 className="text-4xl font-bold text-white mb-2">
+                    <h1 className="text-4xl font-bold text-white mb-2 italic uppercase tracking-tighter">
                         Portal de Empleos
                     </h1>
                     <p className="text-white/70 text-lg">
-                        Encuentra oportunidades cerca de ti
+                        {brandName ? `Encuentra oportunidades en ${brandName}` : 'Encuentra oportunidades cerca de ti'}
                     </p>
                 </div>
 
@@ -212,9 +242,17 @@ export default function PortalPage() {
 
                 {/* Footer */}
                 <p className="text-white/40 text-center text-sm mt-6">
-                    Powered by <span className="text-violet-400 font-semibold">LIAH</span>
+                    Powered by <span className="text-white/80 font-semibold">LIAH</span>
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function PortalPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#1E1B4B]"></div>}>
+            <PortalContent />
+        </Suspense>
     );
 }
