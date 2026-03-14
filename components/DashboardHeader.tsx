@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import NotificationBell from '@/components/NotificationBell';
 import UserAvatarMenu from '@/components/UserAvatarMenu';
+
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -105,75 +106,62 @@ export default function DashboardHeader({
     const displayMarcaName = marcaName || marcaInfo?.nombre;
 
     return (
-        <header className="bg-white border-b border-gray-200 shadow-sm">
-            <div className="container-main py-4">
-                <div className="flex items-center justify-between">
-                    {/* Left: Logos and Title */}
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
-                        {/* Primary Logo: Holding or LIAH fallback */}
-                        <div className="flex-shrink-0">
-                            {displayHoldingLogo ? (
-                                <img
-                                    src={displayHoldingLogo}
-                                    alt={displayHoldingName || 'Empresa'}
-                                    className="h-8 w-auto object-contain"
-                                />
-                            ) : (
-                                <Logo size="sm" />
-                            )}
+        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100/50">
+            <div className="container-main">
+                <div className="h-20 flex items-center justify-between">
+                    {/* Left: Branding & Breadcrumbs */}
+                    <div className="flex items-center gap-3 md:gap-6 min-w-0 flex-1 pr-2">
+                        {/* Compact Logo Area for Mobile */}
+                        <div className="md:hidden flex-shrink-0">
+                            <Logo size="sm" variant="icon" />
                         </div>
 
-                        {/* Marca Logo (if exists and we are already showing a primary logo) */}
-                        {displayMarcaLogo && (
-                            <div className="flex items-center gap-4 flex-shrink-0">
-                                <span className="text-gray-300">|</span>
-                                <img
-                                    src={displayMarcaLogo}
-                                    alt={displayMarcaName || 'Marca'}
-                                    className="h-8 w-auto object-contain"
-                                />
-                            </div>
-                        )}
-
-                        {/* Additional Branding (LIAH if not shown as primary, or if user specifically needs it) */}
-                        {/* Note: We show LIAH as primary if no Holding logo exists. 
-                            If Holding exists, LIAH is hidden to avoid clutter as per user request. */}
-
-                        {/* Title */}
-                        <div className="ml-4 min-width-0 overflow-hidden">
-                            <h1 className="text-xl font-bold text-gray-900 truncate">
+                        {/* White-Label Breadcrumbs */}
+                        <nav className="flex items-center gap-1.5 md:gap-2.5 overflow-hidden min-w-0">
+                            <span className="hidden md:inline text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Platform</span>
+                            <span className="hidden md:block text-slate-300 w-px h-3 bg-slate-200 rotate-12 flex-shrink-0" />
+                            {displayMarcaName && (
+                                <>
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] truncate min-w-[30px]">{displayMarcaName}</span>
+                                    <span className="text-slate-300 w-px h-3 bg-slate-200 rotate-12 flex-shrink-0" />
+                                </>
+                            )}
+                            <h1 className="text-xs md:text-sm font-black text-slate-900 uppercase tracking-tight truncate flex items-center gap-2 italic">
                                 {title}
+                                {subtitle && <span className="text-xs font-medium text-slate-400 normal-case tracking-normal hidden lg:block opacity-60">/ {subtitle}</span>}
                             </h1>
-                            {subtitle && (
-                                <p className="text-sm text-gray-500 truncate">{subtitle}</p>
-                            )}
-                        </div>
+                        </nav>
                     </div>
 
-                    {/* Right: Notification Bell and User Menu */}
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                        {/* Product Switcher Button */}
+                    {/* Right Side: Action Tools */}
+                    <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
                         {showProductSwitcher && (
                             <button
                                 onClick={() => router.push('/launcher')}
-                                className="px-3 py-1.5 text-sm bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors flex items-center gap-1"
+                                className="hidden md:flex h-10 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl transition-all border border-slate-100 items-center gap-2 group"
                             >
-                                🔄 Cambiar Producto
+                                <div className="w-5 h-5 rounded-lg bg-white shadow-sm flex items-center justify-center text-[10px] group-hover:rotate-12 transition-transform">🔄</div>
+                                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Switch</span>
                             </button>
                         )}
 
-                        {/* Notification Bell */}
-                        <NotificationBell
-                            marcaId={marcaId}
-                            storeId={storeId}
-                            storeIds={storeIds}
-                        />
 
-                        {/* User Avatar Menu */}
-                        <UserAvatarMenu
-                            subtitle={subtitle}
-                            onConfigClick={onConfigClick}
-                        />
+
+                        <div className="flex items-center gap-1.5 p-1 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+
+                            <NotificationBell
+                                marcaId={marcaId}
+                                storeId={storeId}
+                                storeIds={storeIds}
+                            />
+
+                            <div className="w-px h-6 bg-slate-200 mx-1" />
+
+                            <UserAvatarMenu
+                                subtitle={subtitle}
+                                onConfigClick={onConfigClick}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

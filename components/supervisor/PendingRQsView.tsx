@@ -164,98 +164,130 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
 
     return (
         <div>
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    {/* Select All Checkbox */}
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={selectedRQs.size === filteredRQs.length && filteredRQs.length > 0}
-                            onChange={selectAll}
-                            className="w-5 h-5 text-violet-600 rounded focus:ring-violet-500"
-                        />
-                        <span className="text-sm text-gray-700">
-                            Seleccionar todos ({selectedRQs.size} seleccionados)
-                        </span>
-                    </label>
-
-                    {/* Store Filter */}
-                    <select
-                        value={selectedStore}
-                        onChange={(e) => setSelectedStore(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-violet-500 focus:border-violet-500"
-                    >
-                        <option value="all">Todas las tiendas ({storeNames.length})</option>
-                        {storeNames.map((name, idx) => (
-                            <option key={storeIds[idx]} value={storeIds[idx]}>
-                                {name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleBulkReject}
-                        disabled={selectedRQs.size === 0 || rejecting || approving}
-                        className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {rejecting ? 'Rechazando...' : `❌ Rechazar ${selectedRQs.size} RQ(s)`}
-                    </button>
-                    <button
-                        onClick={handleBulkApprove}
-                        disabled={selectedRQs.size === 0 || approving || rejecting}
-                        className="px-6 py-2 bg-violet-600 text-white rounded-lg font-semibold hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {approving ? 'Aprobando...' : `✅ Aprobar ${selectedRQs.size} RQ(s)`}
-                    </button>
-                </div>
-            </div>
-
-            {/* RQs List */}
-            {filteredRQs.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500 text-lg">✨ No hay RQs pendientes de aprobación</p>
-                    <p className="text-gray-400 text-sm mt-2">Los RQs aprobados aparecerán en la pestaña "RQs Aprobados"</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {filteredRQs.map(rq => (
-                        <div key={rq.id} className="flex items-start gap-4">
+            <div className="space-y-6">
+                {/* Toolbar */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Select All Checkbox */}
+                        <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
-                                checked={selectedRQs.has(rq.id)}
-                                onChange={() => toggleSelectRQ(rq.id)}
-                                className="mt-5 w-5 h-5 text-violet-600 rounded focus:ring-violet-500"
+                                checked={selectedRQs.size === filteredRQs.length && filteredRQs.length > 0}
+                                onChange={selectAll}
+                                className="w-5 h-5 text-violet-600 rounded focus:ring-violet-500"
                             />
-                            <div className="flex-1">
-                                <RQCard
-                                    rq={rq}
-                                    userRole="supervisor"
-                                    onUpdate={loadPendingRQs}
-                                    onInvite={(rq) => setSelectedRQForInvite(rq)}
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                            <span className="text-sm text-gray-700">
+                                Seleccionar todos ({selectedRQs.size} seleccionados)
+                            </span>
+                        </label>
 
-            {/* Invite Modal */}
-            {selectedRQForInvite && (
-                <InviteCandidateModal
-                    isOpen={true}
-                    onClose={() => setSelectedRQForInvite(null)}
-                    storeId={selectedRQForInvite.tiendaId || ''}
-                    storeName={selectedRQForInvite.tiendaNombre || ''}
-                    marcaId={selectedRQForInvite.marcaId}
-                    marcaNombre={selectedRQForInvite.marcaNombre}
-                    initialRQId={selectedRQForInvite.id}
-                    userRole="supervisor"
-                />
-            )}
+                        {/* Store Filter */}
+                        <select
+                            value={selectedStore}
+                            onChange={(e) => setSelectedStore(e.target.value)}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-violet-500 focus:border-violet-500"
+                        >
+                            <option value="all">Todas las tiendas ({storeNames.length})</option>
+                            {storeNames.map((name, idx) => (
+                                <option key={storeIds[idx]} value={storeIds[idx]}>
+                                    {name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Action Buttons - Always visible */}
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={handleBulkReject}
+                            disabled={selectedRQs.size === 0 || rejecting || approving}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                        >
+                            {rejecting ? 'Rechazando...' : `❌ Rechazar (${selectedRQs.size})`}
+                        </button>
+                        <button
+                            onClick={handleBulkApprove}
+                            disabled={selectedRQs.size === 0 || approving || rejecting}
+                            className="px-4 py-2 bg-violet-600 text-white rounded-lg font-semibold hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                        >
+                            {approving ? 'Aprobando...' : `✅ Aprobar (${selectedRQs.size})`}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Mobile Floating Action Bar - extra prominent */}
+                {selectedRQs.size > 0 && (
+                    <div className="md:hidden fixed bottom-20 left-4 right-4 z-[100]">
+                        <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(109,40,217,0.35)] border border-violet-200 p-3 flex gap-2">
+                            <button
+                                onClick={handleBulkReject}
+                                disabled={rejecting || approving}
+                                className="flex-1 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm active:scale-95"
+                            >
+                                {rejecting ? '...' : '❌ Rechazar'}
+                            </button>
+                            <button
+                                onClick={handleBulkApprove}
+                                disabled={approving || rejecting}
+                                className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-violet-300 active:scale-95"
+                            >
+                                {approving ? '...' : '✅ Aprobar'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* RQs List */}
+                {filteredRQs.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg">
+                        <p className="text-gray-500 text-lg">✨ No hay RQs pendientes de aprobación</p>
+                        <p className="text-gray-400 text-sm mt-2">Los RQs aprobados aparecerán en la pestaña "RQs Aprobados"</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {filteredRQs.map(rq => (
+                            <div key={rq.id} className="flex items-start gap-4">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedRQs.has(rq.id)}
+                                    onChange={() => toggleSelectRQ(rq.id)}
+                                    className="mt-5 w-5 h-5 text-violet-600 rounded focus:ring-violet-500"
+                                />
+                                <div className="flex-1">
+                                    <RQCard
+                                        rq={rq}
+                                        userRole="supervisor"
+                                        onUpdate={loadPendingRQs}
+                                        onApprove={async (id) => {
+                                            const res = await bulkApproveRQs([id], supervisorId, supervisorName, 'supervisor');
+                                            if (res.approved > 0) loadPendingRQs();
+                                        }}
+                                        onReject={async (id, reason) => {
+                                            const res = await bulkRejectRQs([id], supervisorId, supervisorName, 'supervisor', reason);
+                                            if (res.rejected > 0) loadPendingRQs();
+                                        }}
+                                        onInvite={(rq) => setSelectedRQForInvite(rq)}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Invite Modal */}
+                {selectedRQForInvite && (
+                    <InviteCandidateModal
+                        isOpen={true}
+                        onClose={() => setSelectedRQForInvite(null)}
+                        storeId={selectedRQForInvite.tiendaId || ''}
+                        storeName={selectedRQForInvite.tiendaNombre || ''}
+                        marcaId={selectedRQForInvite.marcaId}
+                        marcaNombre={selectedRQForInvite.marcaNombre}
+                        initialRQId={selectedRQForInvite.id}
+                        userRole="supervisor"
+                    />
+                )}
+            </div>
         </div>
     );
 }
