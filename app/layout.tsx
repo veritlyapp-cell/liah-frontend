@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import SessionMonitor from "@/components/SessionMonitor";
 import TrialBanner from "@/components/TrialBanner";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import PushNotificationManager from "@/components/PushNotificationManager";
 import Script from "next/script";
 
 const geistSans = Geist({
@@ -71,6 +72,7 @@ export default function RootLayout({
           <SessionMonitor />
           {children}
           <PWAInstallPrompt />
+          <PushNotificationManager />
         </AuthProvider>
 
         {/* Service Worker Registration */}

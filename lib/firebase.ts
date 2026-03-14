@@ -5,6 +5,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, Messaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,27 +16,16 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Debug logging
-console.log('[Firebase] Initializing...');
-console.log('[Firebase] apiKey exists:', !!firebaseConfig.apiKey);
-console.log('[Firebase] projectId:', firebaseConfig.projectId);
+// ... (existing logs)
 
-// Initialize Firebase - works in both client and server (API routes)
+// Initialize Firebase
 function getFirebaseApp() {
     if (getApps().length === 0) {
-        // Check if config is valid
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
-            // Only log warning, don't crash the build/runtime unless a service is actually called
-            console.warn('[Firebase] ⚠️ API Key missing! Environment variables might not be loaded.');
+            console.warn('[Firebase] ⚠️ API Key missing!');
             return null;
         }
-        try {
-            console.log('[Firebase] Creating new app instance...');
-            return initializeApp(firebaseConfig);
-        } catch (error) {
-            console.error('[Firebase] Error initializing app:', error);
-            return null;
-        }
+        return initializeApp(firebaseConfig);
     }
     return getApp();
 }
@@ -46,6 +36,13 @@ const app = getFirebaseApp();
 export const auth = app ? getAuth(app) : null as any;
 export const db = app ? getFirestore(app) : null as any;
 export const storage = app ? getStorage(app) : null as any;
+
+// Messaging (Client-only)
+export const messaging = async (): Promise<Messaging | null> => {
+    if (typeof window === 'undefined' || !app) return null;
+    const supported = await isSupported();
+    return supported ? getMessaging(app) : null;
+};
 
 // Secondary app for creating new users without logging out current admin
 let secondaryApp: any = null;
