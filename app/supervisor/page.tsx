@@ -12,9 +12,10 @@ import ConfigurationView from '@/components/ConfigurationView';
 import DashboardHeader from '@/components/DashboardHeader';
 import CandidatesListView from '@/components/CandidatesListView';
 import CompensacionesTab from '@/components/talent/CompensacionesTab';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
 
 export default function SupervisorDashboard() {
-    const { user, signOut } = useAuth();
+    const { user, claims, signOut } = useAuth();
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
     const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'create' | 'candidates' | 'compensaciones' | 'configuracion'>('pending');
     const [loading, setLoading] = useState(true);
@@ -68,75 +69,33 @@ export default function SupervisorDashboard() {
     const assignedStoreNames = assignment.assignedStores?.map(s => s.tiendaNombre) || [];
     const firstMarcaId = assignment.assignedStores?.[0]?.marcaId || '';
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Unified Header */}
-            <DashboardHeader
-                title="Dashboard Supervisor"
-                subtitle={`${assignment.displayName} • ${assignment.assignedStores?.length || 0} tiendas asignadas`}
-                holdingId={assignment.holdingId}
-                marcaId={firstMarcaId}
-                onConfigClick={() => setActiveTab('configuracion')}
-            />
+    const sidebarItems = [
+        { id: 'pending', label: 'Pendientes', icon: '⏳' },
+        { id: 'approved', label: 'Aprobados', icon: '✅' },
+        { id: 'create', label: 'Crear RQ', icon: '➕' },
+        { id: 'candidates', label: 'Candidatos', icon: '👥' },
+        { id: 'compensaciones', label: 'Compensas', icon: '📑' },
+        { id: 'configuracion', label: 'Config', icon: '⚙️' },
+    ];
 
-            {/* Content Container */}
-            <main className="container-main py-20 space-y-12">
+    return (
+        <DashboardLayout
+            items={sidebarItems}
+            activeTab={activeTab}
+            onTabChange={(id) => setActiveTab(id as any)}
+            title="Dashboard Supervisor"
+            subtitle={`${assignment.displayName}`}
+            holdingId={assignment.holdingId}
+            marcaId={firstMarcaId}
+            onConfigClick={() => setActiveTab('configuracion')}
+        >
+            <div className="space-y-12">
                 {/* Stats Cards - Hide if in config */}
                 {activeTab !== 'configuracion' && <SupervisorStatsCards storeIds={assignedStoreIds} />}
 
-                {/* Tabs */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="border-b border-gray-200">
-                        <nav className="flex -mb-px">
-                            <button
-                                onClick={() => setActiveTab('pending')}
-                                className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pending'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                ⏳ RQs Pendientes
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('approved')}
-                                className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'approved'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                ✅ RQs Aprobados
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('create')}
-                                className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'create'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                ➕ Crear RQ
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('candidates')}
-                                className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'candidates'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                👥 Candidatos
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('compensaciones')}
-                                className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'compensaciones'
-                                    ? 'border-violet-600 text-violet-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                📑 Compensaciones
-                            </button>
-                        </nav>
-                    </div>
-
-                    <div className="p-8">
+                {/* Content */}
+                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                    <div className="p-4 md:p-8">
                         {activeTab === 'pending' && (
                             <PendingRQsView
                                 storeIds={assignedStoreIds}
@@ -151,7 +110,7 @@ export default function SupervisorDashboard() {
                                 storeNames={assignedStoreNames}
                             />
                         )}
-                        {activeTab === 'create' && assignment && (
+                        {activeTab === 'create' && (
                             <SupervisorCreateRQView
                                 supervisorId={user?.uid || ''}
                                 supervisorName={assignment.displayName}
@@ -165,7 +124,7 @@ export default function SupervisorDashboard() {
                             </div>
                         )}
                         {activeTab === 'compensaciones' && (
-                            <div className="bg-white rounded-2xl p-8">
+                            <div className="bg-white rounded-2xl">
                                 <CompensacionesTab
                                     holdingId={assignment.holdingId}
                                     storeId={assignedStoreIds.length === 1 ? assignedStoreIds[0] : undefined}
@@ -179,7 +138,7 @@ export default function SupervisorDashboard() {
                         )}
                     </div>
                 </div>
-            </main>
-        </div>
+            </div>
+        </DashboardLayout>
     );
 }
