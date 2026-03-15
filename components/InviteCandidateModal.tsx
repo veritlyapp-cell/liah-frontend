@@ -87,8 +87,17 @@ export default function InviteCandidateModal({
                 ...doc.data()
             } as RQ));
 
-            // Additional client-side filter for active RQs only
-            let activeApprovedRQs = rqs.filter(rq => rq.status === 'active');
+            // Filter for active, non-closed/cancelled/filled RQs only
+            let activeApprovedRQs = rqs.filter(rq => {
+                // Must be in an active state (not closed, filled, or cancelled)
+                const isActiveStatus = rq.status === 'active' || rq.status === 'recruiting';
+                if (!isActiveStatus) return false;
+
+                // Exclude deleted RQs
+                if (rq.deletion_approved) return false;
+
+                return true;
+            });
 
             // NEW: Filter by category for Store Managers
             const effectiveRole = userRole || claims?.role;
