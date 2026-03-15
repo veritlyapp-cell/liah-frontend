@@ -353,9 +353,9 @@ export default function CompensacionesTab({ holdingId, marcaId, storeId }: Compe
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">📑 Módulo de Compensaciones</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">📑 Módulo de Compensaciones</h1>
                     <p className="text-sm text-gray-500 mt-1">Gestión de Altas y Bajas para T-Registro (SUNAT)</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -363,16 +363,17 @@ export default function CompensacionesTab({ holdingId, marcaId, storeId }: Compe
                         type="month"
                         value={periodo}
                         onChange={(e) => setPeriodo(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:ring-violet-500"
+                        className="border rounded-lg px-3 py-2 text-sm focus:ring-violet-500 min-w-0 flex-1 sm:flex-none"
                     />
                     <button
                         onClick={() => setShowBajaModal(true)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center gap-2 whitespace-nowrap"
+                        className="px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center gap-2 whitespace-nowrap flex-shrink-0 shadow-lg shadow-red-600/20"
                     >
                         📤 Reportar Baja
                     </button>
                 </div>
             </div>
+
 
             <div className="flex border-b border-gray-200">
                 <button
@@ -399,17 +400,17 @@ export default function CompensacionesTab({ holdingId, marcaId, storeId }: Compe
 
             {activeTab === 'ingresos' ? (
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <h3 className="font-semibold text-gray-900">Personal Validado para Alta</h3>
                         <button
                             onClick={downloadAltasTXT}
-                            className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 flex items-center gap-2"
+                            className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 flex items-center gap-2 whitespace-nowrap"
                         >
                             📥 Exportar .txt (T-Registro)
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow overflow-hidden">
+                    <div className="bg-white rounded-xl shadow overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                                 <tr>
@@ -511,7 +512,7 @@ export default function CompensacionesTab({ holdingId, marcaId, storeId }: Compe
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow overflow-hidden">
+                    <div className="bg-white rounded-xl shadow overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                                 <tr>

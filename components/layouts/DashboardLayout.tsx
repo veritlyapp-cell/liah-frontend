@@ -171,7 +171,7 @@ export default function DashboardLayout({
                 />
 
                 {/* Main Content with Consistent Padding */}
-                <main className="p-6 md:p-10 pb-[calc(100px+env(safe-area-inset-bottom))] md:pb-20 max-w-[1600px] w-full mx-auto">
+                <main className="p-4 md:p-10 pb-[calc(120px+env(safe-area-inset-bottom))] md:pb-20 max-w-[1600px] w-full mx-auto">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -187,20 +187,25 @@ export default function DashboardLayout({
             </div>
 
             {/* Mobile Bottom Navigation */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-                <div className="flex items-center justify-around h-[64px] px-2">
-                    {items.filter(item => !item.hidden).slice(0, 6).map((item) => {
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 z-50 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(0,0,0,0.08)]">
+                <div className="flex items-center overflow-x-auto hide-scrollbar h-[68px] px-1 gap-0">
+                    {items.filter(item => !item.hidden).slice(0, 7).map((item) => {
                         const isActive = activeTab === item.id;
+                        const visibleItems = items.filter(i => !i.hidden).length;
+                        const minW = visibleItems > 5 ? 'min-w-[56px]' : 'min-w-[64px]';
                         return (
                             <button
                                 key={item.id}
                                 onClick={() => onTabChange(item.id)}
-                                className={`flex flex-col items-center justify-center flex-1 h-full min-w-[64px] transition-all duration-300 ${isActive ? 'text-brand' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`flex flex-col items-center justify-center flex-1 h-full ${minW} px-1 transition-all duration-300 relative ${isActive ? 'text-brand' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                <span className={`${isActive ? '-translate-y-0.5 scale-110' : ''} transition-all duration-300`}>
-                                    {React.isValidElement(item.icon) ? React.cloneElement(item.icon as React.ReactElement<any>, { size: 24, strokeWidth: isActive ? 2.5 : 2 }) : item.icon}
+                                {isActive && (
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-brand rounded-b-full" />
+                                )}
+                                <span className={`text-lg ${isActive ? '-translate-y-0.5 scale-110' : ''} transition-all duration-300`}>
+                                    {React.isValidElement(item.icon) ? React.cloneElement(item.icon as React.ReactElement<any>, { size: 20, strokeWidth: isActive ? 2.5 : 2 }) : item.icon}
                                 </span>
-                                <span className={`text-[10px] font-black uppercase tracking-widest leading-none mt-1 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-70'}`}>{item.label.slice(0, 10)}</span>
+                                <span className={`text-[8px] font-bold uppercase tracking-wider leading-none mt-1 transition-all duration-300 truncate max-w-[56px] text-center ${isActive ? 'opacity-100 font-black' : 'opacity-60'}`}>{item.label.length > 8 ? item.label.slice(0, 8) : item.label}</span>
                             </button>
                         );
                     })}
