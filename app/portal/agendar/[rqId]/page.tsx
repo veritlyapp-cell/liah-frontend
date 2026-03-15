@@ -348,7 +348,13 @@ function AgendarContent() {
                         </div>
                     </div>
 
-                    <button onClick={() => router.push(`/portal/vacantes`)}
+                    <button onClick={() => {
+                        if (holdingSlug) {
+                            router.push(`/empleos/${holdingSlug}`);
+                        } else {
+                            router.push(`/portal/vacantes`);
+                        }
+                    }}
                         className="w-full py-5 text-white rounded-2xl font-black uppercase italic text-lg tracking-wider hover:brightness-110 transition-all shadow-xl active:scale-[0.98]"
                         style={{ backgroundColor: accent }}>
                         Volver al Portal
@@ -425,10 +431,10 @@ function AgendarContent() {
                                     onClick={() => slot.available && setSelectedSlot(slot.id)}
                                     disabled={!slot.available}
                                     className={`py-6 px-4 rounded-[2rem] border-2 transition-all text-center relative overflow-hidden active:scale-[0.98] ${selectedSlot === slot.id
-                                            ? 'bg-white border-violet-600 shadow-xl shadow-violet-100 ring-2 ring-violet-600/10'
-                                            : !slot.available
-                                                ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-60'
-                                                : 'bg-white border-gray-100 hover:border-violet-200 text-gray-400 hover:text-gray-600'
+                                        ? 'bg-white border-violet-600 shadow-xl shadow-violet-100 ring-2 ring-violet-600/10'
+                                        : !slot.available
+                                            ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-60'
+                                            : 'bg-white border-gray-100 hover:border-violet-200 text-gray-400 hover:text-gray-600'
                                         }`}
                                 >
                                     <span className={`text-xl font-black uppercase italic tracking-tight ${selectedSlot === slot.id ? 'text-gray-900' : ''}`}>

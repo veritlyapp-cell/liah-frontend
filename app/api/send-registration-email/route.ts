@@ -14,7 +14,8 @@ export async function POST(request: Request) {
             holdingName,
             holdingLogo,
             marcaLogo,
-            marcaNombre
+            marcaNombre,
+            primaryColor
         } = await request.json();
 
         if (!candidateEmail) {
@@ -46,9 +47,11 @@ export async function POST(request: Request) {
             </div>
         ` : '';
 
+        const accentColor = primaryColor || '#7c3aed';
+
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'LIAH <noreply@notifications.getliah.com>',
+            from: `${companyName} - Registro <noreply@notifications.getliah.com>`,
             to: candidateEmail,
             subject: `¡Registro Exitoso en ${companyName}!`,
             html: `
@@ -56,7 +59,7 @@ export async function POST(request: Request) {
                     ${logoSection}
                     
                     <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #7c3aed; margin: 0;">¡Bienvenido/a, ${candidateName || 'Candidato'}! 🎉</h1>
+                        <h1 style="color: ${accentColor}; margin: 0;">¡Bienvenido/a, ${candidateName || 'Candidato'}! 🎉</h1>
                     </div>
                     
                     <p style="font-size: 16px; color: #333;">
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
                     </p>
                     
                     <div style="background: linear-gradient(135deg, #f5f3ff, #ecfeff); padding: 20px; border-radius: 12px; margin: 20px 0;">
-                        <h3 style="color: #7c3aed; margin-top: 0;">📋 ¿Qué sigue?</h3>
+                        <h3 style="color: ${accentColor}; margin-top: 0;">📋 ¿Qué sigue?</h3>
                         <ol style="color: #333; line-height: 1.8;">
                             <li>Revisaremos tu perfil y documentos</li>
                             <li>Te notificaremos si has sido seleccionado/a para la posición</li>
@@ -75,7 +78,7 @@ export async function POST(request: Request) {
                     ${applicationLink ? `
                     <div style="text-align: center; margin: 30px 0;">
                         <a href="${applicationLink}" 
-                           style="background: linear-gradient(135deg, #7c3aed, #06b6d4); 
+                           style="background: linear-gradient(135deg, ${accentColor}, #06b6d4); 
                                   color: white; 
                                   padding: 15px 30px; 
                                   text-decoration: none; 

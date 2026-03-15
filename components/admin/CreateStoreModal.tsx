@@ -23,7 +23,10 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
     const [lat, setLat] = useState<number | ''>('');
     const [lng, setLng] = useState<number | ''>('');
     const [marcas, setMarcas] = useState<any[]>([]);
+    const [zonas, setZonas] = useState<any[]>([]);
+    const [zonaId, setZonaId] = useState('');
     const [loadingMarcas, setLoadingMarcas] = useState(true);
+    const [loadingZonas, setLoadingZonas] = useState(true);
     const [saving, setSaving] = useState(false);
 
     // Geographic data
@@ -62,8 +65,26 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
     useEffect(() => {
         if (show) {
             loadMarcas();
+            loadZonas();
         }
     }, [show]);
+
+    async function loadZonas() {
+        try {
+            const zonasRef = collection(db, 'zones');
+            const q = query(zonasRef, where('holdingId', '==', holdingId));
+            const snapshot = await getDocs(q);
+            const loadedZonas = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setZonas(loadedZonas);
+        } catch (error) {
+            console.error('Error loading zonas:', error);
+        } finally {
+            setLoadingZonas(false);
+        }
+    }
 
     async function loadMarcas() {
         try {
@@ -119,6 +140,7 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
             }
 
             const selectedMarca = marcas.find(m => m.id === marcaId);
+            const selectedZona = zonas.find(z => z.id === zonaId);
 
             // Generar código de tienda automático
             const marcaPrefix = selectedMarca?.nombre.substring(0, 3).toUpperCase() || 'TDA';
@@ -128,7 +150,7 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
             const storeNumber = existingStores.size + 1;
             const codigo = `TDA-${marcaPrefix}-${String(storeNumber).padStart(3, '0')}`;
 
-            const storeData = {
+            const storeData: any = {
                 codigo, // Código único de tienda
                 nombre,
                 marcaId,
@@ -144,6 +166,11 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
+
+            if (selectedZona) {
+                storeData.zonaId = selectedZona.id;
+                storeData.zonaNombre = selectedZona.nombre;
+            }
 
             const docRef = await addDoc(tiendasRef, storeData);
 
@@ -168,6 +195,7 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
             setProvincia('');
             setDistrito('');
             setDireccion('');
+            setZonaId('');
             setAvailableProvinces([]);
             setAvailableDistricts([]);
         } catch (error) {
@@ -214,6 +242,27 @@ export default function CreateStoreModal({ show, holdingId, onCancel, onSave }: 
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Zona (Opcional) */}
+                            {!loadingZonas && zonas.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Zona Geográfica (Opcional)
+                                    </label>
+                                    <select
+                                        value={zonaId}
+                                        onChange={(e) => setZonaId(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    >
+                                        <option value="">Ninguna / No Aplica</option>
+                                        {zonas.map(zona => (
+                                            <option key={zona.id} value={zona.id}>
+                                                {zona.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             {/* Nombre de Tienda */}
                             <div>

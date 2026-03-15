@@ -18,7 +18,8 @@ export async function POST(request: Request) {
             // NEW: Dynamic branding fields
             holdingName,
             holdingLogo,
-            marcaLogo
+            marcaLogo,
+            primaryColor
         } = await request.json();
 
         if (!candidateEmail) {
@@ -51,9 +52,11 @@ export async function POST(request: Request) {
             </div>
         ` : '';
 
+        const accentColor = primaryColor || '#7c3aed';
+
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'LIAH <noreply@notifications.getliah.com>',
+            from: `${companyName} - Selección <noreply@notifications.getliah.com>`,
             to: candidateEmail,
             subject: `Invitación para postular a ${posicion} en ${marcaNombre}`,
             html: `
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
                     ${logoSection}
                     
                     <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #7c3aed; margin: 0;">¡Hola! 👋</h1>
+                        <h1 style="color: ${accentColor}; margin: 0;">¡Hola! 👋</h1>
                         <p style="font-size: 18px; color: #4B5563; margin-top: 10px;">
                             Te invitamos a formar parte de <strong>${marcaNombre}</strong>
                         </p>
@@ -84,7 +87,7 @@ export async function POST(request: Request) {
                     
                     <div style="text-align: center; margin-bottom: 30px;">
                         <a href="${invitationLink}" 
-                           style="background: linear-gradient(135deg, #7c3aed, #06b6d4); 
+                           style="background: linear-gradient(135deg, ${accentColor}, #06b6d4); 
                                   color: white; 
                                   padding: 16px 32px; 
                                   text-decoration: none; 

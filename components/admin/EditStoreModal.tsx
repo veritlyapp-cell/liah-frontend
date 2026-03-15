@@ -20,6 +20,10 @@ export default function EditStoreModal({ show, store, onCancel, onSave }: EditSt
     const [direccion, setDireccion] = useState('');
     const [saving, setSaving] = useState(false);
 
+    const [zonas, setZonas] = useState<any[]>([]);
+    const [zonaId, setZonaId] = useState('');
+    const [loadingZonas, setLoadingZonas] = useState(false);
+
     // Geographic data
     const departments = getDepartmentNames();
     const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
@@ -33,8 +37,33 @@ export default function EditStoreModal({ show, store, onCancel, onSave }: EditSt
             setProvincia(store.provincia || '');
             setDistrito(store.distrito || '');
             setDireccion(store.direccion || '');
+            setZonaId(store.zonaId || '');
+
+            // Fetch zonas for this holding
+            if (store.holdingId) {
+                loadZonas(store.holdingId);
+            }
         }
     }, [show, store]);
+
+    async function loadZonas(holdingId: string) {
+        setLoadingZonas(true);
+        try {
+            const { collection, query, where, getDocs } = await import('firebase/firestore');
+            const zonasRef = collection(db, 'zones');
+            const q = query(zonasRef, where('holdingId', '==', holdingId));
+            const snapshot = await getDocs(q);
+            const loadedZonas = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setZonas(loadedZonas);
+        } catch (error) {
+            console.error('Error loading zonas in edit modal:', error);
+        } finally {
+            setLoadingZonas(false);
+        }
+    }
 
     // Update provinces when department changes
     useEffect(() => {
@@ -87,14 +116,26 @@ export default function EditStoreModal({ show, store, onCancel, onSave }: EditSt
         try {
             const storeRef = doc(db, 'tiendas', store.id);
 
-            await updateDoc(storeRef, {
+            const updateData: any = {
                 nombre,
                 departamento,
                 provincia,
                 distrito,
                 direccion,
                 updatedAt: Timestamp.now()
-            });
+            };
+
+            const selectedZona = zonas.find(z => z.id === zonaId);
+            if (selectedZona) {
+                updateData.zonaId = selectedZona.id;
+                updateData.zonaNombre = selectedZona.nombre;
+            } else if (zonaId === '') {
+                // Allows unsetting the zone
+                updateData.zonaId = '';
+                updateData.zonaNombre = '';
+            }
+
+            await updateDoc(storeRef, updateData);
 
             console.log('✅ Tienda actualizada en Firestore:', store.id);
             alert(`✅ Tienda "${nombre}" actualizada exitosamente!`);
@@ -107,6 +148,7 @@ export default function EditStoreModal({ show, store, onCancel, onSave }: EditSt
             setProvincia('');
             setDistrito('');
             setDireccion('');
+            setZonaId('');
             setAvailableProvinces([]);
             setAvailableDistricts([]);
         } catch (error) {
@@ -138,7 +180,29 @@ export default function EditStoreModal({ show, store, onCancel, onSave }: EditSt
                         </p>
                     </div>
 
+                    {/* Zona Selector */}
+                    {!loadingZonas && zonas.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Zona Geográfica (Opcional)
+                            </label>
+                            <select
+                                value={zonaId}
+                                onChange={(e) => setZonaId(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
+                                <option value="">Ninguna / No Aplica</option>
+                                {zonas.map(zona => (
+                                    <option key={zona.id} value={zona.id}>
+                                        {zona.nombre}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     {/* Nombre de Tienda */}
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Nombre de Tienda *

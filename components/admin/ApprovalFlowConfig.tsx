@@ -133,6 +133,8 @@ export default function ApprovalFlowConfig({ holdingId }: ApprovalFlowConfigProp
                                     <option value="store_manager">Gerente de Tienda (Creator)</option>
                                     <option value="supervisor">Supervisor</option>
                                     <option value="jefe_marca">Jefe de Marca</option>
+                                    <option value="jefe_zonal">Jefe Zonal (Zonas)</option>
+                                    <option value="hrbp">HRBP (Zonas)</option>
                                     <option value="recruiter">Recruiter / Talent (Aprobador Final)</option>
                                     <option value="holding_admin">Admin General</option>
                                 </select>

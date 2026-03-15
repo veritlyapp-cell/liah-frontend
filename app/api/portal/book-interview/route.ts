@@ -74,9 +74,25 @@ export async function POST(request: NextRequest) {
         // Fetch RQ info for store address and branding
         const rqDoc = await db.collection('rqs').doc(rqId).get();
         const rqData = rqDoc.data() || {};
-        const storeAddress = rqData.storeAddress || rqData.tiendaDireccion || '';
+
+        const storeId = rqData.tiendaId || '';
+        const holdingId = rqData.holdingId || rqData.tenantId || '';
         const storeName = rqData.tiendaNombre || '';
+        let storeAddress = rqData.storeAddress || rqData.tiendaDireccion || '';
         const position = rqData.posicion || rqData.puesto || 'Puesto Requerido';
+
+        // Fetch store address if missing (fall back to stores collection)
+        if (!storeAddress && storeId) {
+            try {
+                const tiendaDoc = await db.collection('tiendas').doc(storeId).get();
+                if (tiendaDoc.exists) {
+                    const t = tiendaDoc.data()!;
+                    storeAddress = t.direccion || t.address || '';
+                }
+            } catch (e) {
+                console.warn('[Book Interview] Could not fetch store address:', e);
+            }
+        }
 
         // Fetch brand color
         let brandColor = '#4F46E5';
@@ -108,6 +124,9 @@ export async function POST(request: NextRequest) {
                 slotDate,
                 slotTime,
                 position,
+                storeId,
+                holdingId,
+                storeAddress,
                 updatedAt: AdminFieldValue.serverTimestamp()
             });
         } else {
@@ -123,7 +142,9 @@ export async function POST(request: NextRequest) {
                 slotDate,
                 slotTime,
                 status: 'scheduled',
+                holdingId,
                 holdingSlug: holdingSlug || '',
+                storeId,
                 storeName,
                 storeAddress,
                 position,
@@ -145,7 +166,7 @@ export async function POST(request: NextRequest) {
             const calLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&location=${calendarLoc}`;
 
             await resend.emails.send({
-                from: `${brandName} - LIAH <noreply@notifications.getliah.com>`,
+                from: `${brandName} - Selección <noreply@notifications.getliah.com>`,
                 to: candidateData.email,
                 subject: '✅ Entrevista Confirmada',
                 html: `

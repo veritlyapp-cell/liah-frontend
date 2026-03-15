@@ -9,20 +9,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import InviteCandidateModal from '@/components/InviteCandidateModal';
 import { exportRQsExcel } from '@/lib/utils/export-excel';
 import AdminCreateRQFlow from '@/components/admin/AdminCreateRQFlow';
+import { BarChart3, FileText, LayoutDashboard, Search, Filter, Monitor, Clock, ChevronRight, Building2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface RQTrackingViewProps {
     holdingId: string;
     marcas: { id: string; nombre: string }[];
+    allowedStoreIds?: string[];
 }
 
-export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProps) {
+export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: RQTrackingViewProps) {
     const { user, claims } = useAuth();
     const [rqs, setRQs] = useState<RQ[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>('active'); // Default to active (pending or approved, not closed)
     const [marcaFilter, setMarcaFilter] = useState<string>('all');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
+    const [dateFilter, setDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
     const [rejecting, setRejecting] = useState<string | null>(null);
     const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
     const [selectedRQForHistory, setSelectedRQForHistory] = useState<RQ | null>(null);
@@ -30,7 +34,7 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
 
     useEffect(() => {
         loadRQs();
-    }, [marcas]);
+    }, [marcas, allowedStoreIds]);
 
     async function loadRQs() {
         if (marcas.length === 0) {
@@ -48,10 +52,16 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
             );
 
             const snapshot = await getDocs(q);
-            const loadedRQs = snapshot.docs.map(doc => ({
+            let loadedRQs = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             } as RQ)).filter(rq => rq.status !== 'cancelled');
+
+            // If allowedStoreIds is provided, filter the RQs to only include those belonging to the allowed stores
+            if (allowedStoreIds) {
+                const allowedSet = new Set(allowedStoreIds);
+                loadedRQs = loadedRQs.filter(rq => rq.tiendaId && allowedSet.has(rq.tiendaId));
+            }
 
             // Sort by createdAt descending
             loadedRQs.sort((a, b) => {
@@ -84,10 +94,17 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
 
         // Status filter
         if (statusFilter !== 'all') {
-            if (statusFilter === 'pending' && rq.approvalStatus !== 'pending') return false;
-            if (statusFilter === 'approved' && (rq.approvalStatus !== 'approved' || rq.status === 'closed' || rq.status === 'filled')) return false;
-            if (statusFilter === 'rejected' && rq.approvalStatus !== 'rejected') return false;
-            if (statusFilter === 'closed' && rq.status !== 'closed' && rq.status !== 'filled') return false;
+            if (statusFilter === 'active') {
+                // Show approved (active) and pending
+                const isApprovedNotClosed = rq.approvalStatus === 'approved' && rq.status !== 'closed' && rq.status !== 'filled';
+                const isPending = rq.approvalStatus === 'pending';
+                if (!isApprovedNotClosed && !isPending) return false;
+            } else {
+                if (statusFilter === 'pending' && rq.approvalStatus !== 'pending') return false;
+                if (statusFilter === 'approved' && (rq.approvalStatus !== 'approved' || rq.status === 'closed' || rq.status === 'filled')) return false;
+                if (statusFilter === 'rejected' && rq.approvalStatus !== 'rejected') return false;
+                if (statusFilter === 'closed' && rq.status !== 'closed' && rq.status !== 'filled') return false;
+            }
         }
 
         // Marca filter
@@ -99,29 +116,56 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
             if (categoryFilter === 'gerencial' && rq.categoria !== 'gerencial') return false;
         }
 
+        // Date filter
+        if (dateFilter !== 'todos') {
+            const createdAt = rq.createdAt?.toDate ? rq.createdAt.toDate() : new Date(rq.createdAt);
+            const now = new Date();
+            const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+            if (dateFilter === 'semana' && diffDays > 7) return false;
+            if (dateFilter === 'mes' && diffDays > 30) return false;
+        }
+
         return true;
     });
 
     function getStatusBadge(rq: RQ) {
         if (rq.status === 'filled') {
-            return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">✅ Cubierto</span>;
+            return (
+                <div className="soft-badge-emerald">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Cubierto
+                </div>
+            );
         }
         if (rq.status === 'closed') {
-            return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">🔒 Cerrado</span>;
+            return (
+                <div className="soft-badge-slate">
+                    Cerrado
+                </div>
+            );
         }
         if (rq.approvalStatus === 'approved') {
-            return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">✅ Aprobado</span>;
+            return (
+                <div className="soft-badge-brand">
+                    Aprobado
+                </div>
+            );
         }
         if (rq.approvalStatus === 'rejected') {
-            return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">❌ Rechazado</span>;
+            return (
+                <div className="soft-badge-rose">
+                    Rechazado
+                </div>
+            );
         }
 
         const levels = ['', 'Tienda', 'Supervisor', 'Jefe Marca'];
         const currentLevel = rq.currentApprovalLevel || 1;
         return (
-            <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800">
-                ⏳ Esperando: {levels[currentLevel] || 'Nivel ' + currentLevel}
-            </span>
+            <div className="soft-badge-amber">
+                <Clock size={10} className="animate-spin-slow" />
+                {levels[currentLevel] || 'Nivel ' + currentLevel}
+            </div>
         );
     }
 
@@ -206,192 +250,266 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
     }
 
     return (
-        <div>
-            {/* Header */}
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Seguimiento de Requerimientos</h2>
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">Visualiza el estado de todos los RQs de tus marcas</p>
-                    <div className="flex items-center gap-3">
+        <div className="space-y-8 animate-fade-in">
+            {/* Context Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic mb-1">
+                        Seguimiento de RQs
+                    </h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        Gestión centralizada de requerimientos activos
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => exportRQsExcel(filteredRQs)}
+                        className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                    >
+                        <BarChart3 size={16} />
+                        Exportar Excel
+                    </button>
+                    {canCreateRQs && (
                         <button
-                            onClick={() => exportRQsExcel(filteredRQs)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                            onClick={() => setShowCreateFlow(true)}
+                            className="px-6 py-2.5 brand-bg text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all flex items-center gap-2 shadow-xl shadow-brand/20"
                         >
-                            <span>📊 Exportar a Excel</span>
+                            <FileText size={16} />
+                            Crear Nuevo RQ
                         </button>
-                        {canCreateRQs && (
-                            <button
-                                onClick={() => setShowCreateFlow(true)}
-                                className="px-4 py-2 gradient-bg text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
-                            >
-                                <span>➕ Crear RQ</span>
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Search */}
-                    <div className="md:col-span-1">
+            {/* Premium Stats Widgets */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {[
+                    { label: 'Total RQs', val: rqs.length, color: 'slate' },
+                    { label: 'Pendientes', val: rqs.filter(r => r.approvalStatus === 'pending').length, color: 'amber' },
+                    { label: 'Aprobados', val: rqs.filter(r => r.approvalStatus === 'approved' && r.status !== 'closed').length, color: 'emerald' },
+                    { label: 'Cerrados', val: rqs.filter(r => r.status === 'closed' || r.status === 'filled').length, color: 'slate' },
+                    { label: 'Rechazados', val: rqs.filter(r => r.approvalStatus === 'rejected').length, color: 'rose' },
+                ].map((stat, i) => (
+                    <div key={i} className="white-label-card p-6 flex flex-col items-center justify-center text-center group hover:border-brand/30 transition-all">
+                        <span className={`text-3xl font-black italic tracking-tighter text-${stat.color}-500 mb-1 group-hover:scale-110 transition-transform`}>
+                            {stat.val}
+                        </span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                            {stat.label}
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Intelligent Filters */}
+            <div className="white-label-card p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex-1 min-w-[280px] relative group">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</div>
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="🔍 Buscar..."
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                            placeholder="Buscar por tienda, posición o número..."
+                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand focus:bg-white transition-all outline-none"
                         />
                     </div>
 
-                    {/* Status Filter */}
-                    <div>
+                    <div className="flex items-center gap-3">
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                            className="px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none hover:bg-slate-100 transition-all"
                         >
-                            <option value="all">Todos los estados</option>
-                            <option value="pending">⏳ Pendientes</option>
-                            <option value="approved">✅ Aprobados</option>
-                            <option value="closed">🔒 Cerrados</option>
-                            <option value="rejected">❌ Rechazados</option>
+                            <option value="active">RQs Activos</option>
+                            <option value="all">Filtro Estado: Todos</option>
+                            <option value="pending">Pendientes</option>
+                            <option value="approved">Aprobados</option>
+                            <option value="closed">Cerrados</option>
+                            <option value="rejected">Rechazados</option>
                         </select>
-                    </div>
 
-                    {/* Marca Filter */}
-                    <div>
                         <select
                             value={marcaFilter}
                             onChange={(e) => setMarcaFilter(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                            className="px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none hover:bg-slate-100 transition-all"
                         >
-                            <option value="all">Todas las marcas</option>
+                            <option value="all">Todas las Marcas</option>
                             {marcas.map(m => (
                                 <option key={m.id} value={m.id}>{m.nombre}</option>
                             ))}
                         </select>
-                    </div>
 
-                    {/* Category Filter */}
-                    <div>
                         <select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value as any)}
+                            className="px-4 py-2.5 bg-blue-50 border border-blue-100 text-blue-600 rounded-xl text-xs font-black uppercase tracking-widest outline-none hover:bg-blue-100 transition-all"
                         >
-                            <option value="all">Todas las categorías</option>
-                            <option value="operativo">👷 Operativos</option>
-                            <option value="gerencial">👔 Gerenciales</option>
+                            <option value="semana">📅 Última Semana</option>
+                            <option value="mes">📅 Último Mes</option>
+                            <option value="todos">📅 Todo el Historial</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            {/* Stats Summary */}
-            <div className="grid grid-cols-5 gap-4 mb-6">
-                <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-gray-900">{rqs.length}</p>
-                    <p className="text-sm text-gray-500">Total RQs</p>
-                </div>
-                <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-amber-700">{rqs.filter(r => r.approvalStatus === 'pending').length}</p>
-                    <p className="text-sm text-amber-600">Pendientes</p>
-                </div>
-                <div className="bg-green-50 rounded-lg border border-green-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-green-700">{rqs.filter(r => r.approvalStatus === 'approved' && r.status !== 'closed').length}</p>
-                    <p className="text-sm text-green-600">Aprobados</p>
-                </div>
-                <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-blue-700">{rqs.filter(r => r.status === 'closed' || r.status === 'filled').length}</p>
-                    <p className="text-sm text-blue-600">Cerrados</p>
-                </div>
-                <div className="bg-red-50 rounded-lg border border-red-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-red-700">{rqs.filter(r => r.approvalStatus === 'rejected').length}</p>
-                    <p className="text-sm text-red-600">Rechazados</p>
-                </div>
-            </div>
-
-            {/* Table */}
+            {/* Premium Table Container */}
             {filteredRQs.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                    <p className="text-gray-500">No se encontraron RQs</p>
+                <div className="white-label-card py-20 text-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <Search className="text-slate-300" size={32} />
+                    </div>
+                    <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No se encontraron requerimientos</p>
+                    <p className="text-xs text-slate-400 mt-2">Prueba ajustando los filtros de búsqueda</p>
                 </div>
             ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">RQ #</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tienda</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posición</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Vacantes</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Creado</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Historial Aprobaciones</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredRQs.map(rq => (
-                                <tr key={rq.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-violet-700">
-                                        {rq.rqNumber || `#${rq.id.slice(-6)}`}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <div className="white-label-card overflow-hidden">
+                    {/* Desktop Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100">
+                            <thead>
+                                <tr className="bg-slate-50/50">
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Referencia</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contexto</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Vacantes</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creado</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Aprobación</th>
+                                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredRQs.map(rq => (
+                                    <tr key={rq.id} className="group hover:bg-slate-50/80 transition-all">
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-black text-slate-900 group-hover:text-brand transition-colors italic">
+                                                    {rq.rqNumber || `#${rq.id.slice(-6)}`}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{rq.categoria || 'OPERATIVO'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-700">{rq.posicion}</span>
+                                                <span className="text-xs text-slate-400">{rq.tiendaNombre}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-slate-900">{rq.vacantes}</span>
+                                                <Monitor size={12} className="text-slate-300" />
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            {getStatusBadge(rq)}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-2 text-slate-500">
+                                                <Clock size={12} />
+                                                <span className="text-xs font-medium">{formatDate(rq.createdAt)}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            {rq.approvalChain && rq.approvalChain.length > 0 ? (
+                                                <button
+                                                    onClick={() => setSelectedRQForHistory(rq)}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                                >
+                                                    Historial
+                                                    <ChevronRight size={10} />
+                                                </button>
+                                            ) : (
+                                                <span className="text-[10px] font-black text-slate-300 uppercase italic">Sin flujo</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-5 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+                                                    <button
+                                                        onClick={() => setSelectedRQForInvite(rq)}
+                                                        className="px-4 py-2 brand-bg text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand/10 hover:brightness-110 active:scale-95 transition-all"
+                                                    >
+                                                        Invitar
+                                                    </button>
+                                                )}
+                                                {canRejectRQs && rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+                                                    <button
+                                                        onClick={() => handleReject(rq.id)}
+                                                        disabled={rejecting === rq.id}
+                                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                                                        title="Rechazar"
+                                                    >
+                                                        {rejecting === rq.id ? '...' : <LayoutDashboard size={18} />}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile Cards */}
+                    <div className="md:hidden divide-y divide-slate-50">
+                        {filteredRQs.map(rq => (
+                            <div key={rq.id} className="p-4 space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-black text-slate-900 italic">
+                                            {rq.rqNumber || `#${rq.id.slice(-6)}`}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">{rq.categoria || 'OPERATIVO'}</span>
+                                    </div>
+                                    {getStatusBadge(rq)}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-sm font-bold text-slate-700">{rq.posicion}</p>
+                                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                        <Building2 size={12} className="text-slate-300" />
                                         {rq.tiendaNombre}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                        {rq.posicion}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                                        {rq.vacantes}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {getStatusBadge(rq)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {formatDate(rq.createdAt)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {rq.approvalChain && rq.approvalChain.length > 0 ? (
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                            <Monitor size={12} className="text-slate-300" />
+                                            <span className="font-bold">{rq.vacantes}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                            <Clock size={12} className="text-slate-300" />
+                                            {formatDate(rq.createdAt)}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        {rq.approvalChain && rq.approvalChain.length > 0 && (
                                             <button
                                                 onClick={() => setSelectedRQForHistory(rq)}
-                                                className="text-violet-600 hover:text-violet-800 text-xs font-medium flex items-center gap-1"
+                                                className="p-2 bg-slate-100 rounded-lg text-slate-400"
                                             >
-                                                👁️ Ver Historial ({rq.approvalChain.filter(s => s.status !== 'pending').length})
+                                                <Clock size={16} />
                                             </button>
-                                        ) : (
-                                            <span className="text-gray-400 text-xs">Sin historial</span>
                                         )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center gap-2">
-                                            {rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
-                                                <button
-                                                    onClick={() => setSelectedRQForInvite(rq)}
-                                                    className="px-3 py-1 bg-violet-600 text-white rounded text-xs font-medium hover:bg-violet-700"
-                                                >
-                                                    ➕ Invitar
-                                                </button>
-                                            )}
-                                            {canRejectRQs && rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
-                                                <button
-                                                    onClick={() => handleReject(rq.id)}
-                                                    disabled={rejecting === rq.id}
-                                                    className="px-3 py-1 bg-white border border-orange-600 text-orange-600 rounded text-xs font-medium hover:bg-orange-50 disabled:opacity-50"
-                                                >
-                                                    {rejecting === rq.id ? '...' : '↩ Rechazar'}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                        {rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+                                            <button
+                                                onClick={() => setSelectedRQForInvite(rq)}
+                                                className="px-4 py-2 brand-bg text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand/10"
+                                            >
+                                                Invitar
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
+
             )}
 
             {/* Invite Modal */}
@@ -407,49 +525,55 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                 />
             )}
 
-            {/* History Modal */}
+            {/* History Modal - Premium Glass Refresh */}
             {selectedRQForHistory && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-white"
+                    >
+                        <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900">Historial de Aprobaciones</h3>
-                                <p className="text-xs text-gray-500">RQ: {selectedRQForHistory.rqNumber || selectedRQForHistory.id}</p>
+                                <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">Historial de Aprobaciones</h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">RQ ID: {selectedRQForHistory.rqNumber || selectedRQForHistory.id}</p>
                             </div>
                             <button
                                 onClick={() => setSelectedRQForHistory(null)}
-                                className="text-gray-400 hover:text-gray-600 p-2"
+                                className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all shadow-sm"
                             >
                                 ✕
                             </button>
                         </div>
-                        <div className="p-6">
-                            <div className="space-y-4">
+                        <div className="p-10">
+                            <div className="space-y-6">
                                 {selectedRQForHistory.approvalChain?.filter(step => step.status !== 'pending').map((step, idx) => {
                                     const levelNames = ['', 'Tienda', 'Supervisor', 'Jefe Marca'];
-                                    const statusIcon = step.status === 'approved' ? '✅' : step.status === 'rejected' ? '❌' : '⏳';
-                                    const statusBg = step.status === 'approved' ? 'bg-green-50' : step.status === 'rejected' ? 'bg-red-50' : 'bg-gray-50';
-                                    const statusText = step.status === 'approved' ? 'Aprobado' : step.status === 'rejected' ? 'Rechazado' : 'Pendiente';
-                                    const statusColor = step.status === 'approved' ? 'text-green-700' : step.status === 'rejected' ? 'text-red-700' : 'text-gray-600';
+                                    const isApproved = step.status === 'approved';
+                                    const badgeClass = isApproved ? 'soft-badge-emerald' : 'soft-badge-rose';
 
                                     return (
-                                        <div key={idx} className={`p-3 rounded-xl border ${statusBg} border-opacity-50 flex gap-4`}>
-                                            <div className="text-xl">{statusIcon}</div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start">
-                                                    <p className="font-bold text-gray-900">{levelNames[step.level] || `Nivel ${step.level}`}</p>
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusBg} ${statusColor}`}>
-                                                        {statusText}
-                                                    </span>
+                                        <div key={idx} className="flex gap-6 relative">
+                                            {idx !== selectedRQForHistory.approvalChain!.length - 1 && (
+                                                <div className="absolute left-6 top-12 w-0.5 h-10 bg-slate-100" />
+                                            )}
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border ${isApproved ? 'bg-emerald-50 border-emerald-100 text-emerald-500' : 'bg-rose-50 border-rose-100 text-rose-500'}`}>
+                                                {isApproved ? '✓' : '✕'}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-3 mb-1">
+                                                    <p className="text-sm font-black text-slate-900 uppercase italic tracking-tight">{levelNames[step.level] || `Nivel ${step.level}`}</p>
+                                                    <div className={badgeClass}>{isApproved ? 'Aprobado' : 'Rechazado'}</div>
                                                 </div>
-                                                <div className="text-sm text-gray-600 mt-1">
-                                                    {step.approvedByName || 'Usuario'}
-                                                </div>
-                                                <div className="text-xs text-gray-400">
+                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none mb-2">
+                                                    {step.approvedByName || 'System Auto-Proc'}
+                                                </p>
+                                                <div className="inline-flex items-center gap-1.5 text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                                                    <Clock size={10} />
                                                     {formatDateTime(step.approvedAt)}
                                                 </div>
                                                 {step.rejectionReason && (
-                                                    <div className="mt-2 p-2 bg-white rounded-lg border border-red-100 text-red-600 text-sm italic">
+                                                    <div className="mt-4 p-4 bg-rose-50/50 rounded-2xl border border-rose-100/50 text-rose-600 text-xs italic font-medium leading-relaxed">
                                                         "{step.rejectionReason}"
                                                     </div>
                                                 )}
@@ -459,16 +583,14 @@ export default function RQTrackingView({ holdingId, marcas }: RQTrackingViewProp
                                 })}
                             </div>
 
-                            <div className="mt-8">
-                                <button
-                                    onClick={() => setSelectedRQForHistory(null)}
-                                    className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-                                >
-                                    Cerrar
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => setSelectedRQForHistory(null)}
+                                className="w-full h-14 bg-slate-900 text-white rounded-[1.25rem] font-black uppercase tracking-[0.2em] text-[10px] mt-10 hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-slate-900/20"
+                            >
+                                Entendido
+                            </button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             )}
 

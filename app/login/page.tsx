@@ -113,7 +113,7 @@ function LoginContent() {
             <div className="relative w-full max-w-md">
                 {/* Logo */}
                 <div className="flex justify-center mb-12 animate-fade-in">
-                    <Logo size="lg" variant="color" />
+                    <Logo size="lg" variant="full" />
                 </div>
 
                 {/* Card */}

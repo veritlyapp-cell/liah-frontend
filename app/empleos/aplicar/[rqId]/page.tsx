@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MapPin, Clock, Search, ArrowRight, ChevronRight, Zap, Info, ShieldCheck, Map, CheckCircle2 } from 'lucide-react';
+import { MapPin, Clock, Search, ArrowRight, ChevronRight, Zap, Info, ShieldCheck, Map as MapIcon, CheckCircle2 } from 'lucide-react';
 import { isWithinAcceptableDistance, formatDistance } from '@/lib/geo/distance-utils';
 
 interface Vacancy {
@@ -423,7 +423,7 @@ function AplicarContent({ params }: { params: Promise<{ rqId: string }> }) {
                 {geoResult && (
                     <div className="mt-8 flex justify-center">
                         <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            <Map size={14} className="text-violet-500" />
+                            <MapIcon size={14} className="text-violet-500" />
                             Estás a {formatDistance(geoResult.distanceKm)} de esta sede
                         </div>
                     </div>

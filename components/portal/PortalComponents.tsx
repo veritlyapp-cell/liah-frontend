@@ -2,10 +2,10 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChefHat, Heart, Zap, ArrowRight, MapPin, Clock, ChevronRight, ChevronLeft, Search } from 'lucide-react';
+import { ChefHat, Heart, Zap, ArrowRight, MapPin, Clock, ChevronRight, ChevronLeft, Search, Navigation } from 'lucide-react';
 import Link from 'next/link';
 import GeolocationJobSearch from './GeolocationJobSearch';
-import { formatDistance } from '@/lib/geo/distance-utils';
+import { formatDistance, calculateDistanceKm } from '@/lib/geo/distance-utils';
 
 // ... (HeroSection and CultureSection keep the same as before, but I'll update types)
 
@@ -277,225 +277,264 @@ export function JobsSection({
     holdingSlug: string;
 }) {
     const { colors } = config;
-    const [filterDistrito, setFilterDistrito] = React.useState('');
-    const [filterProvincia, setFilterProvincia] = React.useState('');
     const [filterDepartamento, setFilterDepartamento] = React.useState('');
+    const [filterDistrito, setFilterDistrito] = React.useState('');
+    const [viewMode, setViewMode] = React.useState<'list' | 'districts'>('list');
+    const [geoStatus, setGeoStatus] = React.useState<'idle' | 'loading' | 'success' | 'failed'>('idle');
+    const [userCoords, setUserCoords] = React.useState<{ lat: number; lng: number } | null>(null);
 
-    // Get unique values for filters from available jobs
-    const departamentos = [...new Set(allJobs.map(j => j.tiendaDepartamento).filter(Boolean))].sort();
-    const provincias = [...new Set(
-        allJobs
-            .filter(j => !filterDepartamento || j.tiendaDepartamento === filterDepartamento)
-            .map(j => j.tiendaProvincia)
-            .filter(Boolean)
-    )].sort();
-    const distritos = [...new Set(
-        allJobs
-            .filter(j => !filterProvincia || j.tiendaProvincia === filterProvincia)
-            .filter(j => !filterDepartamento || j.tiendaDepartamento === filterDepartamento)
-            .map(j => j.tiendaDistrito)
-            .filter(Boolean)
-    )].sort();
+    // Initial check for geolocation
+    React.useEffect(() => {
+        if ("geolocation" in navigator) {
+            setGeoStatus('loading');
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    setUserCoords(coords);
+                    setGeoStatus('success');
+                    // Filter initially for 10km
+                    const nearby = allJobs.filter(job => {
+                        if (!job.storeCoordinates) return false;
+                        const dist = formatDistance(calculateDistanceKm(coords, job.storeCoordinates));
+                        const distNum = calculateDistanceKm(coords, job.storeCoordinates);
+                        job.distance = distNum;
+                        return distNum <= 10;
+                    }).sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
-    // Apply location filter on top of geo/brand filters
-    const displayJobs = filteredJobs.filter(j => {
-        if (filterDepartamento && j.tiendaDepartamento !== filterDepartamento) return false;
-        if (filterProvincia && j.tiendaProvincia !== filterProvincia) return false;
-        if (filterDistrito && j.tiendaDistrito !== filterDistrito) return false;
-        return true;
-    });
+                    onFilterResults(nearby, coords);
+                },
+                () => {
+                    setGeoStatus('failed');
+                },
+                { timeout: 5000 }
+            );
+        }
+    }, []);
+
+    const departamentos = [...new Set(allJobs.map(j => j.tiendaDepartamento || 'Otros').filter(Boolean))].sort();
+
+    // Group jobs by District for the summary view
+    const jobsByDistrict = React.useMemo(() => {
+        const filtered = allJobs.filter(j => !filterDepartamento || j.tiendaDepartamento === filterDepartamento);
+        const groups: Record<string, any[]> = {};
+        filtered.forEach(job => {
+            const dist = job.tiendaDistrito || 'Otros';
+            if (!groups[dist]) groups[dist] = [];
+            groups[dist].push(job);
+        });
+        return groups;
+    }, [allJobs, filterDepartamento]);
+
+    const districtsList = Object.keys(jobsByDistrict).sort();
+
+    // Final filtered jobs for the list view
+    const displayJobs = React.useMemo(() => {
+        let list = filteredJobs;
+        if (filterDepartamento) list = list.filter(j => j.tiendaDepartamento === filterDepartamento);
+        if (filterDistrito) list = list.filter(j => j.tiendaDistrito === filterDistrito);
+        if (selectedBrand) list = list.filter(j => j.marcaId === selectedBrand);
+        return list;
+    }, [filteredJobs, filterDepartamento, filterDistrito, selectedBrand]);
 
     const selectStyle = {
-        padding: '10px 16px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)',
-        backgroundColor: 'rgba(255,255,255,0.05)', color: colors.lavender,
-        fontSize: 13, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 140
+        padding: '12px 20px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.05)', color: 'white',
+        fontSize: 14, fontWeight: 700, cursor: 'pointer', outline: 'none', minWidth: 200
     };
 
     return (
-        <section id="vacantes" style={{ padding: '160px 24px 160px', scrollMarginTop: 0 }}>
-            <div style={{ maxWidth: 900, margin: '0 auto' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 48 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyItems: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, justifyContent: 'space-between' }}>
-                        <h2 style={{ fontSize: 'clamp(2rem, 4vw, 2.5rem)', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: '-0.02em', margin: 0, color: 'white' }}>
-                            Oportunidades<span style={{ color: colors.yellow }}>_</span>
-                        </h2>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: colors.yellow }}>
-                            {displayJobs.length} POSICIONES ABIERTAS
-                        </span>
-                    </div>
+        <section id="vacantes" style={{ padding: '120px 24px', backgroundColor: colors.purpleDeep }}>
+            <div style={{ maxWidth: 1000, margin: '0 auto' }}>
 
-                    {/* Location filter row */}
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ color: colors.lavender, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>📍 Filtrar por zona:</span>
-                        {departamentos.length > 1 && (
-                            <select value={filterDepartamento} onChange={e => { setFilterDepartamento(e.target.value); setFilterProvincia(''); setFilterDistrito(''); }} style={selectStyle}>
-                                <option value="" style={{ backgroundColor: '#1a1a2e' }}>Todos los Deptos.</option>
-                                {departamentos.map(d => <option key={d} value={d} style={{ backgroundColor: '#1a1a2e' }}>{d}</option>)}
-                            </select>
-                        )}
-                        {(filterDepartamento || provincias.length > 0) && provincias.length > 1 && (
-                            <select value={filterProvincia} onChange={e => { setFilterProvincia(e.target.value); setFilterDistrito(''); }} style={selectStyle}>
-                                <option value="" style={{ backgroundColor: '#1a1a2e' }}>Todas las Provincias</option>
-                                {provincias.map(p => <option key={p} value={p} style={{ backgroundColor: '#1a1a2e' }}>{p}</option>)}
-                            </select>
-                        )}
-                        {distritos.length > 1 && (
-                            <select value={filterDistrito} onChange={e => setFilterDistrito(e.target.value)} style={selectStyle}>
-                                <option value="" style={{ backgroundColor: '#1a1a2e' }}>Todos los Distritos</option>
-                                {distritos.map(d => <option key={d} value={d} style={{ backgroundColor: '#1a1a2e' }}>{d}</option>)}
-                            </select>
-                        )}
-                        {(filterDepartamento || filterProvincia || filterDistrito) && (
-                            <button onClick={() => { setFilterDepartamento(''); setFilterProvincia(''); setFilterDistrito(''); }}
-                                style={{ padding: '8px 16px', backgroundColor: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, color: colors.lavender, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                ✕ Limpiar filtros
-                            </button>
-                        )}
-                    </div>
+                {/* Header Context */}
+                <div style={{ textAlign: 'center', marginBottom: 60 }}>
+                    <h2 style={{ fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: '-0.04em', color: 'white' }}>
+                        Encuentra tu próximo <span style={{ color: colors.yellow }}>Desafío_</span>
+                    </h2>
 
-                    {allJobs.length > 0 && [...new Set(allJobs.map(j => j.tiendaNombre).filter(Boolean))].length > 1 && (
-                        <div style={{ marginTop: -20 }}>
-                            <GeolocationJobSearch
-                                allJobs={selectedBrand ? allJobs.filter(j => j.marcaId === selectedBrand) : allJobs}
-                                onFilterResults={onFilterResults}
-                                theme={holdingSlug === 'ngr' ? 'dark' : 'light'}
-                                colors={{
-                                    accent: colors.yellow,
-                                    bg: holdingSlug === 'ngr' ? colors.purpleDeep : undefined
-                                }}
-                            />
-                        </div>
-                    )}
-
-                    {brands.length > 1 && (
-                        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar" style={{ marginTop: 24 }}>
-                            <button
-                                onClick={() => setSelectedBrand(null)}
-                                style={{
-                                    padding: '10px 20px', borderRadius: 16, fontSize: 13, fontWeight: 700,
-                                    backgroundColor: !selectedBrand ? colors.yellow : 'rgba(255,255,255,0.05)',
-                                    color: !selectedBrand ? colors.purpleDeep : colors.lavender,
-                                    border: 'none', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s'
-                                }}
-                            >
-                                TODAS LAS MARCAS
-                            </button>
-                            {brands.map(brand => (
-                                <button
-                                    key={brand.id}
-                                    onClick={() => setSelectedBrand(brand.id)}
-                                    style={{
-                                        padding: '10px 20px', borderRadius: 16, fontSize: 13, fontWeight: 700,
-                                        backgroundColor: selectedBrand === brand.id ? colors.yellow : 'rgba(255,255,255,0.05)',
-                                        color: selectedBrand === brand.id ? colors.purpleDeep : colors.lavender,
-                                        border: 'none', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s'
-                                    }}
-                                >
-                                    {brand.nombre?.toUpperCase() || brand.id.toUpperCase()}
-                                </button>
-                            ))}
+                    {geoStatus === 'success' && userCoords && (
+                        <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                            marginTop: 16, padding: '8px 16px', borderRadius: 99,
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80',
+                            fontSize: 13, fontWeight: 700
+                        }}>
+                            <Navigation size={14} className="fill-current" />
+                            Mostrando vacantes a 10km de tu ubicación
                         </div>
                     )}
                 </div>
 
-                {displayJobs.length === 0 ? (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        style={{
-                            padding: '100px 40px', borderRadius: 40, textAlign: 'center',
-                            backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24
-                        }}
-                    >
-                        <div style={{
-                            width: 80, height: 80, borderRadius: '50%',
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <Search size={40} style={{ color: colors.yellow, opacity: 0.5 }} />
-                        </div>
-                        <div>
-                            <h3 style={{ fontSize: 28, fontWeight: 900, marginBottom: 12, color: 'white' }}>
-                                No hay vacantes disponibles
-                            </h3>
-                            <p style={{ color: colors.lavender, fontSize: 18, maxWidth: 400, margin: '0 auto', lineHeight: 1.5 }}>
-                                Prueba cambiando los filtros o vuelve más tarde para ver nuevas oportunidades.
-                            </p>
-                        </div>
-                    </motion.div>
-                ) : (
-                    <div style={{ display: 'grid', gap: 16 }}>
-                        {displayJobs.map((job, idx) => (
-                            <motion.div
-                                key={job.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.05 }}
-                            >
-                                <Link
-                                    href={`/portal/vacante/${job.id}?holding=${holdingSlug}`}
-                                    style={{ textDecoration: 'none' }}
-                                >
-                                    <div style={{
-                                        padding: '32px', borderRadius: 32,
-                                        backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer',
-                                        position: 'relative', overflow: 'hidden'
-                                    }}
-                                        className="job-card-hover"
+                {/* Main Filter Control (Fallback or Toggle) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginBottom: 48 }}>
+
+                    {(geoStatus === 'failed' || geoStatus === 'idle') && !filterDepartamento && (
+                        <div style={{ textAlign: 'center', padding: '60px 24px', borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <MapPin size={48} style={{ margin: '0 auto 24px', color: colors.yellow, opacity: 0.5 }} />
+                            <h3 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 32 }}>¿En qué departamento te encuentras?</h3>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+                                {departamentos.map(d => (
+                                    <button
+                                        key={d}
+                                        onClick={() => { setFilterDepartamento(d); setViewMode('districts'); }}
+                                        style={{
+                                            padding: '16px 32px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)',
+                                            backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 800, cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        className="hover:bg-white hover:text-black"
                                     >
-                                        <div style={{ position: 'relative', zIndex: 2 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                                <span style={{
-                                                    padding: '6px 14px', backgroundColor: colors.yellow, color: colors.purpleDeep,
-                                                    borderRadius: 99, fontSize: 11, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase'
-                                                }}>
-                                                    {job.marcaNombre || config.name || job.marcaId}
-                                                </span>
-                                                {job.distance && (
-                                                    <span style={{ color: colors.lavender, fontSize: 11, fontWeight: 700 }}>
-                                                        A {formatDistance(job.distance)} de ti
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 8, fontStyle: 'italic', color: 'white' }}>
-                                                {job.posicion || job.titulo}
-                                            </h3>
-                                            <div style={{ display: 'flex', gap: 20, color: colors.lavender, fontSize: 13, fontWeight: 600, flexWrap: 'wrap' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <MapPin size={14} style={{ color: colors.yellow }} />
-                                                    {job.tiendaNombre}
-                                                    {job.tiendaDistrito ? ` • ${job.tiendaDistrito}` : ''}
-                                                    {job.tiendaProvincia ? `, ${job.tiendaProvincia}` : ''}
-                                                    {job.tiendaDepartamento ? `, ${job.tiendaDepartamento}` : ''}
-                                                </span>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <Clock size={14} style={{ color: colors.yellow }} /> {job.turno || 'Rotativo'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div style={{ position: 'relative', zIndex: 2 }}>
-                                            <div style={{
-                                                width: 56, height: 56, borderRadius: '50%',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                transition: 'all 0.3s', color: 'white'
-                                            }} className="arrow-circle">
-                                                <ChevronRight size={24} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
+                                        {d.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {filterDepartamento && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                            padding: '12px 24px', borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.05)',
+                            margin: '0 auto', width: 'fit-content'
+                        }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: colors.yellow }}>📍 {filterDepartamento.toUpperCase()}</span>
+                            <button
+                                onClick={() => { setFilterDepartamento(''); setFilterDistrito(''); setViewMode('list'); onFilterResults(allJobs, null); }}
+                                style={{ color: 'white', opacity: 0.5, fontSize: 11, fontWeight: 800, border: 'none', background: 'none', cursor: 'pointer' }}
+                            >
+                                (CAMBIAR)
+                            </button>
+                        </div>
+                    )}
+
+                    {/* View Switcher only if we have a department */}
+                    {filterDepartamento && !filterDistrito && (
+                        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                            <h3 style={{ fontSize: 20, fontWeight: 900, color: 'white' }}>Selecciona tu distrito</h3>
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Rendering Logic */}
+                {viewMode === 'districts' && filterDepartamento && !filterDistrito ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                        {districtsList.map(dist => (
+                            <motion.div
+                                key={dist}
+                                whileHover={{ scale: 1.05, y: -5 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => { setFilterDistrito(dist); setViewMode('list'); }}
+                                style={{
+                                    padding: 40, borderRadius: 32, cursor: 'pointer',
+                                    backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+                                }}
+                            >
+                                <div>
+                                    <h4 style={{ fontSize: 20, fontWeight: 900, color: 'white', textTransform: 'uppercase', fontStyle: 'italic' }}>{dist}</h4>
+                                    <p style={{ fontSize: 12, fontWeight: 800, color: colors.yellow, marginTop: 4 }}>{jobsByDistrict[dist].length} VACANTES</p>
+                                </div>
+                                <div style={{
+                                    width: 40, height: 40, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.yellow
+                                }}>
+                                    <ChevronRight size={20} />
+                                </div>
                             </motion.div>
                         ))}
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gap: 20 }}>
+                        {displayJobs.length === 0 ? (
+                            <div style={{ padding: '80px 0', textAlign: 'center' }}>
+                                <Search size={48} style={{ margin: '0 auto 24px', opacity: 0.2 }} />
+                                <h3 style={{ fontSize: 20, fontWeight: 700, color: colors.lavender }}>No encontramos vacantes disponibles</h3>
+                                <button
+                                    onClick={() => { setFilterDepartamento(''); setFilterDistrito(''); setViewMode('list'); onFilterResults(allJobs, null); }}
+                                    style={{ marginTop: 20, color: colors.yellow, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                >
+                                    Ver todas las vacantes de {config.name}
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {filterDistrito && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                                        <button
+                                            onClick={() => { setFilterDistrito(''); setViewMode('districts'); }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'white', fontSize: 12, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer' }}
+                                        >
+                                            <ChevronLeft size={16} /> VOLVER A DISTRITOS EN {filterDepartamento.toUpperCase()}
+                                        </button>
+                                    </div>
+                                )}
+                                {displayJobs.map((job, idx) => (
+                                    <motion.div
+                                        key={job.id}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.05 }}
+                                    >
+                                        <Link
+                                            href={`/portal/vacante/${job.id}?holding=${holdingSlug}&distrito=${job.tiendaDistrito}`}
+                                            style={{ textDecoration: 'none' }}
+                                        >
+                                            <div
+                                                className="job-card-hover"
+                                                style={{
+                                                    padding: '32px 40px', borderRadius: 40,
+                                                    backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                                                }}
+                                            >
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                                                        <span style={{
+                                                            backgroundColor: colors.yellow, color: colors.purpleDeep,
+                                                            padding: '6px 14px', borderRadius: 99, fontSize: 10, fontWeight: 900, textTransform: 'uppercase',
+                                                            letterSpacing: '1px'
+                                                        }}>
+                                                            {job.marcaNombre || config.name}
+                                                        </span>
+                                                        {job.distance && (
+                                                            <span style={{ fontSize: 11, fontWeight: 800, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <Navigation size={10} className="fill-current" /> A {Math.round(job.distance * 10) / 10} KM DE TI
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h3 style={{ fontSize: 26, fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.02em', color: 'white', marginBottom: 12 }}>
+                                                        {job.posicion || job.titulo}
+                                                    </h3>
+                                                    <div style={{ display: 'flex', gap: 24, color: colors.lavender, fontSize: 14, fontWeight: 700 }}>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <MapPin size={16} style={{ color: colors.yellow }} /> {job.tiendaNombre} • {job.tiendaDistrito || 'Sede'}
+                                                        </span>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <Clock size={16} style={{ color: colors.yellow }} /> {job.turno || 'Rotativo'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    width: 64, height: 64, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+                                                    transition: 'all 0.3s'
+                                                }} className="arrow-circle">
+                                                    <ChevronRight size={28} />
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    </motion.div>
+                                ))}
+                            </>
+                        )}
                     </div>
                 )}
             </div>
         </section>
     );
 }
-
 
 export function UneteSection({ config, holdingSlug }: { config: any, holdingSlug: string }) {
     const { colors } = config;

@@ -256,81 +256,136 @@ export default function JobProfilesManagement({ holdingId, marcas }: JobProfiles
                 </select>
             </div>
 
-            {/* Profiles Table */}
+            {/* Profiles List */}
             {filteredProfiles.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100">
                     <p className="text-gray-500 text-lg">📋 No hay perfiles de puesto</p>
                     <p className="text-gray-400 text-sm mt-2">Crea tu primer perfil para comenzar</p>
                 </div>
             ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posición</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marca(s)</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salario</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredProfiles.map(profile => (
-                                <tr key={profile.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-bold text-gray-900">{profile.posicion}</div>
-                                        <div className="text-xs text-gray-500 truncate max-w-[200px]">{profile.descripcion || ''}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                                        <div className="flex flex-wrap gap-1">
-                                            {profile.marcaIds && profile.marcaIds.length > 0 ? (
-                                                profile.marcaIds.map(mid => {
-                                                    const m = marcas.find(brand => brand.id === mid);
-                                                    return m ? (
-                                                        <span key={mid} className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                                                            {m.nombre}
-                                                        </span>
-                                                    ) : null;
-                                                })
-                                            ) : (
-                                                <span className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                                                    {profile.marcaNombre}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                        S/ {profile.salario?.toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md border ${profile.categoria === 'gerencial' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                <div className="space-y-4">
+                    {/* Desktop Table */}
+                    <div className="hidden md:block bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                        <table className="min-w-full divide-y divide-gray-100">
+                            <thead className="bg-slate-50/50">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Posición</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Marca(s)</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Salario</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</th>
+                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
+                                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-50">
+                                {filteredProfiles.map(profile => (
+                                    <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <div className="text-sm font-bold text-slate-900 group-hover:text-brand transition-colors">{profile.posicion}</div>
+                                            <div className="text-[10px] text-slate-400 truncate max-w-[200px] font-medium">{profile.descripcion || ''}</div>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <div className="flex flex-wrap gap-1">
+                                                {profile.marcaIds && profile.marcaIds.length > 0 ? (
+                                                    profile.marcaIds.map(mid => {
+                                                        const m = marcas.find(brand => brand.id === mid);
+                                                        return m ? (
+                                                            <span key={mid} className="bg-slate-50 px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 border border-slate-100">
+                                                                {m.nombre}
+                                                            </span>
+                                                        ) : null;
+                                                    })
+                                                ) : (
+                                                    <span className="bg-slate-50 px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 border border-slate-100">
+                                                        {profile.marcaNombre}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap text-sm text-slate-900 font-bold">
+                                            S/ {profile.salario?.toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border ${profile.categoria === 'gerencial' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-brand-soft text-brand border-brand/10'}`}>
+                                                {profile.categoria === 'gerencial' ? '👔 Gerencial' : '🏪 Operativo'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-[9px] font-black uppercase tracking-widest rounded-full ${profile.isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
+                                                {profile.isActive ? 'Activo' : 'Inactivo'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                                            <button
+                                                onClick={() => openEditModal(profile)}
+                                                className="text-brand hover:text-brand-dark mr-3 text-xs font-bold uppercase tracking-widest px-3 py-1.5 hover:bg-brand-soft rounded-lg transition-all"
+                                            >
+                                                Editar
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(profile.id)}
+                                                className="text-rose-500 hover:text-rose-700 text-xs font-bold uppercase tracking-widest px-3 py-1.5 hover:bg-rose-50 rounded-lg transition-all"
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile Grid */}
+                    <div className="md:hidden grid grid-cols-1 gap-4">
+                        {filteredProfiles.map(profile => (
+                            <div key={profile.id} className="white-label-card p-5 group">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-slate-900 group-hover:text-brand mb-1">{profile.posicion}</h3>
+                                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg border ${profile.categoria === 'gerencial' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-brand-soft text-brand border-brand/10'}`}>
                                             {profile.categoria === 'gerencial' ? '👔 Gerencial' : '🏪 Operativo'}
                                         </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-xs rounded-full ${profile.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                            {profile.isActive ? 'Activo' : 'Inactivo'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button
-                                            onClick={() => openEditModal(profile)}
-                                            className="text-violet-600 hover:text-violet-900 mr-3 px-2 py-1 hover:bg-violet-50 rounded"
-                                        >
-                                            Editar
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(profile.id)}
-                                            className="text-red-600 hover:text-red-900 px-2 py-1 hover:bg-red-50 rounded"
-                                        >
-                                            Eliminar
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    </div>
+                                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-full ${profile.isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
+                                        {profile.isActive ? 'Activo' : 'Inactivo'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50 mb-4">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Salario</p>
+                                        <p className="text-sm font-bold text-slate-900">S/ {profile.salario?.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Marcas</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {profile.marcaIds?.slice(0, 2).map(mid => (
+                                                <span key={mid} className="bg-slate-50 px-1.5 py-0.5 rounded text-[8px] font-bold text-slate-500 uppercase">
+                                                    {marcas.find(m => m.id === mid)?.nombre}
+                                                </span>
+                                            ))}
+                                            {(profile.marcaIds?.length || 0) > 2 && <span className="text-[8px] text-slate-300">+{profile.marcaIds!.length - 2}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => openEditModal(profile)}
+                                        className="flex-1 h-10 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                    >
+                                        Editar
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(profile.id)}
+                                        className="flex-1 h-10 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 

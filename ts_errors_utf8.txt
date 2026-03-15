@@ -1,0 +1,54 @@
+﻿.next/dev/types/validator.ts(594,31): error TS2344: Type 'typeof import("C:/Users/oscar/Bot_Whatsapp/lia-frontend/app/api/feeds/indeed/[holdingId]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/feeds/indeed/[holdingId]">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { holdingId: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ holdingId: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ holdingId: string; }>; }' is not assignable to type '{ params: { holdingId: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'holdingId' is missing in type 'Promise<{ holdingId: string; }>' but required in type '{ holdingId: string; }'.
+.next/dev/types/validator.ts(603,31): error TS2344: Type 'typeof import("C:/Users/oscar/Bot_Whatsapp/lia-frontend/app/api/feeds/linkedin/[holdingId]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/feeds/linkedin/[holdingId]">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { holdingId: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ holdingId: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ holdingId: string; }>; }' is not assignable to type '{ params: { holdingId: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'holdingId' is missing in type 'Promise<{ holdingId: string; }>' but required in type '{ holdingId: string; }'.
+.next/dev/types/validator.ts(909,31): error TS2344: Type 'typeof import("C:/Users/oscar/Bot_Whatsapp/lia-frontend/app/api/talent/linkedin-feed/[tenantSlug]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/talent/linkedin-feed/[tenantSlug]">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: NextRequest, { params }: { params: { tenantSlug: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ tenantSlug: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ tenantSlug: string; }>; }' is not assignable to type '{ params: { tenantSlug: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'tenantSlug' is missing in type 'Promise<{ tenantSlug: string; }>' but required in type '{ tenantSlug: string; }'.
+.next/types/validator.ts(594,31): error TS2344: Type 'typeof import("C:/Users/oscar/Bot_Whatsapp/lia-frontend/app/api/feeds/indeed/[holdingId]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/feeds/indeed/[holdingId]">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { holdingId: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ holdingId: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ holdingId: string; }>; }' is not assignable to type '{ params: { holdingId: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'holdingId' is missing in type 'Promise<{ holdingId: string; }>' but required in type '{ holdingId: string; }'.
+.next/types/validator.ts(603,31): error TS2344: Type 'typeof import("C:/Users/oscar/Bot_Whatsapp/lia-frontend/app/api/feeds/linkedin/[holdingId]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/feeds/linkedin/[holdingId]">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { holdingId: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ holdingId: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ holdingId: string; }>; }' is not assignable to type '{ params: { holdingId: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'holdingId' is missing in type 'Promise<{ holdingId: string; }>' but required in type '{ holdingId: string; }'.
+.next/types/validator.ts(909,31): error TS2344: Type 'typeof import("C:/Users/oscar/Bot_Whatsapp/lia-frontend/app/api/talent/linkedin-feed/[tenantSlug]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/talent/linkedin-feed/[tenantSlug]">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: NextRequest, { params }: { params: { tenantSlug: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ tenantSlug: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ tenantSlug: string; }>; }' is not assignable to type '{ params: { tenantSlug: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'tenantSlug' is missing in type 'Promise<{ tenantSlug: string; }>' but required in type '{ tenantSlug: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(70,80): error TS2339: Property 'marcaId' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(73,80): error TS2339: Property 'tiendaId' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(92,48): error TS2339: Property 'fechaCese' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(92,84): error TS2339: Property 'fechaCese' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(110,36): error TS2339: Property 'permanenciaDias' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(121,37): error TS2339: Property 'storeName' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(121,52): error TS2339: Property 'tiendaNombre' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(122,37): error TS2339: Property 'marcaNombre' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(122,54): error TS2339: Property 'marcaLabel' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(130,38): error TS2339: Property 'motivoLabel' does not exist on type '{ id: string; }'.
+components/admin/AdvancedAnalyticsDashboard.tsx(134,36): error TS2339: Property 'isLiahCandidate' does not exist on type '{ id: string; }'.
+components/analytics/AnalyticsUnifiedView.tsx(233,37): error TS2304: Cannot find name 'handleFilterChange'.

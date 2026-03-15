@@ -11,7 +11,8 @@ export async function POST(request: Request) {
             userName,
             temporaryPassword,
             role,
-            holdingName
+            holdingName,
+            primaryColor
         } = await request.json();
 
         if (!userEmail || !temporaryPassword) {
@@ -52,15 +53,17 @@ export async function POST(request: Request) {
             });
         }
 
+        const accentColor = primaryColor || '#7c3aed';
+
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'LIAH <noreply@notifications.getliah.com>',
+            from: `${companyName} - Administración <noreply@notifications.getliah.com>`,
             to: userEmail,
             subject: `¡Bienvenido/a a ${companyName}! - Tus credenciales de acceso`,
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                     <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #7c3aed; margin: 0;">¡Bienvenido/a a ${companyName}! 🎉</h1>
+                        <h1 style="color: ${accentColor}; margin: 0;">¡Bienvenido/a a ${companyName}! 🎉</h1>
                     </div>
                     
                     <p style="font-size: 16px; color: #333;">
@@ -72,7 +75,7 @@ export async function POST(request: Request) {
                     </p>
                     
                     <div style="background: linear-gradient(135deg, #f5f3ff, #ecfeff); padding: 25px; border-radius: 12px; margin: 25px 0;">
-                        <h3 style="color: #7c3aed; margin-top: 0;">🔐 Tus Credenciales de Acceso</h3>
+                        <h3 style="color: ${accentColor}; margin-top: 0;">🔐 Tus Credenciales de Acceso</h3>
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                                 <td style="padding: 10px 0; color: #666; width: 120px;">Usuario:</td>
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
                             <tr>
                                 <td style="padding: 10px 0; color: #666;">Contraseña:</td>
                                 <td style="padding: 10px 0;">
-                                    <code style="background: #e5e7eb; padding: 8px 15px; border-radius: 6px; font-size: 16px; font-weight: bold; color: #7c3aed;">
+                                    <code style="background: #e5e7eb; padding: 8px 15px; border-radius: 6px; font-size: 16px; font-weight: bold; color: ${accentColor};">
                                         ${temporaryPassword}
                                     </code>
                                 </td>
@@ -97,7 +100,7 @@ export async function POST(request: Request) {
                     
                     <div style="text-align: center; margin: 30px 0;">
                         <a href="${loginUrl}/login" 
-                           style="background: linear-gradient(135deg, #7c3aed, #06b6d4); 
+                           style="background: linear-gradient(135deg, ${accentColor}, #06b6d4); 
                                   color: white; 
                                   padding: 15px 40px; 
                                   text-decoration: none; 

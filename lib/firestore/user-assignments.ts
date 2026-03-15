@@ -8,7 +8,9 @@ export type UserRole =
     | 'supervisor'
     | 'jefe_marca'
     | 'recruiter'
-    | 'store_manager';
+    | 'store_manager'
+    | 'jefe_zonal'
+    | 'hrbp';
 
 export interface UserAssignment {
     id: string;
@@ -25,6 +27,7 @@ export interface UserAssignment {
     assignedMarca?: { marcaId: string; marcaNombre: string };
     assignedMarcas?: { marcaId: string; marcaNombre: string }[]; // For recruiters with multiple brands
     assignedStore?: { tiendaId: string; tiendaNombre: string; marcaId: string; marcaNombre?: string };
+    assignedZones?: { zoneId: string; zoneNombre: string }[]; // For Tabmo (Jefe Zonal, HRBP)
     tiendaId?: string;
     marcaId?: string;
     vacationMode?: boolean;

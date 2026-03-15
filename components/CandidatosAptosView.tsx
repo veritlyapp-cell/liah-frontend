@@ -17,10 +17,11 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
     const [showHistory, setShowHistory] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<{ id: string, appId: string, name: string } | null>(null);
     const [viewedCandidate, setViewedCandidate] = useState<Candidate | null>(null);
+    const [dateFilter, setDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
 
     useEffect(() => {
         loadAptoCandidates();
-    }, [storeId, marcaId]);
+    }, [storeId, marcaId, dateFilter]);
 
     const loadAptoCandidates = async () => {
         setLoading(true);
@@ -29,8 +30,6 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
             const { getCandidatesByMarca } = await import('@/lib/firestore/recruiter-queries');
             const allCandidates = await getCandidatesByMarca(marcaId);
 
-            // 1. selectionStatus is strictly 'selected'
-            // 2. selectedForRQ belongs to an application in this store
             const selectedCandidates = allCandidates.filter(c => {
                 if (c.selectionStatus !== 'selected') return false;
 
@@ -39,7 +38,18 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                 );
             });
 
-            setCandidates(selectedCandidates);
+            // 3. Date filter
+            const filteredByDate = selectedCandidates.filter(c => {
+                if (dateFilter === 'todos') return true;
+                const createdAt = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+                const now = new Date();
+                const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+                if (dateFilter === 'semana' && diffDays > 7) return false;
+                if (dateFilter === 'mes' && diffDays > 30) return false;
+                return true;
+            });
+
+            setCandidates(filteredByDate);
         } catch (error) {
             console.error('Error loading apto candidates:', error);
         } finally {
@@ -178,12 +188,23 @@ export default function CandidatosAptosView({ storeId, marcaId }: CandidatosApto
                         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             <span>⏳</span> Candidatos Seleccionados - Pendientes de Ingreso
                         </h3>
-                        <button
-                            onClick={exportToCSV}
-                            className="text-sm px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
-                        >
-                            📥 Exportar CSV para Ingreso
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={dateFilter}
+                                onChange={(e) => setDateFilter(e.target.value as any)}
+                                className="text-sm px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold focus:outline-none"
+                            >
+                                <option value="semana">📅 Última Semana</option>
+                                <option value="mes">📅 Último Mes</option>
+                                <option value="todos">📅 Todo el Historial</option>
+                            </select>
+                            <button
+                                onClick={exportToCSV}
+                                className="text-sm px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
+                            >
+                                📥 Exportar CSV
+                            </button>
+                        </div>
                     </div>
                     <div className="space-y-3">
                         {pending.map(candidate => {

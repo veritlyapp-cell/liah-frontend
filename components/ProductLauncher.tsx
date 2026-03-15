@@ -118,7 +118,7 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
                     });
 
                     // Step 3: Determine enabled products
-                    const flowPath = ['recruiter', 'brand_recruiter'].includes(claims?.role || '') ? '/recruiter' : '/admin';
+                    const flowPath = ['recruiter', 'brand_recruiter', 'jefe_zonal', 'hrbp'].includes(claims?.role || '') ? '/recruiter' : '/admin';
 
                     const products = [
                         { id: 'flow', path: flowPath, enabled: flowAccess },
@@ -164,7 +164,7 @@ export default function ProductLauncher({ accessFlow, accessTalent }: ProductLau
             description: 'Reclutamiento Masivo',
             icon: '🚀',
             color: 'from-orange-500 to-red-500',
-            path: ['recruiter', 'brand_recruiter'].includes(claims?.role || '') ? '/recruiter' : '/admin',
+            path: ['recruiter', 'brand_recruiter', 'jefe_zonal', 'hrbp'].includes(claims?.role || '') ? '/recruiter' : '/admin',
             enabled: hasFlow
         },
         {

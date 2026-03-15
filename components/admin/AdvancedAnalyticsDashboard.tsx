@@ -62,7 +62,7 @@ export default function AdvancedAnalyticsDashboard({ holdingId, filters }: Advan
                 );
 
                 const snapshot = await getDocs(q);
-                let bajas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                let bajas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
 
                 // 3. Aplicar filtros en cliente (para mayor flexibilidad con campos dinámicos)
                 if (filters) {

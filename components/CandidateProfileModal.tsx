@@ -124,6 +124,28 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
         setProcessing(true);
         try {
             await updateCULStatus(candidate.id, status, user.uid, notes);
+
+            // Notify Store Manager if marked as APTO
+            if (status === 'apto') {
+                const latestApp = localCandidate.applications && localCandidate.applications.length > 0
+                    ? localCandidate.applications[localCandidate.applications.length - 1]
+                    : null;
+
+                if (latestApp) {
+                    fetch('/api/notifications/notify-action', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            type: 'CUL_VALIDATED',
+                            data: {
+                                candidateName: `${localCandidate.nombre} ${localCandidate.apellidoPaterno}`,
+                                tiendaId: latestApp.tiendaId
+                            }
+                        }),
+                        headers: { 'Content-Type': 'application/json' }
+                    }).catch(console.error);
+                }
+            }
+
             alert(`✅ CUL marcado como ${status === 'apto' ? 'Apto ✓' : status === 'no_apto' ? 'No Apto ✗' : 'Requiere Revisión ⚠️'}`);
             onRefresh();
         } catch (error) {

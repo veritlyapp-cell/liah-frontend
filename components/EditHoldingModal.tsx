@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Sparkles, ShieldCheck, BarChart3, FileText, Trash2, Wallet } from 'lucide-react';
 
 interface EditHoldingModalProps {
     show: boolean;
@@ -16,14 +17,20 @@ interface EditHoldingModalProps {
 
 export default function EditHoldingModal({ show, holding, onCancel, onSave }: EditHoldingModalProps) {
     // IMPORTANTE: Los hooks deben ejecutarse SIEMPRE, antes del early return
-    const [plan, setPlan] = useState<'bot_only' | 'rq_only' | 'full_stack'>('bot_only');
+    const [activeSection, setActiveSection] = useState<'config' | 'branding' | 'aprobacion' | 'consumo'>('config');
     const [limiteWhatsApp, setLimiteWhatsApp] = useState(1000);
-    const [limiteGemini, setLimiteGemini] = useState(500);
+    const [limiteGemini, setLimiteGemini] = useState(100000); // Tokens per month
+    const [limiteSMS, setLimiteSMS] = useState(1000);
     const [maxUsuarios, setMaxUsuarios] = useState(2);
     const [maxBrands, setMaxBrands] = useState(1);
     const [maxStores, setMaxStores] = useState(5);
     const [activo, setActivo] = useState(true);
-    const [precioMensual, setPrecioMensual] = useState(99);
+
+    // Pricing Model
+    const [precioPorTienda, setPrecioPorTienda] = useState(50);
+    const [costosAdicionales, setCostosAdicionales] = useState(0);
+    const [precioMensual, setPrecioMensual] = useState(0);
+
     const [tempPassword, setTempPassword] = useState('Liah2024!Cambiar');
 
     // Product Access Control
@@ -46,18 +53,26 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [brandVideos, setBrandVideos] = useState<{ id: string, title: string }[]>([]);
     const [brandDescription, setBrandDescription] = useState('');
 
+    // Auto-calculate price
+    useEffect(() => {
+        setPrecioMensual((maxStores * precioPorTienda) + costosAdicionales);
+    }, [maxStores, precioPorTienda, costosAdicionales]);
+
     // Actualizar valores cuando cambia el holding
     useEffect(() => {
         if (holding) {
             // Cargar config personalizada primero
             const config = (holding as any).config;
 
-            setPlan(holding.plan);
             setActivo(holding.activo);
             setMaxUsuarios(config?.maxUsuarios || holding.usuarios);
-            setLimiteWhatsApp(config?.limiteWhatsApp || (holding.plan === 'bot_only' ? 1000 : holding.plan === 'full_stack' ? 10000 : 0));
-            setLimiteGemini(config?.limiteGemini || (holding.plan === 'bot_only' ? 500 : holding.plan === 'full_stack' ? 5000 : 0));
-            setPrecioMensual(config?.precioMensual || (holding.plan === 'bot_only' ? 99 : holding.plan === 'rq_only' ? 199 : 499));
+            setLimiteWhatsApp(config?.limiteWhatsApp || 1000);
+            setLimiteGemini(config?.limiteGemini || 100000);
+            setLimiteSMS(config?.limiteSMS || 1000);
+
+            setPrecioPorTienda(config?.precioPorTienda || 50);
+            setCostosAdicionales(config?.costosAdicionales || 0);
+
             setMaxBrands(config?.maxBrands || 1);
             setMaxStores(config?.maxStores || 5);
             setTempPassword(config?.tempPassword || 'Liah2024!Cambiar');
@@ -90,14 +105,17 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const handleSave = () => {
         onSave({
             ...holding,
-            plan,
+            plan: 'full_stack' as const, // Standardizing on one type for compatibility
             activo,
             config: {
                 limiteWhatsApp,
                 limiteGemini,
+                limiteSMS,
                 maxUsuarios,
                 maxBrands,
                 maxStores,
+                precioPorTienda,
+                costosAdicionales,
                 precioMensual,
                 tempPassword,
                 requiredDocuments,
@@ -121,456 +139,449 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-[2.5rem] p-8 md:p-10 max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up shadow-2xl relative border border-slate-100">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900">Editar Holding</h3>
-                        <p className="text-sm text-gray-600 mt-1">{holding.nombre}</p>
+                        <div className="flex items-center gap-3 mb-1">
+                            <span className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black italic text-xs">L</span>
+                            <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">Editar Holding</h3>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none ml-11">{holding.nombre}</p>
                     </div>
                     <button
                         onClick={onCancel}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-all"
                     >
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                {/* Plan Selection */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Plan Activo</label>
-                    <div className="grid grid-cols-3 gap-3">
+                {/* Tabbed Navigation */}
+                <div className="flex items-center gap-2 p-1.5 bg-slate-100/50 rounded-2xl mb-8 overflow-x-auto hide-scrollbar border border-slate-100">
+                    {[
+                        { id: 'config', label: 'Configuración', icon: <Settings size={14} /> },
+                        { id: 'branding', label: 'Branding', icon: <Sparkles size={14} /> },
+                        { id: 'aprobacion', label: 'Aprobaciones', icon: <ShieldCheck size={14} /> },
+                        { id: 'consumo', label: 'Consumo', icon: <BarChart3 size={14} /> }
+                    ].map(tab => (
                         <button
-                            onClick={() => setPlan('bot_only')}
-                            className={`p-4 rounded-lg border-2 transition-all ${plan === 'bot_only'
-                                ? 'border-violet-500 bg-violet-50'
-                                : 'border-gray-200 hover:border-gray-300'
+                            key={tab.id}
+                            onClick={() => setActiveSection(tab.id as any)}
+                            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeSection === tab.id
+                                ? 'bg-white shadow-lg shadow-slate-200/50 text-slate-900 scale-[1.02]'
+                                : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
                                 }`}
                         >
-                            <p className="font-semibold text-gray-900">Bot Only</p>
-                            <p className="text-xs text-gray-500 mt-1">$99/mes</p>
+                            {tab.icon}
+                            {tab.label}
                         </button>
-                        <button
-                            onClick={() => setPlan('rq_only')}
-                            className={`p-4 rounded-lg border-2 transition-all ${plan === 'rq_only'
-                                ? 'border-violet-500 bg-violet-50'
-                                : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                        >
-                            <p className="font-semibold text-gray-900">RQ Only</p>
-                            <p className="text-xs text-gray-500 mt-1">$199/mes</p>
-                        </button>
-                        <button
-                            onClick={() => setPlan('full_stack')}
-                            className={`p-4 rounded-lg border-2 transition-all ${plan === 'full_stack'
-                                ? 'border-violet-500 bg-violet-50'
-                                : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                        >
-                            <p className="font-semibold text-gray-900">Full Stack</p>
-                            <p className="text-xs text-gray-500 mt-1">$499/mes</p>
-                        </button>
-                    </div>
+                    ))}
                 </div>
 
-                {/* Product Access */}
-                <div className="mb-6 bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl p-4 border border-violet-200">
-                    <h4 className="text-sm font-bold text-gray-900 mb-4">🚀 Acceso a Productos LIAH</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        <label className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 cursor-pointer transition-all hover:border-orange-300" style={{ borderColor: hasLiahFlow ? '#f97316' : '#e5e7eb' }}>
-                            <input
-                                type="checkbox"
-                                checked={hasLiahFlow}
-                                onChange={(e) => setHasLiahFlow(e.target.checked)}
-                                className="w-5 h-5 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-                            />
-                            <div>
-                                <p className="font-semibold text-gray-900 flex items-center gap-2">
-                                    <span className="text-xl">🚀</span> Liah Flow
-                                </p>
-                                <p className="text-xs text-gray-500">Reclutamiento Masivo (Bot WhatsApp)</p>
+                <div className="min-h-[400px]">
+                    {activeSection === 'config' && (
+                        <div className="animate-fade-in space-y-10">
+                            {/* Product Access Control */}
+                            <div className="bg-slate-950 rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-brand/10 blur-[100px] rounded-full" />
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-6 flex items-center gap-2 relative z-10">
+                                    <Sparkles size={14} /> Acceso a Ecosistema LIAH
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+                                    {[
+                                        { id: 'flow', active: hasLiahFlow, set: setHasLiahFlow, label: '🚀 Liah Flow', sub: 'ATS + Bot WA' },
+                                        { id: 'talent', active: hasLiahTalent, set: setHasLiahTalent, label: '💼 Liah Talent', sub: 'IA Matching' },
+                                        { id: 'exit', active: hasExitAnalytics, set: setHasExitAnalytics, label: '📊 Exit Analytics', sub: 'Dashboard Retención' }
+                                    ].map(prod => (
+                                        <button
+                                            key={prod.id}
+                                            onClick={() => prod.set(!prod.active)}
+                                            className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 ${prod.active
+                                                ? 'border-brand bg-brand/5 shadow-lg shadow-brand/10'
+                                                : 'border-white/5 bg-white/5 opacity-40 hover:opacity-60'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-black italic tracking-tight">{prod.label}</span>
+                                                <div className={`w-3.5 h-3.5 rounded-full border-2 border-white/10 ${prod.active ? 'bg-brand' : 'bg-slate-700'}`} />
+                                            </div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{prod.sub}</p>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </label>
-                        <label className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 cursor-pointer transition-all hover:border-violet-300" style={{ borderColor: hasLiahTalent ? '#8b5cf6' : '#e5e7eb' }}>
-                            <input
-                                type="checkbox"
-                                checked={hasLiahTalent}
-                                onChange={(e) => setHasLiahTalent(e.target.checked)}
-                                className="w-5 h-5 text-violet-500 rounded border-gray-300 focus:ring-violet-500"
-                            />
-                            <div>
-                                <p className="font-semibold text-gray-900 flex items-center gap-2">
-                                    <span className="text-xl">💼</span> Liah Talent
-                                </p>
-                                <p className="text-xs text-gray-500">Reclutamiento Corporativo (AI Matching)</p>
+
+                            {/* Pricing Model */}
+                            <div className="space-y-6">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                                    <FileText size={14} /> Modelo de Suscripción Mensual
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="white-label-card p-5 border-slate-200 border-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Tiendas Máximas</label>
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => setMaxStores(Math.max(1, maxStores - 1))} className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-black transition-colors">-</button>
+                                            <input
+                                                type="number"
+                                                value={maxStores}
+                                                onChange={(e) => setMaxStores(parseInt(e.target.value) || 1)}
+                                                className="flex-1 text-center font-black text-lg bg-transparent outline-none"
+                                            />
+                                            <button onClick={() => setMaxStores(maxStores + 1)} className="w-10 h-10 rounded-xl bg-slate-900 text-white hover:brightness-110 flex items-center justify-center font-black transition-all shadow-lg shadow-slate-900/10">+</button>
+                                        </div>
+                                    </div>
+                                    <div className="white-label-card p-5 border-slate-200 border-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Precio x Tienda</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
+                                            <input
+                                                type="number"
+                                                value={precioPorTienda}
+                                                onChange={(e) => setPrecioPorTienda(parseInt(e.target.value) || 0)}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl font-black text-sm focus:ring-2 focus:ring-brand outline-none transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="white-label-card p-5 border-slate-200 border-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Otros Adicionales</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
+                                            <input
+                                                type="number"
+                                                value={costosAdicionales}
+                                                onChange={(e) => setCostosAdicionales(parseInt(e.target.value) || 0)}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl font-black text-sm focus:ring-2 focus:ring-brand outline-none transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-8 bg-slate-50 rounded-[2rem] border-2 border-slate-100/50 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-2 h-full bg-brand" />
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total a Facturar</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Recurrente Mensual</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-5xl font-black text-slate-900 italic tracking-tighter leading-none">${precioMensual}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD + IGV</p>
+                                    </div>
+                                </div>
                             </div>
-                        </label>
-                        <label className="flex items-center gap-3 p-4 bg-white rounded-lg border-2 cursor-pointer transition-all hover:border-blue-300" style={{ borderColor: hasExitAnalytics ? '#3b82f6' : '#e5e7eb' }}>
-                            <input
-                                type="checkbox"
-                                checked={hasExitAnalytics}
-                                onChange={(e) => setHasExitAnalytics(e.target.checked)}
-                                className="w-5 h-5 text-blue-500 rounded border-gray-300 focus:ring-blue-500"
-                            />
-                            <div>
-                                <p className="font-semibold text-gray-900 flex items-center gap-2">
-                                    <span className="text-xl">📊</span> Analítica Salida
-                                </p>
-                                <p className="text-xs text-gray-500">Dashboard de Retención/Impacto</p>
+
+                            {/* Flow Specific Limits */}
+                            <div className="space-y-6">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                                    <ShieldCheck size={14} /> Límites LIAH FLOW
+                                </h4>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Usuarios ATS</label>
+                                        <input type="number" value={maxUsuarios} onChange={(e) => setMaxUsuarios(parseInt(e.target.value))} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs focus:border-brand outline-none transition-all shadow-sm" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Marcas Permitidas</label>
+                                        <input type="number" value={maxBrands} onChange={(e) => setMaxBrands(parseInt(e.target.value))} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs focus:border-brand outline-none transition-all shadow-sm" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">SMS / mes</label>
+                                        <input type="number" value={limiteSMS} onChange={(e) => setLimiteSMS(parseInt(e.target.value))} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs focus:border-brand outline-none transition-all shadow-sm" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">WhatsApp / mes</label>
+                                        <input type="number" value={limiteWhatsApp} onChange={(e) => setLimiteWhatsApp(parseInt(e.target.value))} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs focus:border-brand outline-none transition-all shadow-sm" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Gemini Tokens / mes</label>
+                                        <input type="number" value={limiteGemini} onChange={(e) => setLimiteGemini(parseInt(e.target.value))} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs focus:border-brand outline-none transition-all shadow-sm" />
+                                        <p className="text-[9px] text-slate-400 font-bold italic">* Base sugerida: 100k tokens</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Password Temporal</label>
+                                        <input type="text" value={tempPassword} onChange={(e) => setTempPassword(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:border-brand outline-none transition-all" />
+                                    </div>
+                                </div>
                             </div>
-                        </label>
-                    </div>
-                    {!hasLiahFlow && !hasLiahTalent && (
-                        <p className="text-xs text-red-500 mt-2">⚠️ Debe tener al menos un producto activo</p>
+
+                            {/* Main Active Switch */}
+                            <div className="flex items-center gap-4 p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-brand/30 transition-all cursor-pointer" onClick={() => setActivo(!activo)}>
+                                <div className={`w-14 h-8 rounded-full p-1 transition-all duration-300 ${activo ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                                    <div className={`w-6 h-6 rounded-full bg-white transition-all duration-300 ${activo ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Empresa Activa</p>
+                                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest italic">Estado global del tenant</p>
+                                </div>
+                            </div>
+                        </div>
                     )}
-                </div>
 
-                {/* Límites Personalizados */}
-                <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-4">Límites Personalizados</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        {(plan === 'bot_only' || plan === 'full_stack') && (
-                            <>
-                                <div>
-                                    <label className="block text-sm text-gray-600 mb-2">WhatsApp (msg/mes)</label>
-                                    <input
-                                        type="number"
-                                        value={limiteWhatsApp}
-                                        onChange={(e) => setLimiteWhatsApp(parseInt(e.target.value))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-600 mb-2">Gemini API (calls/mes)</label>
-                                    <input
-                                        type="number"
-                                        value={limiteGemini}
-                                        onChange={(e) => setLimiteGemini(parseInt(e.target.value))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-                            </>
-                        )}
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-2">Máximo Usuarios</label>
-                            <input
-                                type="number"
-                                value={maxUsuarios}
-                                onChange={(e) => setMaxUsuarios(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-2">Máximo Marcas</label>
-                            <input
-                                type="number"
-                                value={maxBrands}
-                                onChange={(e) => setMaxBrands(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-2">Máximo Tiendas</label>
-                            <input
-                                type="number"
-                                value={maxStores}
-                                onChange={(e) => setMaxStores(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-2">Precio Mensual ($)</label>
-                            <input
-                                type="number"
-                                value={precioMensual}
-                                onChange={(e) => setPrecioMensual(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Configuración de Documentos */}
-                <div className="mb-8 border-t pt-6">
-                    <h4 className="text-md font-bold text-gray-900 mb-4">📄 Documentos Requeridos</h4>
-                    <div className="space-y-3">
-                        {requiredDocuments.map((doc, idx) => (
-                            <div key={idx} className="flex items-center gap-4 bg-gray-50 p-3 rounded-lg">
-                                <input
-                                    type="text"
-                                    value={doc.name}
-                                    onChange={(e) => {
-                                        const newDocs = [...requiredDocuments];
-                                        newDocs[idx].name = e.target.value;
-                                        setRequiredDocuments(newDocs);
-                                    }}
-                                    className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm"
-                                    placeholder="Nombre del documento..."
-                                />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500">{doc.active ? 'Activo' : 'Inactivo'}</span>
+                    {activeSection === 'branding' && (
+                        <div className="animate-fade-in space-y-10">
+                            {/* Document Requirements */}
+                            <div>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
+                                    <FileText size={14} /> Documentación Obligatoria
+                                </h4>
+                                <div className="space-y-3">
+                                    {requiredDocuments.map((doc, idx) => (
+                                        <div key={idx} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 group transition-all hover:bg-white hover:border-brand/30 hover:shadow-lg hover:shadow-slate-100">
+                                            <input
+                                                type="text"
+                                                value={doc.name}
+                                                onChange={(e) => {
+                                                    const newDocs = [...requiredDocuments];
+                                                    newDocs[idx].name = e.target.value;
+                                                    setRequiredDocuments(newDocs);
+                                                }}
+                                                className="flex-1 px-4 py-2.5 bg-transparent border-b-2 border-transparent focus:border-brand outline-none text-xs font-bold text-slate-700 transition-all"
+                                                placeholder="Nombre del documento..."
+                                            />
+                                            <div className="flex items-center gap-5">
+                                                <button
+                                                    onClick={() => {
+                                                        const newDocs = [...requiredDocuments];
+                                                        newDocs[idx].active = !newDocs[idx].active;
+                                                        setRequiredDocuments(newDocs);
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border-2 transition-all ${doc.active ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-100 border-slate-200 text-slate-400'}`}
+                                                >
+                                                    {doc.active ? 'Activado' : 'Opcional'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setRequiredDocuments(requiredDocuments.filter((_, i) => i !== idx))}
+                                                    className="w-10 h-10 rounded-xl bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 flex items-center justify-center transition-all"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
                                     <button
-                                        onClick={() => {
-                                            const newDocs = [...requiredDocuments];
-                                            newDocs[idx].active = !newDocs[idx].active;
-                                            setRequiredDocuments(newDocs);
-                                        }}
-                                        className={`w-10 h-5 rounded-full transition-colors relative ${doc.active ? 'bg-violet-600' : 'bg-gray-300'}`}
+                                        onClick={() => setRequiredDocuments([...requiredDocuments, { id: `doc_${Date.now()}`, name: '', active: true }])}
+                                        className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-brand hover:text-brand hover:bg-brand/5 transition-all"
                                     >
-                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${doc.active ? 'right-1' : 'left-1'}`} />
+                                        + Agregar Nuevo Documento Requerido
                                     </button>
                                 </div>
-                                <button
-                                    onClick={() => setRequiredDocuments(requiredDocuments.filter((_, i) => i !== idx))}
-                                    className="text-red-500 hover:text-red-700"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
                             </div>
-                        ))}
-                        <button
-                            onClick={() => setRequiredDocuments([...requiredDocuments, { id: `doc_${Date.now()}`, name: '', active: true }])}
-                            className="text-sm text-violet-600 font-medium hover:text-violet-700 mt-2"
-                        >
-                            + Agregar Documento
-                        </button>
-                    </div>
-                </div>
 
-                {/* Matriz de Aprobación */}
-                <div className="mb-8 border-t pt-6">
-                    <h4 className="text-md font-bold text-gray-900 mb-4">⚖️ Matriz de Aprobación</h4>
-                    <div className="space-y-3">
-                        {approvalLevels.map((lvl, idx) => (
-                            <div key={idx} className="flex items-center gap-4 bg-violet-50 p-3 rounded-lg border border-violet-100">
-                                <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-sm">
-                                    {lvl.level}
-                                </div>
-                                <input
-                                    type="text"
-                                    value={lvl.name}
-                                    onChange={(e) => {
-                                        const newLvls = [...approvalLevels];
-                                        newLvls[idx].name = e.target.value;
-                                        setApprovalLevels(newLvls);
-                                    }}
-                                    className="flex-1 px-3 py-1 border border-violet-200 rounded-md text-sm"
-                                    placeholder="Nombre del cargo (ej. Supervisor)"
-                                />
-                                <select
-                                    value={lvl.role}
-                                    onChange={(e) => {
-                                        const newLvls = [...approvalLevels];
-                                        newLvls[idx].role = e.target.value;
-                                        setApprovalLevels(newLvls);
-                                    }}
-                                    className="px-3 py-1 border border-violet-200 rounded-md text-sm bg-white"
-                                >
-                                    <option value="store_manager">Gerente de Tienda</option>
-                                    <option value="supervisor">Supervisor</option>
-                                    <option value="jefe_marca">Jefe de Marca</option>
-                                    <option value="recruiter">Recruiter</option>
-                                    <option value="holding_admin">Holding Admin</option>
-                                </select>
-                                <button
-                                    onClick={() => {
-                                        const filtered = approvalLevels.filter((_, i) => i !== idx);
-                                        // Re-leveling
-                                        setApprovalLevels(filtered.map((l, i) => ({ ...l, level: i + 1 })));
-                                    }}
-                                    className="text-red-500 hover:text-red-700"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
-                        ))}
-                        <button
-                            onClick={() => setApprovalLevels([...approvalLevels, { level: approvalLevels.length + 1, name: '', role: 'supervisor' }])}
-                            className="text-sm text-violet-600 font-medium hover:text-violet-700 mt-2"
-                        >
-                            + Agregar Nivel de Aprobación
-                        </button>
-                    </div>
-                </div>
-
-                {/* Marca Empleadora CMS */}
-                <div className="mb-8 border-t pt-6 bg-orange-50/30 -mx-6 px-6 pb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-md font-bold text-gray-900 flex items-center gap-2">
-                            <span className="text-xl">✨</span> Marca Empleadora (Portal)
-                        </h4>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={brandingEnabled}
-                                onChange={(e) => setBrandingEnabled(e.target.checked)}
-                                className="w-5 h-5 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-                            />
-                            <span className="text-sm font-medium text-gray-700">{brandingEnabled ? 'Activado' : 'Desactivado'}</span>
-                        </label>
-                    </div>
-
-                    {brandingEnabled && (
-                        <div className="space-y-6 animate-fade-in">
-                            {/* Colores */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Color Primario</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="color"
-                                            value={primaryColor}
-                                            onChange={(e) => setPrimaryColor(e.target.value)}
-                                            className="w-10 h-10 rounded cursor-pointer"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={primaryColor}
-                                            onChange={(e) => setPrimaryColor(e.target.value)}
-                                            className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm font-mono"
-                                        />
+                            {/* Employer Branding Toggle */}
+                            <div className="p-8 bg-orange-50/50 rounded-[2.5rem] border-2 border-orange-100/50 space-y-8">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-900 uppercase italic tracking-tight flex items-center gap-2">
+                                            <Sparkles className="text-orange-500" size={18} /> Marca Empleadora
+                                        </h4>
+                                        <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest leading-none mt-1">Personalización de Portal Público</p>
+                                    </div>
+                                    <div onClick={() => setBrandingEnabled(!brandingEnabled)} className={`w-14 h-8 rounded-full p-1 transition-all duration-300 cursor-pointer ${brandingEnabled ? 'bg-orange-500' : 'bg-slate-300'}`}>
+                                        <div className={`w-6 h-6 rounded-full bg-white transition-all duration-300 ${brandingEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Color Secundario</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="color"
-                                            value={secondaryColor}
-                                            onChange={(e) => setSecondaryColor(e.target.value)}
-                                            className="w-10 h-10 rounded cursor-pointer"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={secondaryColor}
-                                            onChange={(e) => setSecondaryColor(e.target.value)}
-                                            className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm font-mono"
-                                        />
+
+                                {brandingEnabled && (
+                                    <div className="space-y-6 animate-fade-in">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Color Primario</label>
+                                                <div className="flex gap-2">
+                                                    <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-4 border-white shadow-sm" />
+                                                    <input type="text" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl font-mono text-xs uppercase" />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Color Secundario</label>
+                                                <div className="flex gap-2">
+                                                    <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-4 border-white shadow-sm" />
+                                                    <input type="text" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl font-mono text-xs uppercase" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Descripción de Empresa (Portal)</label>
+                                            <textarea value={brandDescription} onChange={(e) => setBrandDescription(e.target.value)} className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold h-32 outline-none focus:border-orange-400" placeholder="Cuenta la historia y cultura de la empresa..." />
+                                        </div>
                                     </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeSection === 'aprobacion' && (
+                        <div className="animate-fade-in space-y-10">
+                            <div>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
+                                    <ShieldCheck size={14} /> Flujo de Autorizaciones
+                                </h4>
+                                <div className="space-y-4">
+                                    {approvalLevels.map((lvl, idx) => (
+                                        <div key={idx} className="flex items-center gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100 relative group overflow-hidden">
+                                            <div className="absolute top-0 left-0 w-1.5 h-full bg-slate-900" />
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black italic text-lg shadow-lg shadow-slate-900/10">
+                                                {lvl.level}
+                                            </div>
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <input
+                                                    type="text"
+                                                    value={lvl.name}
+                                                    onChange={(e) => {
+                                                        const newLvls = [...approvalLevels];
+                                                        newLvls[idx].name = e.target.value;
+                                                        setApprovalLevels(newLvls);
+                                                    }}
+                                                    className="bg-transparent border-b-2 border-slate-200 focus:border-slate-900 outline-none px-2 py-1 text-sm font-black uppercase tracking-tight transition-all"
+                                                    placeholder="Nombre del cargo..."
+                                                />
+                                                <select
+                                                    value={lvl.role}
+                                                    onChange={(e) => {
+                                                        const newLvls = [...approvalLevels];
+                                                        newLvls[idx].role = e.target.value;
+                                                        setApprovalLevels(newLvls);
+                                                    }}
+                                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                                                >
+                                                    <option value="store_manager">Gerente de Tienda</option>
+                                                    <option value="supervisor">Supervisor</option>
+                                                    <option value="jefe_marca">Jefe de Marca</option>
+                                                    <option value="recruiter">Recruiter</option>
+                                                    <option value="holding_admin">Holding Admin</option>
+                                                </select>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const filtered = approvalLevels.filter((_, i) => i !== idx);
+                                                    setApprovalLevels(filtered.map((l, i) => ({ ...l, level: i + 1 })));
+                                                }}
+                                                className="w-10 h-10 rounded-xl bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-rose-100 flex items-center justify-center transition-all"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setApprovalLevels([...approvalLevels, { level: approvalLevels.length + 1, name: '', role: 'supervisor' }])}
+                                        className="w-full py-5 border-2 border-dashed border-slate-200 rounded-3xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:border-slate-900 hover:text-slate-900 hover:bg-slate-50 transition-all font-italic"
+                                    >
+                                        + Agregar Nuevo Nivel de Aprobación en Serie
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeSection === 'consumo' && (
+                        <div className="animate-fade-in space-y-12">
+                            {/* KPI Grid */}
+                            <div>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
+                                    <BarChart3 size={14} /> Consumo Real-Time (LIAH FLOW)
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {[
+                                        { label: 'Bots WhatsApp', used: 12450, total: limiteWhatsApp, color: 'emerald', sub: 'Mensajes enviados' },
+                                        { label: 'IA Gemini Tokens', used: 45000, total: limiteGemini, color: 'violet', sub: 'Tokens procesados' },
+                                        { label: 'Alerta SMS', used: 840, total: limiteSMS, color: 'blue', sub: 'Mensajes masivos' },
+                                        { label: 'Usuarios ATS', used: 8, total: maxUsuarios, color: 'slate', sub: 'Cuentas activas' }
+                                    ].map((stat, i) => {
+                                        const perc = (stat.used / stat.total) * 100;
+                                        return (
+                                            <div key={i} className="white-label-card p-6 border-slate-100 border-2">
+                                                <div className="flex justify-between items-end mb-4">
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                                                        <p className="text-xs font-bold text-slate-800">{stat.sub}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-black italic tracking-tighter leading-none mb-1">
+                                                            {stat.used.toLocaleString()}
+                                                            <span className="text-slate-300 mx-1">/</span>
+                                                            <span className="text-slate-400">{stat.total.toLocaleString()}</span>
+                                                        </p>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{perc.toFixed(1)}%</p>
+                                                    </div>
+                                                </div>
+                                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-1000 ${perc > 90 ? 'bg-rose-500' :
+                                                            perc > 70 ? 'bg-amber-500' : `bg-slate-900`
+                                                            }`}
+                                                        style={{ width: `${Math.min(100, perc)}%` }}
+                                                    />
+                                                </div>
+                                                {perc > 90 && (
+                                                    <p className="text-[9px] text-rose-500 font-black uppercase mt-3 flex items-center gap-1 animate-pulse">
+                                                        ⚠️ Límite Excedido - Bloqueo Pendiente
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* Descripción */}
+                            {/* Billing History */}
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Descripción de Marca</label>
-                                <textarea
-                                    value={brandDescription}
-                                    onChange={(e) => setBrandDescription(e.target.value)}
-                                    placeholder="Somos una empresa que..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-24"
-                                />
-                            </div>
-
-                            {/* Frases */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Frases del Hero (una por línea)</label>
-                                <textarea
-                                    value={brandPhrases.join('\n')}
-                                    onChange={(e) => setBrandPhrases(e.target.value.split('\n').filter(Boolean))}
-                                    placeholder="Sabor y Pasión&#10;Tu futuro empieza aquí"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-20"
-                                />
-                            </div>
-
-                            {/* Galería */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Galería de Fotos (URLs)</label>
-                                <textarea
-                                    value={brandGallery.join('\n')}
-                                    onChange={(e) => setBrandGallery(e.target.value.split('\n').filter(Boolean))}
-                                    placeholder="https://image1.jpg&#10;https://image2.jpg"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-24 font-mono"
-                                />
-                            </div>
-
-                            {/* Videos */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Videos (YouTube IDs, uno por línea)</label>
-                                <textarea
-                                    value={brandVideos.map(v => v.id).join('\n')}
-                                    onChange={(e) => {
-                                        const ids = e.target.value.split('\n').filter(Boolean);
-                                        setBrandVideos(ids.map(id => ({ id, title: 'Video' })));
-                                    }}
-                                    placeholder="dQw4w9WgXcQ&#10;KaTPzl88o3I"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm h-20 font-mono"
-                                />
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
+                                    <FileText size={14} /> Historico de Facturación & Cobros
+                                </h4>
+                                <div className="white-label-card overflow-hidden border-slate-100 border-2 rounded-3xl">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-slate-50 border-b border-slate-100">
+                                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Periodo</th>
+                                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Monto</th>
+                                                <th className="px-6 py-4 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {[
+                                                { p: 'Marzo 2026', m: precioMensual, st: 'Pagado' },
+                                                { p: 'Febrero 2026', m: precioMensual, st: 'Pagado' },
+                                                { p: 'Enero 2026', m: 950, st: 'Pagado' }
+                                            ].map((p, i) => (
+                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">{p.p}</td>
+                                                    <td className="px-6 py-4 text-[11px] font-black text-slate-900 italic">${p.m}</td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                                                            {p.st}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Password Temporal y Estado */}
-                <div className="mb-8 border-t pt-6 grid grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">🔑 Password Temporal para Activación</label>
-                        <input
-                            type="text"
-                            value={tempPassword}
-                            onChange={(e) => setTempPassword(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono"
-                        />
-                    </div>
-                    <div className="flex items-center">
-                        <label className="flex items-center gap-3 cursor-pointer mt-6">
-                            <input
-                                type="checkbox"
-                                checked={activo}
-                                onChange={(e) => setActivo(e.target.checked)}
-                                className="w-5 h-5 text-violet-600 rounded border-gray-300 focus:ring-violet-500"
-                            />
-                            <div>
-                                <p className="font-medium text-gray-900">Holding Activo</p>
-                                <p className="text-sm text-gray-500">Permite acceso al sistema</p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                {/* Resumen */}
-                <div className="bg-violet-50 rounded-lg p-4 mb-6">
-                    <h4 className="font-medium text-violet-900 mb-2">Resumen de Cambios</h4>
-                    <div className="space-y-1 text-sm text-violet-700">
-                        <p>• Plan: <span className="font-semibold">{
-                            plan === 'bot_only' ? 'Bot Only' :
-                                plan === 'rq_only' ? 'RQ Only' : 'Full Stack'
-                        }</span></p>
-                        {(plan === 'bot_only' || plan === 'full_stack') && (
-                            <>
-                                <p>• WhatsApp: <span className="font-semibold">{limiteWhatsApp.toLocaleString()} msg/mes</span></p>
-                                <p>• Gemini: <span className="font-semibold">{limiteGemini.toLocaleString()} calls/mes</span></p>
-                            </>
-                        )}
-                        <p>• Usuarios: <span className="font-semibold">{maxUsuarios}</span></p>
-                        <p>• Marcas: <span className="font-semibold">{maxBrands}</span></p>
-                        <p>• Tiendas: <span className="font-semibold">{maxStores}</span></p>
-                        <p>• Precio: <span className="font-semibold">${precioMensual}/mes</span></p>
-                        <p>• Estado: <span className={`font-semibold ${activo ? 'text-green-600' : 'text-red-600'}`}>
-                            {activo ? 'Activo' : 'Inactivo'}
-                        </span></p>
-                    </div>
-                </div>
-
-                {/* Botones */}
-                <div className="flex gap-3">
+                {/* Footer Actions */}
+                <div className="flex flex-col sm:flex-row gap-4 mt-12 pt-10 border-t-2 border-slate-100/50">
                     <button
                         onClick={onCancel}
-                        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                        className="flex-1 px-8 py-4 border-2 border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
                     >
-                        Cancelar
+                        Descartar
                     </button>
                     <button
                         onClick={handleSave}
-                        className="flex-1 px-4 py-2.5 gradient-bg text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+                        className="flex-[2] px-8 py-4 bg-slate-950 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:scale-[1.02] hover:shadow-2xl hover:shadow-slate-900/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                     >
-                        Guardar Cambios
+                        <ShieldCheck size={16} className="text-brand" />
+                        Guardar Configuración Global
                     </button>
                 </div>
             </div>

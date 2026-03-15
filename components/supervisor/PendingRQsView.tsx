@@ -22,6 +22,7 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
     const [approving, setApproving] = useState(false);
     const [rejecting, setRejecting] = useState(false);
     const [selectedStore, setSelectedStore] = useState<string>('all');
+    const [dateFilter, setDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
     const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
 
     useEffect(() => {
@@ -148,10 +149,22 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
         }
     }
 
-    // Filter by selected store
-    const filteredRQs = selectedStore === 'all'
-        ? rqs
-        : rqs.filter(rq => rq.tiendaId === selectedStore);
+    // Filter by selected store and date
+    const filteredRQs = rqs.filter(rq => {
+        // Store filter
+        if (selectedStore !== 'all' && rq.tiendaId !== selectedStore) return false;
+
+        // Date filter
+        if (dateFilter !== 'todos') {
+            const createdAt = rq.createdAt?.toDate ? rq.createdAt.toDate() : new Date(rq.createdAt);
+            const now = new Date();
+            const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+            if (dateFilter === 'semana' && diffDays > 7) return false;
+            if (dateFilter === 'mes' && diffDays > 30) return false;
+        }
+
+        return true;
+    });
 
     if (loading) {
         return (
@@ -193,6 +206,17 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
                                     {name}
                                 </option>
                             ))}
+                        </select>
+
+                        {/* Date Filter */}
+                        <select
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value as any)}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-violet-500 focus:border-violet-500"
+                        >
+                            <option value="semana">📅 Última Semana</option>
+                            <option value="mes">📅 Último Mes</option>
+                            <option value="todos">📅 Todo el Historial</option>
                         </select>
                     </div>
 
@@ -288,6 +312,6 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
                     />
                 )}
             </div>
-        </div>
+        </div >
     );
 }

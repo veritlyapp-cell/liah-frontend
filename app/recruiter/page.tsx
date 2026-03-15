@@ -12,9 +12,24 @@ import RQTrackingView from '@/components/admin/RQTrackingView';
 import EmailTemplatesConfig from '@/components/admin/EmailTemplatesConfig';
 import { useRouter } from 'next/navigation';
 import UnifiedAnalytics from '@/components/admin/UnifiedAnalytics';
+import InterviewAgenda from '@/components/store-manager/InterviewAgenda';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import SidebarNav from '@/components/SidebarNav';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
+import CandidateActivationPanel from '@/components/recruiter/CandidateActivationPanel';
 
 export default function RecruiterDashboard() {
     const { user, claims, loading: authLoading, signOut } = useAuth();
+    const [isMobile, setIsMobile] = useState(true);
+
+    useEffect(() => {
+        const check = () => typeof window !== 'undefined' && setIsMobile(window.innerWidth < 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+
     const router = useRouter();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
@@ -27,7 +42,7 @@ export default function RecruiterDashboard() {
         if (!authLoading && user) {
             const role = claims?.role || '';
             // ONLY redirect if we explicitly have a role AND it's NOT a recruiter role
-            if (role && !['recruiter', 'brand_recruiter', 'client_admin', 'admin', 'super_admin'].includes(role)) {
+            if (role && !['recruiter', 'brand_recruiter', 'jefe_zonal', 'hrbp', 'client_admin', 'admin', 'super_admin'].includes(role)) {
                 console.log('🛡️ Recruiter Guard: Unauthorized role detected:', role, '- redirecting to /launcher');
                 router.push('/launcher');
             }
@@ -41,13 +56,17 @@ export default function RecruiterDashboard() {
     const [selectedStores, setSelectedStores] = useState<string[]>([]);
     const [selectedPosition, setSelectedPosition] = useState<string>('');
     const [selectedCULStatus, setSelectedCULStatus] = useState<string>('');
-    const [activeTab, setActiveTab] = useState<'candidatos' | 'requerimientos' | 'analitica' | 'configuracion'>('requerimientos');
+    const [selectedDateFilter, setSelectedDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
+    const [activeTab, setActiveTab] = useState<'candidatos' | 'requerimientos' | 'analitica' | 'configuracion' | 'entrevistas' | 'activacion'>('requerimientos');
 
     // Marcas from user assignment (can be multiple)
     const [marcas, setMarcas] = useState<{ id: string; nombre: string }[]>([]);
+    const [assignedZones, setAssignedZones] = useState<string[]>([]);
     const [selectedMarca, setSelectedMarca] = useState<string>('all');
     const [loadingAssignment, setLoadingAssignment] = useState(true);
     const [holdingId, setHoldingId] = useState<string>('');
+    const [holdingName, setHoldingName] = useState<string>('');
+    const [enableInterviews, setEnableInterviews] = useState(true);
 
     // Load user assignment to get marcas
     useEffect(() => {
@@ -141,6 +160,20 @@ export default function RecruiterDashboard() {
                 setMarcas(loadedMarcas);
                 if (assignment.holdingId) {
                     setHoldingId(assignment.holdingId);
+                    try {
+                        const hDoc = await getDoc(doc(db, 'holdings', assignment.holdingId));
+                        if (hDoc.exists()) {
+                            const data = hDoc.data();
+                            if (data.nombre) setHoldingName(data.nombre);
+                            const responsible = data.interviewResponsible || 'store_manager';
+                            setEnableInterviews(responsible === 'recruiter');
+                        }
+                    } catch (e) {
+                        console.error('Error loading holding config:', e);
+                    }
+                }
+                if (assignment.assignedZones && Array.isArray(assignment.assignedZones)) {
+                    setAssignedZones(assignment.assignedZones.map((z: any) => z.zoneId || z.id || z));
                 }
 
                 console.log('✅ Recruiter brands final selection:', loadedMarcas);
@@ -170,7 +203,7 @@ export default function RecruiterDashboard() {
 
     useEffect(() => {
         applyFilters();
-    }, [candidates, selectedStores, selectedPosition, selectedCULStatus]);
+    }, [candidates, selectedStores, selectedPosition, selectedCULStatus, selectedDateFilter]);
 
     async function loadData() {
         if (marcas.length === 0) return;
@@ -193,11 +226,22 @@ export default function RecruiterDashboard() {
                     getStoresByMarca(marca.id)
                 ]);
 
-                allCandidates.push(...candidatesData);
+                let filteredStoresData = storesData;
+                if (assignedZones.length > 0) {
+                    filteredStoresData = storesData.filter((s: any) => assignedZones.includes(s.zonaId));
+                }
+                const allowedStoreIds = new Set(filteredStoresData.map(s => s.id));
+
+                let filteredCandidatesData = candidatesData;
+                if (assignedZones.length > 0) {
+                    filteredCandidatesData = candidatesData.filter(c => c.applications?.some(app => allowedStoreIds.has(app.tiendaId)));
+                }
+
+                allCandidates.push(...filteredCandidatesData);
                 positionsData.forEach(p => allPositions.add(p));
-                storesData.forEach(s => {
+                filteredStoresData.forEach(s => {
                     if (!allStores.some(existing => existing.id === s.id)) {
-                        allStores.push(s);
+                        allStores.push(s as any);
                     }
                 });
             }
@@ -234,6 +278,18 @@ export default function RecruiterDashboard() {
         if (selectedCULStatus) {
             filtered = filtered.filter(c => c.culStatus === selectedCULStatus);
         }
+
+        // Filter by date
+        if (selectedDateFilter !== 'todos') {
+            filtered = filtered.filter(c => {
+                const createdAt = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+                const now = new Date();
+                const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+                if (selectedDateFilter === 'semana' && diffDays > 7) return false;
+                if (selectedDateFilter === 'mes' && diffDays > 30) return false;
+                return true;
+            });
+        }
         // Removed hard exclusion of 'apto' so they appear in "Todos" list as requested.
 
         setFilteredCandidates(filtered);
@@ -243,6 +299,7 @@ export default function RecruiterDashboard() {
         setSelectedStores([]);
         setSelectedPosition('');
         setSelectedCULStatus('');
+        setSelectedDateFilter('semana');
     }
 
     // Calculate stats
@@ -317,135 +374,74 @@ export default function RecruiterDashboard() {
         );
     }
 
+    const sidebarItems = [
+        { id: 'requerimientos', label: 'Requerimientos', icon: '📋' },
+        { id: 'candidatos', label: 'Candidatos', icon: '👥' },
+        { id: 'activacion', label: 'Exportar / SMS', icon: '📤' },
+        { id: 'entrevistas', label: 'Entrevistas', icon: '📅', hidden: !enableInterviews },
+        { id: 'analitica', label: 'Analítica', icon: '📊' },
+        { id: 'configuracion', label: 'Configuración', icon: '⚙️', hidden: true },
+    ];
+
+
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <DashboardHeader
-                title="Dashboard Recruiter"
-                marcaId={selectedMarca !== 'all' ? selectedMarca : marcas[0]?.id}
-                onConfigClick={() => setActiveTab('configuracion')}
-            />
-
-            {/* Navigation Tabs */}
-            <div className="bg-white border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => setActiveTab('requerimientos')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'requerimientos'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            📋 Requerimientos
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('candidatos')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'candidatos'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            👥 Candidatos
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('analitica')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'analitica'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            📊 Analítica
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content Container */}
-            <main className="container-main py-20 space-y-12">
+        <DashboardLayout
+            items={sidebarItems}
+            activeTab={activeTab}
+            onTabChange={(id) => setActiveTab(id as any)}
+            title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('requerimientos', 'Requerimientos')}
+            marcaId={selectedMarca !== 'all' ? selectedMarca : marcas[0]?.id}
+            holdingSubtitle={holdingName}
+            onConfigClick={() => setActiveTab('configuracion')}
+        >
+            <div className="space-y-8 pb-20">
                 {/* Multi-Brand Selector */}
-                {
-                    marcas.length > 1 && (
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                            <div className="flex items-center gap-3">
-                                <label className="text-sm font-medium text-gray-700">
-                                    🏪 Filtrar por Marca:
-                                </label>
-                                <select
-                                    value={selectedMarca}
-                                    onChange={(e) => setSelectedMarca(e.target.value)}
-                                    className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white min-w-[200px]"
-                                >
-                                    <option value="all">📊 Todas las Marcas ({marcas.length})</option>
-                                    {marcas.map(m => (
-                                        <option key={m.id} value={m.id}>{m.nombre}</option>
-                                    ))}
-                                </select>
-                                {selectedMarca !== 'all' && (
-                                    <button
-                                        onClick={() => setSelectedMarca('all')}
-                                        className="text-sm text-violet-600 hover:text-violet-700 font-medium"
-                                    >
-                                        Mostrar todas
-                                    </button>
-                                )}
+                {marcas.length > 1 && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                🏪 Filtrar Marca:
+                            </label>
+                            <select
+                                value={selectedMarca}
+                                onChange={(e) => setSelectedMarca(e.target.value)}
+                                className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                            >
+                                <option value="all">📊 Todas las Marcas ({marcas.length})</option>
+                                {marcas.map(m => (
+                                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'candidatos' && (
+                    <div className="space-y-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total</p>
+                                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                            </div>
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">Aprobados</p>
+                                <p className="text-2xl font-bold text-blue-600">{stats.approved}</p>
+                            </div>
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase text-green-400 tracking-widest mb-1">CUL Aptos</p>
+                                <p className="text-2xl font-bold text-green-600">{stats.culAptos}</p>
+                            </div>
+                            <div className="bg-white rounded-xl border border-emerald-200 p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-1">Seleccion</p>
+                                <p className="text-2xl font-bold text-emerald-600">{stats.selected}</p>
                             </div>
                         </div>
-                    )
-                }
 
-                {
-                    activeTab === 'candidatos' && (
-                        <div className="space-y-8">
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                    <p className="text-sm text-gray-600">Total Candidatos</p>
-                                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-                                </div>
-                                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                    <p className="text-sm text-gray-600">Aprobados por SM</p>
-                                    <p className="text-3xl font-bold text-blue-600">{stats.approved}</p>
-                                    <p className="text-xs text-gray-500 mt-1">Esperando evaluación CUL</p>
-                                </div>
-                                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                    <p className="text-sm text-gray-600">CUL Aptos</p>
-                                    <p className="text-3xl font-bold text-green-600">{stats.culAptos}</p>
-                                    <p className="text-xs text-gray-500 mt-1">Listos para ingresar</p>
-                                </div>
-                                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                    <p className="text-sm text-gray-600">CUL No Aptos</p>
-                                    <p className="text-3xl font-bold text-red-600">{stats.culNoAptos}</p>
-                                    <p className="text-xs text-gray-500 mt-1">No pueden ingresar</p>
-                                </div>
-                                <div className="bg-white rounded-lg border border-emerald-200 p-4 shadow-sm">
-                                    <p className="text-sm text-emerald-700 font-medium">🎯 Seleccionados</p>
-                                    <p className="text-3xl font-bold text-emerald-600">{stats.selected}</p>
-                                    <p className="text-xs text-emerald-600 mt-1">Listos para exportar</p>
-                                </div>
-                            </div>
-
-                            {/* Hiring Stats Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 p-4">
-                                    <p className="text-sm text-yellow-700 font-medium">⏳ Pendientes Ingreso</p>
-                                    <p className="text-3xl font-bold text-yellow-900">{stats.pendingHire}</p>
-                                    <p className="text-xs text-yellow-600 mt-1">Aptos esperando confirmación</p>
-                                </div>
-                                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-4">
-                                    <p className="text-sm text-green-700 font-medium">✅ Ingresaron</p>
-                                    <p className="text-3xl font-bold text-green-900">{stats.hired}</p>
-                                    <p className="text-xs text-green-600 mt-1">Confirmado por SM</p>
-                                </div>
-                                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 p-4">
-                                    <p className="text-sm text-gray-700 font-medium">❌ No Ingresaron</p>
-                                    <p className="text-3xl font-bold text-gray-900">{stats.notHired}</p>
-                                    <p className="text-xs text-gray-600 mt-1">Desistieron o rechazados</p>
-                                </div>
-                            </div>
-
-                            {/* Main Content */}
-                            <div className="flex gap-6">
-                                {/* Filtros Sidebar */}
+                        {/* Main Content */}
+                        <div className="flex flex-col lg:flex-row gap-6">
+                            {/* Filtros Sidebar */}
+                            <div className="w-full lg:w-64 flex-shrink-0">
                                 <FiltersSidebar
                                     stores={stores}
                                     positions={positions}
@@ -455,55 +451,71 @@ export default function RecruiterDashboard() {
                                     setSelectedPosition={setSelectedPosition}
                                     selectedCULStatus={selectedCULStatus}
                                     setSelectedCULStatus={setSelectedCULStatus}
+                                    selectedDateFilter={selectedDateFilter}
+                                    setSelectedDateFilter={setSelectedDateFilter}
                                     onClearFilters={clearFilters}
                                 />
-
-                                {/* Candidates List */}
-                                <div className="flex-1">
-                                    <RecruiterCandidatesView
-                                        candidates={filteredCandidates}
-                                        onRefresh={loadData}
-                                    />
-                                </div>
                             </div>
-                        </div>
-                    )
-                }
 
-                {
-                    activeTab === 'requerimientos' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                            <RQTrackingView
-                                holdingId=""
-                                marcas={marcas}
-                            />
-                        </div>
-                    )
-                }
-
-                {
-                    activeTab === 'analitica' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-6">
-                                <UnifiedAnalytics
-                                    holdingId={holdingId}
-                                    marcas={marcas}
-                                    hasExitAnalytics={true}
+                            {/* Candidates List */}
+                            <div className="flex-1 overflow-hidden">
+                                <RecruiterCandidatesView
+                                    candidates={filteredCandidates}
+                                    onRefresh={loadData}
                                 />
                             </div>
                         </div>
-                    )
-                }
+                    </div>
+                )}
 
-                {
-                    activeTab === 'configuracion' && (
-                        <div className="space-y-8">
-                            {holdingId && <EmailTemplatesConfig holdingId={holdingId} />}
-                            <ConfigurationView />
+                {activeTab === 'activacion' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
+                        <CandidateActivationPanel candidates={candidates} />
+                    </div>
+                )}
+
+                {enableInterviews && activeTab === 'entrevistas' && (
+                    <div className="space-y-6">
+                        <h2 className="text-lg font-bold text-gray-900">📅 Entrevistas Agendadas</h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
+                            <InterviewAgenda
+                                marcaIds={selectedMarca !== 'all' ? [selectedMarca] : marcas.map(m => m.id)}
+                                allowedStoreIds={assignedZones.length > 0 ? stores.map(s => s.id) : undefined}
+                                holdingId={holdingId}
+                            />
                         </div>
-                    )
-                }
-            </main>
-        </div>
+                    </div>
+                )}
+
+                {activeTab === 'requerimientos' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
+                        <RQTrackingView
+                            holdingId=""
+                            marcas={marcas}
+                            allowedStoreIds={assignedZones.length > 0 ? stores.map(s => s.id) : undefined}
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'analitica' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 md:p-6">
+                            <UnifiedAnalytics
+                                holdingId={holdingId}
+                                marcas={marcas}
+                                hasExitAnalytics={true}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'configuracion' && (
+                    <div className="space-y-8">
+                        {holdingId && <EmailTemplatesConfig holdingId={holdingId} />}
+                        <ConfigurationView />
+                    </div>
+                )}
+            </div>
+        </DashboardLayout>
     );
 }

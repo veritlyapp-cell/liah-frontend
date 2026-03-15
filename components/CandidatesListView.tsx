@@ -35,6 +35,7 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     // State for Reingreso detection
     const [bajasMap, setBajasMap] = useState<Map<string, { motivoLabel: string; noRecomendar: boolean }>>(new Map());
+    const [dateFilter, setDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
 
     const toggleHistory = (candidateId: string) => {
         setExpandedHistory(prev => {
@@ -180,6 +181,15 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
         );
 
         if (!matchesSearch) return false;
+
+        // Date filter
+        if (dateFilter !== 'todos') {
+            const createdAt = candidate.createdAt?.toDate ? candidate.createdAt.toDate() : new Date(candidate.createdAt);
+            const now = new Date();
+            const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+            if (dateFilter === 'semana' && diffDays > 7) return false;
+            if (dateFilter === 'mes' && diffDays > 30) return false;
+        }
 
         // Status Categorization
         if (filterStatus) {
@@ -347,6 +357,16 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                     </svg>
                     Exportar CSV
                 </button>
+
+                <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value as any)}
+                    className="px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold focus:ring-2 focus:ring-violet-500 outline-none cursor-pointer"
+                >
+                    <option value="semana">📅 Última Semana</option>
+                    <option value="mes">📅 Último Mes</option>
+                    <option value="todos">📅 Todo el Historial</option>
+                </select>
             </div>
 
 

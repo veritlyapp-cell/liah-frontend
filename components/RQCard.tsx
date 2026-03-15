@@ -125,40 +125,33 @@ export default function RQCard({
                 </div>
             )}
 
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-900">{rq.posicion}</h3>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+                <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="font-bold text-gray-900 text-lg leading-tight uppercase italic tracking-tight">{rq.posicion}</h3>
                         {rq.confidencial && (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded flex items-center gap-1">
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black rounded flex items-center gap-1 uppercase tracking-widest">
                                 🔒 CONFIDENCIAL
                             </span>
                         )}
                         {rq.instanceNumber > 1 && (
-                            <span className="text-xs bg-violet-100 text-violet-600 px-2 py-0.5 rounded">
+                            <span className="text-[10px] font-black bg-violet-100 text-violet-600 px-2 py-0.5 rounded uppercase">
                                 #{rq.instanceNumber}
                             </span>
                         )}
                     </div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-xs text-slate-500 font-medium">
                         {rq.tiendaNombre} • {rq.modalidad} • {rq.turno}
                     </p>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex sm:flex-col items-start sm:items-end gap-2 shrink-0">
                     {getStateBadge()}
 
                     {/* Alerta de X+ días sin cubrir (configurable) */}
                     {rq.alert_unfilled && (
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 animate-pulse">
-                            🚨 +{rq.alert_days_threshold || 7} días sin cubrir
-                        </span>
-                    )}
-
-                    {/* Solicitud de eliminación pendiente */}
-                    {rq.deletion_requested && !rq.deletion_approved && (
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
-                            ⚠️ Eliminación pendiente
+                        <span className="px-2 py-1 rounded-lg text-[10px] font-black bg-red-50 text-red-600 animate-pulse uppercase tracking-wider border border-red-100">
+                            🚨 +{rq.alert_days_threshold || 7} d
                         </span>
                     )}
                 </div>
@@ -166,14 +159,17 @@ export default function RQCard({
 
             {/* Visual Approval Stepper */}
             {rq.approvalStatus !== 'rejected' && (
-                <div className="mb-4 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Flujo de Aprobación</span>
-                        <span className="text-[10px] font-medium text-violet-500 bg-violet-50 px-2 py-0.5 rounded">
-                            {rq.approvalStatus === 'approved' ? 'Completado' : `Nivel ${rq.currentApprovalLevel} pendiente`}
-                        </span>
+                <div className="mb-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
+                    <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Flujo de Aprobación</span>
+                        <div className="flex items-center gap-1.5 bg-violet-50 text-violet-600 px-2.5 py-1 rounded-full border border-violet-100">
+                            <div className={`w-1.5 h-1.5 rounded-full ${rq.approvalStatus === 'approved' ? 'bg-emerald-500' : 'bg-violet-500 animate-pulse'}`} />
+                            <span className="text-[10px] font-black uppercase tracking-wider">
+                                {rq.approvalStatus === 'approved' ? 'Completado' : `Nivel ${rq.currentApprovalLevel}`}
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-0.5 relative">
+                    <div className="flex items-center gap-0 relative px-2">
                         {[1, 2, 3].map((level, idx) => {
                             const levelInfo = getLevelInfo(level);
                             const chainItem = rq.approvalChain?.find(item => item.level === level);
@@ -181,39 +177,39 @@ export default function RQCard({
                             const isCurrent = level === (rq.currentApprovalLevel || 1) && rq.approvalStatus === 'pending';
 
                             // Colors
-                            let circleBg = "bg-gray-200";
-                            let textColor = "text-gray-400";
+                            let circleBg = "bg-slate-200";
+                            let textColor = "text-slate-400";
                             let icon: React.ReactNode = level;
 
                             if (isPast) {
-                                circleBg = "bg-green-500";
-                                textColor = "text-green-600";
+                                circleBg = "bg-emerald-500 shadow-lg shadow-emerald-200";
+                                textColor = "text-emerald-600 font-black";
                                 icon = "✓";
                             } else if (isCurrent) {
-                                circleBg = "bg-violet-600 animate-pulse";
-                                textColor = "text-violet-700 font-bold";
+                                circleBg = "bg-violet-600 animate-pulse shadow-lg shadow-violet-200";
+                                textColor = "text-violet-600 font-black";
                             }
 
                             return (
-                                <div key={level} className="flex-1 flex flex-col items-center gap-1.5 group relative">
-                                    <div className={`w-6 h-6 rounded-full ${circleBg} flex items-center justify-center text-[10px] text-white transition-all shadow-sm z-10`}>
+                                <div key={level} className="flex-1 flex flex-col items-center gap-2 group relative">
+                                    <div className={`w-8 h-8 rounded-full ${circleBg} flex items-center justify-center text-xs text-white transition-all z-10 font-black italic`}>
                                         {icon}
                                     </div>
-                                    <span className={`text-[9px] text-center leading-none ${textColor} font-medium px-1`}>
+                                    <span className={`text-[9px] text-center uppercase tracking-tighter ${textColor} font-black leading-tight max-w-[60px]`}>
                                         {levelInfo?.name || `Nivel ${level}`}
                                     </span>
 
                                     {/* Line connecting circles */}
                                     {idx < 2 && (
-                                        <div className={`absolute h-[2px] w-[calc(100%-24px)] top-3 left-[calc(50%+12px)] ${isPast ? 'bg-green-500' : 'bg-gray-200'}`} />
+                                        <div className={`absolute h-[2px] w-[calc(100%-32px)] top-4 left-[calc(50%+16px)] ${isPast ? 'bg-emerald-500' : 'bg-slate-200'} transition-all`} />
                                     )}
 
-                                    {/* Tooltip on hover with details */}
+                                    {/* Tooltip detail (Desktop only or touch) */}
                                     {chainItem?.approvedAt && (
-                                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-[9px] p-2 rounded-lg whitespace-nowrap z-50 shadow-xl">
-                                            {chainItem.status === 'approved' ? 'Aprobado' : 'Pendiente'} por:<br />
-                                            {chainItem.approvedByName || chainItem.approvedBy || 'N/A'}<br />
-                                            {new Date(chainItem.approvedAt.toDate()).toLocaleString()}
+                                        <div className="absolute bottom-full mb-3 hidden group-hover:block bg-slate-900 text-white text-[10px] p-3 rounded-2xl whitespace-nowrap z-50 shadow-2xl border border-slate-700">
+                                            <p className="font-bold text-emerald-400">{chainItem.status === 'approved' ? 'Aprobado' : 'Pendiente'}</p>
+                                            <p className="text-slate-300">{chainItem.approvedByName || 'N/A'}</p>
+                                            <p className="text-slate-500">{new Date(chainItem.approvedAt.toDate()).toLocaleString()}</p>
                                         </div>
                                     )}
                                 </div>

@@ -17,9 +17,20 @@ import DashboardHeader from '@/components/DashboardHeader';
 import ReportarBajaModal from '@/components/talent/ReportarBajaModal';
 import StoreScheduleConfig from '@/components/store-manager/StoreScheduleConfig';
 import InterviewAgenda from '@/components/store-manager/InterviewAgenda';
+import SidebarNav from '@/components/SidebarNav';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
 
 export default function StoreManagerDashboard() {
     const { user, claims, signOut } = useAuth();
+    const [isMobile, setIsMobile] = useState(true);
+
+    useEffect(() => {
+        const check = () => typeof window !== 'undefined' && setIsMobile(window.innerWidth < 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
     const [marcaNombre, setMarcaNombre] = useState<string>('');
     const [isRQLocked, setIsRQLocked] = useState(false);
@@ -28,6 +39,8 @@ export default function StoreManagerDashboard() {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showBajaModal, setShowBajaModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'rqs' | 'entrevistas' | 'selection' | 'aptos' | 'bajas' | 'horarios' | 'configuracion'>('rqs');
+    const [enableInterviews, setEnableInterviews] = useState(true);
+    const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; logo?: string } | null>(null);
 
     // Load user assignment to get assigned store
     useEffect(() => {
@@ -68,7 +81,7 @@ export default function StoreManagerDashboard() {
                     }
                 }
 
-                // Check for global RQ lock
+                // Check for global RQ lock and interview config
                 if (userAssignment?.holdingId) {
                     console.log('[StoreManager] 🏢 Fetching holding info for ID:', userAssignment.holdingId);
                     const holdingDoc = await getDoc(doc(db, 'holdings', userAssignment.holdingId));
@@ -76,6 +89,9 @@ export default function StoreManagerDashboard() {
                         const hData = holdingDoc.data();
                         console.log('[StoreManager] ✅ Holding found, blockRQ:', hData.blockRQCreation);
                         if (isMounted) setIsRQLocked(hData.blockRQCreation || false);
+                        if (isMounted) setHoldingInfo({ nombre: hData.nombre, logo: hData.logo });
+                        const responsible = hData.interviewResponsible || 'store_manager';
+                        if (isMounted) setEnableInterviews(responsible === 'store_manager');
                     } else {
                         console.warn('[StoreManager] ⚠️ Holding document NOT FOUND');
                     }
@@ -150,148 +166,93 @@ export default function StoreManagerDashboard() {
         );
     }
 
-    return (
-        <div className="min-h-screen bg-gray-50 pb-20">
-            {/* Unified Header */}
-            <DashboardHeader
-                title={STORE_NAME}
-                subtitle="Gerente de Tienda"
-                holdingId={assignment?.holdingId}
-                marcaId={MARCA_ID}
-                marcaName={marcaNombre}
-                storeId={STORE_ID}
-                onConfigClick={() => setActiveTab('configuracion')}
-            />
+    const sidebarItems = [
+        { id: 'rqs', label: 'RQs Pendientes', icon: '📋', badge: stats.total > 0 ? stats.total : undefined },
+        { id: 'entrevistas', label: 'Entrevistas', icon: '📅', hidden: !enableInterviews },
+        { id: 'selection', label: 'Selección', icon: '🎯' },
+        { id: 'aptos', label: 'Pre-Ingreso', icon: '⏳' },
+        { id: 'bajas', label: 'Bajas', icon: '📤' },
+        { id: 'horarios', label: 'Horarios', icon: '🕒' },
+        { id: 'configuracion', label: 'Configuración', icon: '⚙️', hidden: true },
+    ];
 
-            {/* Lock Notice Banner */}
-            {isRQLocked && (
-                <div className="bg-amber-50 border-b border-amber-200">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3 text-amber-800">
-                        <span className="text-xl">🔒</span>
-                        <div>
-                            <p className="font-semibold">Creación de RQs deshabilitada temporalmente</p>
-                            <p className="text-sm">El administrador ha bloqueado la creación de nuevos requerimientos. Contacta a soporte para más información.</p>
+
+
+    return (
+        <DashboardLayout
+            items={sidebarItems}
+            activeTab={activeTab}
+            onTabChange={(id) => setActiveTab(id as any)}
+            title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('rqs', 'Requerimientos').replace('aptos', 'Personal Apto')}
+            subtitle="Gerente de Tienda"
+            holdingId={assignment?.holdingId}
+            holdingName={STORE_NAME}
+            holdingSubtitle={holdingInfo?.nombre}
+            marcaId={MARCA_ID}
+            marcaName={marcaNombre}
+            storeId={STORE_ID}
+            onConfigClick={() => setActiveTab('configuracion')}
+        >
+            <div className="space-y-10">
+                {/* Lock Notice Banner */}
+                {isRQLocked && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl">
+                        <div className="px-6 py-4 flex items-center gap-3 text-amber-800">
+                            <span className="text-xl">🔒</span>
+                            <div>
+                                <p className="font-semibold text-sm">Creación de RQs deshabilitada temporalmente</p>
+                                <p className="text-xs">El administrador ha bloqueado la creación de nuevos requerimientos.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Navigation Tabs */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => setActiveTab('rqs')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'rqs'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            📋 RQs Pendientes
-                            {stats.total > 0 && (
-                                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${activeTab === 'rqs' ? 'bg-violet-100' : 'bg-gray-100'
-                                    }`}>
-                                    {stats.total}
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('entrevistas')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'entrevistas'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            📅 Entrevistas
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('selection')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'selection'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            🎯 Selección
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('aptos')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'aptos'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            <span className="flex items-center gap-2">
-                                ⏳ Pre-Ingreso (Aptos)
-                                <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800 font-bold">
-                                    CONTROL
-                                </span>
-                            </span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('bajas')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'bajas'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            📤 Bajas
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('horarios')}
-                            className={`px-4 py-3 font-medium transition-colors border-b-2 ${activeTab === 'horarios'
-                                ? 'border-violet-600 text-violet-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            ⏱️ Horarios
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content Container */}
-            <main className="container-main py-20 space-y-12">
                 {/* Action Buttons Bar */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <span className="text-sm font-medium text-gray-600">Acciones Directas</span>
-                    </div>
+                <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
+                            <span className="text-xl">⚡</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-black text-gray-900 uppercase tracking-tight">Acciones Rápidas</p>
+                            <p className="text-xs text-gray-500">Gestión inmediata</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:flex items-center gap-2 md:gap-3 w-full sm:w-auto">
                         <button
                             onClick={() => setShowInviteModal(true)}
-                            className="px-4 py-2 bg-cyan-600 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-sm"
+                            className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2"
                         >
-                            ➕ Invitar Candidato
+                            <span>➕</span> Invitar
                         </button>
                         {!isRQLocked && (
                             <button
                                 onClick={() => setShowCreateRQModal(true)}
-                                className="px-4 py-2 gradient-bg text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-sm"
+                                className="px-4 py-2.5 gradient-bg text-white rounded-xl text-[10px] md:text-xs font-bold hover:opacity-90 transition-all shadow-lg flex items-center justify-center gap-2"
                             >
-                                📋 Crear RQ
+                                <span>📋</span> Crear RQ
                             </button>
                         )}
                         <button
                             onClick={() => setShowBajaModal(true)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-sm"
+                            className="col-span-2 md:col-span-1 px-4 py-2.5 bg-red-500 text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-red-600 transition-all shadow-lg flex items-center justify-center gap-2"
                         >
-                            📤 Reportar Baja
+                            <span>📤</span> Reportar Baja
                         </button>
                     </div>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-12 pb-20">
                     {activeTab === 'rqs' && (
                         <div className="space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-gray-900">📋 Mis Requerimientos Activos</h2>
-                            </div>
-
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">📋</span>
+                                Mis Requerimientos
+                            </h2>
                             {loading ? (
                                 <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4"></div>
-                                    <p className="text-gray-500 font-medium">Cargando requerimientos...</p>
+                                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-violet-600 mx-auto mb-4"></div>
+                                    <p className="text-gray-500 text-sm font-medium">Cargando...</p>
                                 </div>
                             ) : (
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -301,7 +262,7 @@ export default function StoreManagerDashboard() {
                                         pendingCount={stats.pending}
                                         unfilledCount={stats.unfilled}
                                         onDelete={(rqId, reason) => {
-                                            if (confirm('¿Eliminar este RQ? Esta acción no se puede deshacer.')) {
+                                            if (confirm('¿Eliminar este RQ?')) {
                                                 deleteDirectly(rqId, reason);
                                             }
                                         }}
@@ -313,26 +274,25 @@ export default function StoreManagerDashboard() {
                         </div>
                     )}
 
-                    {activeTab === 'entrevistas' && (
+                    {enableInterviews && activeTab === 'entrevistas' && (
                         <div className="space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-gray-900">📅 Entrevistas Agendadas</h2>
-                                <span className="text-sm text-gray-500">Gestiona las entrevistas y registra resultados</span>
-                            </div>
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                <InterviewAgenda
-                                    storeId={STORE_ID}
-                                    holdingId={assignment?.holdingId}
-                                />
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">📅</span>
+                                Entrevistas
+                            </h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
+                                <InterviewAgenda storeId={STORE_ID} holdingId={assignment?.holdingId} />
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'selection' && (
                         <div className="space-y-6">
-                            <h2 className="text-xl font-bold text-gray-900">🎯 Proceso de Selección</h2>
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                <h3 className="text-lg font-semibold mb-4">👥 Candidatos Disponibles</h3>
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">🎯</span>
+                                Selección
+                            </h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
                                 <CandidatesListView storeId={STORE_ID} />
                             </div>
                         </div>
@@ -340,41 +300,37 @@ export default function StoreManagerDashboard() {
 
                     {activeTab === 'aptos' && (
                         <div className="space-y-6">
-                            <h2 className="text-xl font-bold text-gray-900">⏳ Control de Ingresos (Aptos)</h2>
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">⏳</span>
+                                Pre-Ingreso
+                            </h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
                                 <CandidatosAptosView storeId={STORE_ID} marcaId={MARCA_ID} />
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'bajas' && (
-                        <div className="space-y-6">
-                            <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-red-900">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <span className="text-3xl">📤</span>
-                                    <div>
-                                        <h3 className="font-bold text-lg">Reporte de Bajas y T-Registro</h3>
-                                        <p className="text-sm opacity-80">Registra las salidas de personal para automatizar el cumplimiento legal y la encuesta de salida neutral.</p>
-                                    </div>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">
+                                    <span className="text-2xl">📤</span>
                                 </div>
-                                <button
-                                    onClick={() => setShowBajaModal(true)}
-                                    className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-sm"
-                                >
-                                    Reportar Nueva Baja
-                                </button>
+                                <div>
+                                    <h3 className="font-bold text-lg">Reporte de Bajas</h3>
+                                    <p className="text-sm text-gray-500">Gestión de salidas de personal.</p>
+                                </div>
                             </div>
-
-                            {/* History or list of recently reported bajas could go here */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-                                <p className="text-gray-500 italic text-sm">El historial de bajas procesadas se encuentra en el portal de Compensaciones.</p>
-                            </div>
+                            <button
+                                onClick={() => setShowBajaModal(true)}
+                                className="w-full md:w-auto px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg"
+                            >
+                                Reportar Nueva Baja
+                            </button>
                         </div>
                     )}
 
-                    {activeTab === 'horarios' && (
-                        <StoreScheduleConfig storeId={STORE_ID} />
-                    )}
+                    {activeTab === 'horarios' && <StoreScheduleConfig storeId={STORE_ID} />}
 
                     {activeTab === 'configuracion' && (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -382,39 +338,38 @@ export default function StoreManagerDashboard() {
                         </div>
                     )}
                 </div>
-            </main>
 
-            {/* Modals */}
-            <CreateRQModal
-                isOpen={showCreateRQModal}
-                onClose={() => setShowCreateRQModal(false)}
-                onSuccess={handleCreateRQSuccess}
-                storeId={STORE_ID}
-                storeName={STORE_NAME}
-                marcaId={MARCA_ID}
-                marcaNombre={marcaNombre}
-                isLocked={isRQLocked}
-            />
+                <CreateRQModal
+                    isOpen={showCreateRQModal}
+                    onClose={() => setShowCreateRQModal(false)}
+                    onSuccess={handleCreateRQSuccess}
+                    storeId={STORE_ID}
+                    storeName={STORE_NAME}
+                    marcaId={MARCA_ID}
+                    marcaNombre={marcaNombre}
+                    isLocked={isRQLocked}
+                />
 
-            <InviteCandidateModal
-                isOpen={showInviteModal}
-                onClose={() => setShowInviteModal(false)}
-                storeId={STORE_ID}
-                storeName={STORE_NAME}
-                marcaId={MARCA_ID}
-                marcaNombre={marcaNombre}
-                userRole={userRole}
-            />
+                <InviteCandidateModal
+                    isOpen={showInviteModal}
+                    onClose={() => setShowInviteModal(false)}
+                    storeId={STORE_ID}
+                    storeName={STORE_NAME}
+                    marcaId={MARCA_ID}
+                    marcaNombre={marcaNombre}
+                    userRole={userRole}
+                />
 
-            <ReportarBajaModal
-                isOpen={showBajaModal}
-                onClose={() => setShowBajaModal(false)}
-                holdingId={assignment?.holdingId || 'ngr'}
-                storeId={STORE_ID}
-                storeName={STORE_NAME}
-                marcaId={MARCA_ID}
-                marcaNombre={marcaNombre}
-            />
-        </div >
+                <ReportarBajaModal
+                    isOpen={showBajaModal}
+                    onClose={() => setShowBajaModal(false)}
+                    holdingId={assignment?.holdingId || 'ngr'}
+                    storeId={STORE_ID}
+                    storeName={STORE_NAME}
+                    marcaId={MARCA_ID}
+                    marcaNombre={marcaNombre}
+                />
+            </div>
+        </DashboardLayout>
     );
 }

@@ -11,6 +11,19 @@ export async function markCandidateHired(
     hiredBy: string,
     startDate: Date
 ): Promise<void> {
+    async function triggerNotification(type: string, data: any) {
+        if (typeof window === 'undefined') return;
+        try {
+            await fetch('/api/notifications/notify-action', {
+                method: 'POST',
+                body: JSON.stringify({ type, data }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (e) {
+            console.error('Failed to trigger notification:', e);
+        }
+    }
+
     const candidateRef = doc(db, 'candidates', candidateId);
     const candidate = await getDoc(candidateRef);
 
@@ -39,6 +52,8 @@ export async function markCandidateHired(
         applications: updatedApplications,
         updatedAt: Timestamp.now()
     });
+
+    const app = updatedApplications.find((a: Application) => a.id === applicationId);
 
     // Check if RQ should be closed (all vacancies filled)
     if (rqId) {
@@ -121,7 +136,20 @@ export async function markCandidateHired(
         const wasClosed = await checkAndCloseRQ(rqId);
         if (wasClosed) {
             console.log(`RQ ${rqId} was automatically closed (all vacancies filled)`);
+            // Notify Supervisor the RQ is closed
+            triggerNotification('RQ_CLOSED', {
+                posicion: app?.posicion,
+                tiendaNombre: app?.tiendaNombre,
+                marcaId: app?.marcaId
+            });
         }
+
+        // Notify Recruiter of successful hire
+        triggerNotification('CANDIDATE_HIRED', {
+            candidateName: candidate.data().nombre,
+            posicion: app?.posicion,
+            tiendaNombre: app?.tiendaNombre
+        });
     }
 }
 
@@ -159,4 +187,24 @@ export async function markCandidateNotHired(
         applications: updatedApplications,
         updatedAt: Timestamp.now()
     });
+
+    // Notify Recruiter of not hired
+    try {
+        const app = updatedApplications.find((a: Application) => a.id === applicationId);
+        await fetch('/api/notifications/notify-action', {
+            method: 'POST',
+            body: JSON.stringify({
+                type: 'CANDIDATE_NOT_HIRED',
+                data: {
+                    candidateName: candidate.data().nombre,
+                    posicion: app?.posicion,
+                    tiendaNombre: app?.tiendaNombre,
+                    reason
+                }
+            }),
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (e) {
+        console.error('Failed to trigger notification:', e);
+    }
 }

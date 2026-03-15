@@ -11,9 +11,10 @@ import DashboardHeader from '@/components/DashboardHeader';
 import CandidatesListView from '@/components/CandidatesListView';
 import ConfigurationView from '@/components/ConfigurationView';
 import CompensacionesTab from '@/components/talent/CompensacionesTab';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
 
 export default function JefeMarcaDashboard() {
-    const { user, signOut } = useAuth();
+    const { user, claims, signOut } = useAuth();
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
     const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'candidates' | 'compensaciones' | 'configuracion'>('pending');
     const [loading, setLoading] = useState(true);
@@ -66,99 +67,64 @@ export default function JefeMarcaDashboard() {
     const marcaId = assignment.assignedMarca?.marcaId || '';
     const marcaNombre = assignment.assignedMarca?.marcaNombre || '';
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Unified Header */}
-            <DashboardHeader
-                title="Dashboard Jefe de Marca"
-                subtitle={`${assignment.displayName} • ${marcaNombre}`}
-                holdingId={assignment.holdingId}
-                marcaId={marcaId}
-                marcaName={marcaNombre}
-                onConfigClick={() => setActiveTab('configuracion')}
-            />
+    const sidebarItems = [
+        { id: 'pending', label: 'Pendientes', icon: '⏳' },
+        { id: 'approved', label: 'Aprobados', icon: '✅' },
+        { id: 'candidates', label: 'Candidatos', icon: '👥' },
+        { id: 'compensaciones', label: 'Compensas', icon: '📑' },
+        { id: 'configuracion', label: 'Config', icon: '⚙️', hidden: true },
+    ];
 
-            {/* Content Container */}
-            <main className="container-main py-20 space-y-12">
+    return (
+        <DashboardLayout
+            items={sidebarItems}
+            activeTab={activeTab}
+            onTabChange={(id) => setActiveTab(id as any)}
+            title="Dashboard Jefe de Marca"
+            subtitle={`${assignment.displayName}`}
+            holdingId={assignment.holdingId}
+            marcaId={marcaId}
+            marcaName={marcaNombre}
+            onConfigClick={() => setActiveTab('configuracion')}
+        >
+            <div className="space-y-12">
                 {/* Stats Cards - Hide if in config */}
                 {activeTab !== 'configuracion' && <MarcaStatsCards marcaId={marcaId} />}
 
                 {/* Content */}
-                {activeTab !== 'configuracion' ? (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="border-b border-gray-200">
-                            <nav className="flex -mb-px">
-                                <button
-                                    onClick={() => setActiveTab('pending')}
-                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pending'
-                                        ? 'border-violet-600 text-violet-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                >
-                                    ⏳ RQs Pendientes
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('approved')}
-                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'approved'
-                                        ? 'border-violet-600 text-violet-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                >
-                                    ✅ RQs Aprobados
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('candidates')}
-                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'candidates'
-                                        ? 'border-violet-600 text-violet-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                >
-                                    👥 Candidatos
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('compensaciones')}
-                                    className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'compensaciones'
-                                        ? 'border-violet-600 text-violet-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                >
-                                    📑 Compensaciones
-                                </button>
-                            </nav>
-                        </div>
-
-                        <div className="p-8">
-                            {activeTab === 'pending' && (
-                                <MarcaPendingRQsView
+                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                    <div className="p-4 md:p-8">
+                        {activeTab === 'pending' && (
+                            <MarcaPendingRQsView
+                                marcaId={marcaId}
+                                jefeId={user?.uid || ''}
+                                jefeNombre={assignment.displayName}
+                            />
+                        )}
+                        {activeTab === 'approved' && (
+                            <MarcaApprovedRQsView marcaId={marcaId} />
+                        )}
+                        {activeTab === 'candidates' && (
+                            <div className="space-y-6">
+                                <CandidatesListView marcaId={marcaId} />
+                            </div>
+                        )}
+                        {activeTab === 'compensaciones' && (
+                            <div className="bg-white rounded-2xl">
+                                <CompensacionesTab
+                                    holdingId={assignment.holdingId}
                                     marcaId={marcaId}
-                                    jefeId={user?.uid || ''}
-                                    jefeNombre={assignment.displayName}
                                 />
-                            )}
-                            {activeTab === 'approved' && (
-                                <MarcaApprovedRQsView marcaId={marcaId} />
-                            )}
-                            {activeTab === 'candidates' && (
-                                <div className="space-y-6">
-                                    <CandidatesListView marcaId={marcaId} />
-                                </div>
-                            )}
-                            {activeTab === 'compensaciones' && (
-                                <div className="bg-white rounded-2xl p-8">
-                                    <CompensacionesTab
-                                        holdingId={assignment.holdingId}
-                                        marcaId={marcaId}
-                                    />
-                                </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
+                        {activeTab === 'configuracion' && (
+                            <div className="space-y-8">
+                                <ConfigurationView />
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                        <ConfigurationView />
-                    </div>
-                )}
-            </main>
-        </div>
+                </div>
+            </div>
+        </DashboardLayout>
     );
 }

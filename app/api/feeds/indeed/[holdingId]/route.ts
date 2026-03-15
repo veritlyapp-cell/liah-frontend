@@ -30,9 +30,9 @@ interface Holding {
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { holdingId: string } }
+    context: { params: Promise<{ holdingId: string }> }
 ) {
-    const holdingId = params.holdingId;
+    const { holdingId } = await context.params;
     const baseUrl = request.nextUrl.origin;
 
     try {

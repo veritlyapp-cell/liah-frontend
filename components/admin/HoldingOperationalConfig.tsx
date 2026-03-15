@@ -11,6 +11,7 @@ interface HoldingOperationalConfigProps {
 export default function HoldingOperationalConfig({ holdingId }: HoldingOperationalConfigProps) {
     const [holdingName, setHoldingName] = useState('');
     const [blockRQCreation, setBlockRQCreation] = useState(false);
+    const [interviewResponsible, setInterviewResponsible] = useState<'store_manager' | 'recruiter'>('store_manager');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -23,6 +24,7 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
                     const data = snap.data();
                     setHoldingName(data.nombre || '');
                     setBlockRQCreation(data.blockRQCreation || false);
+                    setInterviewResponsible(data.interviewResponsible || 'store_manager');
                 }
             } catch (error) {
                 console.error('Error loading operational config:', error);
@@ -40,6 +42,7 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
             await updateDoc(holdingRef, {
                 nombre: holdingName,
                 blockRQCreation: blockRQCreation,
+                interviewResponsible: interviewResponsible,
                 updatedAt: Timestamp.now()
             });
             alert('✅ Configuración operativa guardada');
@@ -86,6 +89,23 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
                     </label>
+                </div>
+
+                <div className="p-4 bg-violet-50 rounded-lg border border-violet-100 space-y-3">
+                    <div>
+                        <p className="font-semibold text-violet-900">Responsable de Entrevistas</p>
+                        <p className="text-sm text-violet-700/70">
+                            Define quién visualiza la agenda y a quién se le asignan las entrevistas agendadas por el bot.
+                        </p>
+                    </div>
+                    <select
+                        value={interviewResponsible}
+                        onChange={(e) => setInterviewResponsible(e.target.value as 'store_manager' | 'recruiter')}
+                        className="w-full px-4 py-2 border border-violet-200 rounded-lg focus:ring-2 focus:ring-violet-500 bg-white text-violet-900 font-medium"
+                    >
+                        <option value="store_manager">🏢 Operaciones (Gerentes de Tienda)</option>
+                        <option value="recruiter">👩‍💼 Recursos Humanos (Reclutadores / Jefes Zonales)</option>
+                    </select>
                 </div>
             </div>
 

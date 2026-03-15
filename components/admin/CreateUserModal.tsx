@@ -117,6 +117,36 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
         );
     }
 
+    const [zonas, setZonas] = useState<{ id: string, nombre: string }[]>([]);
+    const [selectedZonas, setSelectedZonas] = useState<string[]>([]);
+
+    useEffect(() => {
+        loadZonas();
+    }, []);
+
+    async function loadZonas() {
+        try {
+            const zonasRef = collection(db, 'zones');
+            const q = query(zonasRef, where('holdingId', '==', holdingId));
+            const snapshot = await getDocs(q);
+            const loaded = snapshot.docs.map(doc => ({
+                id: doc.id,
+                nombre: doc.data().nombre
+            }));
+            setZonas(loaded);
+        } catch (error) {
+            console.error('Error loading zonas:', error);
+        }
+    }
+
+    function toggleZona(zonaId: string) {
+        setSelectedZonas(prev =>
+            prev.includes(zonaId)
+                ? prev.filter(id => id !== zonaId)
+                : [...prev, zonaId]
+        );
+    }
+
     async function handleSubmit() {
         if (!email || !displayName) {
             alert('Por favor completa todos los campos');
@@ -192,6 +222,16 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                     marcaId: store?.marcaId || '',
                     marcaNombre: marca?.nombre || ''
                 };
+            } else if (role === 'jefe_zonal' || role === 'hrbp') {
+                if (selectedZonas.length === 0) {
+                    alert('Selecciona al menos una zona');
+                    setLoading(false);
+                    return;
+                }
+                payload.assignedZones = selectedZonas.map(zid => ({
+                    zoneId: zid,
+                    zoneNombre: zonas.find(z => z.id === zid)?.nombre || zid
+                }));
             }
 
             // Get auth token for API authorization
@@ -269,7 +309,9 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                     { value: 'supervisor', label: '👔 Supervisor', desc: 'Gestiona múltiples tiendas' },
                                     { value: 'jefe_marca', label: '🎯 Jefe de Marca', desc: 'Gestiona una marca completa' },
                                     { value: 'recruiter', label: '🔍 Recruiter', desc: 'Evalúa candidatos de una marca' },
-                                    { value: 'store_manager', label: '🏪 Gerente de Tienda', desc: 'Gestiona una tienda' }
+                                    { value: 'store_manager', label: '🏪 Gerente de Tienda', desc: 'Gestiona una tienda' },
+                                    { value: 'jefe_zonal', label: '🗺️ Jefe Zonal', desc: 'Evalúa Requerimientos por Zona' },
+                                    { value: 'hrbp', label: '🏢 HRBP', desc: 'Aprobación final HRBP' }
                                 ].map(r => (
                                     <button
                                         key={r.value}
@@ -487,6 +529,33 @@ export default function CreateUserModal({ holdingId, onClose, onSuccess }: Creat
                                         </div>
                                     )}
                                 </>
+                            )}
+
+                            {(role === 'jefe_zonal' || role === 'hrbp') && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Selecciona zonas ({selectedZonas.length} seleccionadas)
+                                    </label>
+                                    {zonas.length === 0 ? (
+                                        <div className="p-4 bg-gray-50 rounded-lg text-center">
+                                            <p className="text-gray-500 text-sm">No hay zonas configuradas</p>
+                                        </div>
+                                    ) : (
+                                        <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-2">
+                                            {zonas.map(zona => (
+                                                <label key={zona.id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedZonas.includes(zona.id)}
+                                                        onChange={() => toggleZona(zona.id)}
+                                                        className="mr-3 w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
+                                                    />
+                                                    <span className="text-sm font-medium">{zona.nombre}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             <div className="flex gap-2">

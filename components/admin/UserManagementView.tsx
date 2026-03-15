@@ -9,13 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
 import BulkImportUsersModal from './BulkImportUsersModal';
+import { Building2, Settings, Users, Key, Smartphone, Mail, Plus, Upload, Trash2, Pencil, Search, Filter } from 'lucide-react';
 
 interface UserManagementViewProps {
     holdingId?: string;
 }
 
 export default function UserManagementView({ holdingId = 'ngr' }: UserManagementViewProps) {
-    const { claims } = useAuth();
+    const { claims, user: authUser } = useAuth();
     const [assignments, setAssignments] = useState<UserAssignment[]>([]);
     const [marcas, setMarcas] = useState<{ id: string, nombre: string }[]>([]);
     const [loading, setLoading] = useState(true);
@@ -24,6 +25,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
     const [editingUser, setEditingUser] = useState<UserAssignment | null>(null);
     const [filterRole, setFilterRole] = useState<string>('all');
     const [filterMarca, setFilterMarca] = useState<string>('all');
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         loadData();
@@ -41,7 +43,6 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
     async function loadMarcas() {
         try {
             const marcasRef = collection(db, 'marcas');
-            // In a real scenario we'd filter by holdingId, but for now we fetch all relevant to this admin
             const q = query(marcasRef, where('holdingId', 'in', [holdingId, 'ngr']));
             const snapshot = await getDocs(q);
             const loadedMarcas = snapshot.docs.map(doc => ({
@@ -57,30 +58,19 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
     async function loadAssignments() {
         try {
             const data = await getAllUserAssignments();
-
-            // Normalize holdingId for comparison (supports 'ngr', 'holding-ngr', etc.)
             const normalizeHoldingId = (id: string | null | undefined): string => {
                 if (!id) return '';
                 return id.toLowerCase().replace('holding-', '').replace('holding_', '');
             };
-
             const normalizedHoldingId = normalizeHoldingId(holdingId);
 
-            // Filter: only users from this holding
             const filtered = data.filter(user => {
                 const userHolding = normalizeHoldingId(user.holdingId);
                 const isSuperAdmin = claims?.role === 'super_admin';
-
-                // Relax filter for super_admins: they see everyone in the target holding
-                if (isSuperAdmin) {
-                    return userHolding === normalizedHoldingId;
-                }
-
-                // Regular admins only see their team but not other super_admins
+                if (isSuperAdmin) return userHolding === normalizedHoldingId;
                 return userHolding === normalizedHoldingId && user.role !== 'super_admin';
             });
 
-            // Sort by most recent first
             filtered.sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
@@ -88,7 +78,6 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
             });
 
             setAssignments(filtered);
-            console.log(`✅ Usuarios cargados para holding ${holdingId} (normalized: ${normalizedHoldingId}):`, filtered.length);
         } catch (error) {
             console.error('Error loading assignments:', error);
         } finally {
@@ -97,16 +86,12 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
     }
 
     async function handleDeleteUser(userId: string, email: string, displayName: string) {
-        const confirmed = confirm(`¿Eliminar usuario ${displayName} permanentemente?\n\nEsto eliminará el usuario de Firebase Auth y permitirá recrearlo con el mismo correo.`);
+        const confirmed = confirm(`¿Eliminar usuario ${displayName} permanentemente?`);
         if (!confirmed) return;
 
         try {
-            // Get auth token for API authorization
             const currentUser = auth.currentUser;
-            if (!currentUser) {
-                alert('❌ No estás autenticado. Por favor, vuelve a iniciar sesión.');
-                return;
-            }
+            if (!currentUser) return;
             const idToken = await currentUser.getIdToken();
 
             const response = await fetch('/api/admin/delete-user', {
@@ -118,21 +103,14 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                 body: JSON.stringify({ userId, email })
             });
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Error al eliminar usuario');
-            }
-
+            if (!response.ok) throw new Error('Error al eliminar usuario');
             alert('✅ Usuario eliminado correctamente');
             loadAssignments();
         } catch (error: any) {
-            console.error('Error deleting user:', error);
             alert(error.message || 'Error al eliminar usuario');
         }
     }
 
-    // Get user's marca ID from their assignment
     const getUserMarcaId = (user: UserAssignment): string | null => {
         if (user.marcaId) return user.marcaId;
         if (user.assignedMarca?.marcaId) return user.assignedMarca.marcaId;
@@ -148,10 +126,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
 
         try {
             const currentUser = auth.currentUser;
-            if (!currentUser) {
-                alert('❌ No estás autenticado');
-                return;
-            }
+            if (!currentUser) return;
             const idToken = await currentUser.getIdToken();
 
             const response = await fetch('/api/admin/reset-password', {
@@ -163,194 +138,200 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                 body: JSON.stringify({ userId, email, newPassword: newPass })
             });
 
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error);
-
+            if (!response.ok) throw new Error('Error');
             alert(`✅ Contraseña restablecida.\nNueva: ${newPass}`);
         } catch (error: any) {
-            console.error('Error resetting password:', error);
-            alert(error.message || 'Error al restablecer contraseña');
+            alert('Error al restablecer contraseña');
         }
     }
 
-    // Apply both role and marca filters
     const filteredAssignments = assignments.filter(a => {
         const roleMatch = filterRole === 'all' || a.role === filterRole;
         const marcaMatch = filterMarca === 'all' || getUserMarcaId(a) === filterMarca;
-        return roleMatch && marcaMatch;
+        const searchMatch = !searchTerm ||
+            a.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            a.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        return roleMatch && marcaMatch && searchMatch;
     });
+
+    const getRoleBadge = (role: string) => {
+        switch (role) {
+            case 'client_admin': return 'soft-badge-brand';
+            case 'jefe_marca': return 'soft-badge-emerald';
+            case 'supervisor': return 'soft-badge-slate';
+            case 'recruiter': return 'soft-badge-brand';
+            default: return 'soft-badge-slate';
+        }
+    };
 
     const getRoleLabel = (role: string) => {
         const labels: Record<string, string> = {
-            client_admin: '👨‍💼 Administrador',
-            supervisor: '👔 Supervisor',
-            jefe_marca: '🎯 Jefe de Marca',
-            recruiter: '🔍 Recruiter',
-            store_manager: '🏪 Gerente de Tienda',
-            compensaciones: '💰 Compensaciones'
+            client_admin: 'Admin Empresa',
+            supervisor: 'Supervisor',
+            jefe_marca: 'Jefe de Marca',
+            recruiter: 'Recruiter',
+            store_manager: 'Gerente Tienda',
+            compensaciones: 'Compensaciones'
         };
         return labels[role] || role;
     };
 
     if (loading) {
         return (
-            <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Cargando usuarios...</p>
+            <div className="text-center py-32 white-label-card">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
+                <p className="mt-6 text-label animate-pulse tracking-widest uppercase">Sincronizando equipo...</p>
             </div>
         );
     }
 
     return (
-        <div>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h2>
-
-                    {/* Role Filter */}
-                    <select
-                        value={filterRole}
-                        onChange={(e) => setFilterRole(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-violet-500 focus:border-violet-500"
-                    >
-                        <option value="all">Todos los roles ({assignments.length})</option>
-                        <option value="supervisor">Supervisores</option>
-                        <option value="jefe_marca">Jefes de Marca</option>
-                        <option value="recruiter">Recruiters</option>
-                        <option value="store_manager">Gerentes de Tienda</option>
-                        <option value="compensaciones">Compensaciones</option>
-                    </select>
-
-                    {/* Marca Filter */}
-                    <select
-                        value={filterMarca}
-                        onChange={(e) => setFilterMarca(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-violet-500 focus:border-violet-500"
-                    >
-                        <option value="all">Todas las marcas</option>
-                        {marcas.map(m => (
-                            <option key={m.id} value={m.id}>{m.nombre}</option>
-                        ))}
-                    </select>
+        <div className="space-y-8">
+            {/* Header & Controls */}
+            <div className="flex flex-col gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-title-dashboard flex items-center gap-3">
+                            <span className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center text-brand">
+                                <Users size={24} />
+                            </span>
+                            Gestión de Equipo
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-1 ml-15">Administra los accesos y roles de tu organización.</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setShowBulkImportModal(true)}
+                            className="h-12 px-6 bg-slate-100 text-slate-700 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all flex items-center gap-2"
+                        >
+                            <Upload size={16} />
+                            <span className="hidden sm:inline">Importación Masiva</span>
+                        </button>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="h-12 px-6 bg-brand text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:opacity-90 transition-all shadow-xl shadow-brand/20 flex items-center gap-2"
+                        >
+                            <Plus size={16} strokeWidth={3} />
+                            <span className="hidden sm:inline">Nuevo Miembro</span>
+                        </button>
+                    </div>
                 </div>
 
+                {/* Advanced Filters */}
+                <div className="white-label-card p-4 flex flex-wrap items-center gap-4">
+                    <div className="flex-1 min-w-[200px] relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre o correo..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full h-12 pl-12 pr-4 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand/20 transition-all"
+                        />
+                    </div>
 
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setShowBulkImportModal(true)}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
-                    >
-                        📁 Importar Masivo
-                    </button>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="px-6 py-2 bg-violet-600 text-white rounded-lg font-semibold hover:bg-violet-700 transition-colors"
-                    >
-                        ➕ Crear Usuario
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="relative group">
+                            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <select
+                                value={filterRole}
+                                onChange={(e) => setFilterRole(e.target.value)}
+                                className="h-12 pl-10 pr-10 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-brand/20 appearance-none min-w-[180px]"
+                            >
+                                <option value="all">Filtro por Rol</option>
+                                <option value="supervisor">Supervisores</option>
+                                <option value="jefe_marca">Jefes de Marca</option>
+                                <option value="recruiter">Recruiters</option>
+                                <option value="store_manager">Gerentes</option>
+                                <option value="compensaciones">Compensaciones</option>
+                            </select>
+                        </div>
+
+                        <select
+                            value={filterMarca}
+                            onChange={(e) => setFilterMarca(e.target.value)}
+                            className="h-12 px-6 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-brand/20 appearance-none min-w-[180px]"
+                        >
+                            <option value="all">Todas las Marcas</option>
+                            {marcas.map(m => (
+                                <option key={m.id} value={m.id}>{m.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            {/* Users List */}
+            {/* User Grid */}
             {filteredAssignments.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No hay usuarios asignados</p>
+                <div className="white-label-card py-24 text-center">
+                    <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                        <Search size={32} className="text-slate-300" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">No se encontraron miembros</h3>
+                    <p className="text-slate-500 max-w-xs mx-auto text-sm">Ajusta los filtros o intenta con una búsqueda diferente.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {filteredAssignments.map(assignment => (
-                        <div key={assignment.id} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-start justify-between mb-4">
-                                <div>
-                                    <h3 className="font-semibold text-gray-900">{assignment.displayName}</h3>
-                                    <p className="text-sm text-gray-500">{assignment.email}</p>
+                        <div key={assignment.id} className="white-label-card p-6 group hover:translate-y-[-4px] transition-all duration-300">
+                            <div className="flex items-start justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 font-black text-xl group-hover:bg-brand group-hover:text-white transition-all shadow-sm">
+                                        {assignment.displayName?.[0]}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <h3 className="font-bold text-slate-900 group-hover:text-brand transition-colors truncate max-w-[160px]">
+                                            {assignment.displayName}
+                                        </h3>
+                                        <span className="text-[10px] text-slate-400 font-medium tracking-tight truncate max-w-[160px]">
+                                            {assignment.email}
+                                        </span>
+                                    </div>
                                 </div>
-                                <span className="text-2xl">{getRoleLabel(assignment.role).split(' ')[0]}</span>
+                                <span className={getRoleBadge(assignment.role)}>
+                                    {getRoleLabel(assignment.role)}
+                                </span>
                             </div>
 
-                            <div className="mb-4">
-                                <p className="text-sm font-medium text-gray-700 mb-2">
-                                    {getRoleLabel(assignment.role)}
-                                </p>
-
-                                {/* Assigned Stores (Supervisor) */}
-                                {assignment.role === 'supervisor' && assignment.assignedStores && (
-                                    <div className="text-sm text-gray-600">
-                                        <p className="font-medium">🏪 Tiendas asignadas: {assignment.assignedStores.length}</p>
-                                        <ul className="mt-1 space-y-1">
-                                            {assignment.assignedStores.slice(0, 3).map(store => (
-                                                <li key={store.tiendaId} className="text-xs">
-                                                    • {store.tiendaNombre}
-                                                </li>
-                                            ))}
-                                            {assignment.assignedStores.length > 3 && (
-                                                <li className="text-xs text-gray-400">
-                                                    + {assignment.assignedStores.length - 3} más
-                                                </li>
-                                            )}
-                                        </ul>
+                            <div className="space-y-4 mb-8">
+                                <div className="flex flex-col gap-2.5">
+                                    <div className="flex items-center gap-2.5 text-xs text-slate-500 bg-slate-50/50 p-3 rounded-xl border border-slate-100/50">
+                                        <Building2 size={14} className="text-slate-400" />
+                                        <span className="font-medium truncate">
+                                            {assignment.role === 'store_manager'
+                                                ? assignment.assignedStore?.tiendaNombre
+                                                : marcas.find(m => m.id === getUserMarcaId(assignment))?.nombre || 'Acceso Corporativo'}
+                                        </span>
                                     </div>
-                                )}
 
-                                {/* Assigned Marca(s) (Jefe de Marca / Recruiter) */}
-                                {(assignment.role === 'jefe_marca' || assignment.role === 'recruiter') && (
-                                    <div className="text-sm text-gray-600">
-                                        {assignment.assignedMarcas && assignment.assignedMarcas.length > 0 ? (
-                                            <>
-                                                <p className="font-medium">🏢 Marcas: {assignment.assignedMarcas.length}</p>
-                                                <ul className="mt-1 space-y-0.5">
-                                                    {assignment.assignedMarcas.slice(0, 3).map(marca => (
-                                                        <li key={marca.marcaId} className="text-xs">
-                                                            • {marca.marcaNombre || marca.marcaId}
-                                                        </li>
-                                                    ))}
-                                                    {assignment.assignedMarcas.length > 3 && (
-                                                        <li className="text-xs text-gray-400">
-                                                            + {assignment.assignedMarcas.length - 3} más
-                                                        </li>
-                                                    )}
-                                                </ul>
-                                            </>
-                                        ) : assignment.assignedMarca ? (
-                                            <p>🏢 Marca: <span className="font-medium">{assignment.assignedMarca.marcaNombre || assignment.assignedMarca.marcaId}</span></p>
-                                        ) : (
-                                            <p className="text-gray-400 italic">Sin marca asignada</p>
-                                        )}
+                                    <div className="flex items-center gap-2.5 text-[10px] text-slate-400 font-black uppercase tracking-widest pl-3">
+                                        <Smartphone size={12} />
+                                        <span>Mobile Access Enabled</span>
                                     </div>
-                                )}
-
-                                {/* Assigned Store (Store Manager) */}
-                                {assignment.role === 'store_manager' && assignment.assignedStore && (
-                                    <div className="text-sm text-gray-600 space-y-1">
-                                        <p>🏪 Tienda: <span className="font-medium">{assignment.assignedStore.tiendaNombre}</span></p>
-                                        {assignment.assignedStore.marcaId && (
-                                            <p>🏢 Marca: <span className="font-medium">
-                                                {marcas.find(m => m.id === assignment.assignedStore?.marcaId)?.nombre || assignment.assignedStore.marcaId}
-                                            </span></p>
-                                        )}
-                                    </div>
-                                )}
+                                </div>
                             </div>
 
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setEditingUser(assignment)}
-                                    className="flex-1 px-3 py-2 text-xs text-violet-600 border border-violet-300 rounded-lg hover:bg-violet-50 transition-colors font-bold"
+                                    className="flex-1 h-11 bg-slate-50 text-slate-600 rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-brand/10 hover:text-brand transition-all flex items-center justify-center gap-2"
                                 >
-                                    ✏️ Editar
+                                    <Pencil size={14} />
+                                    Editar
                                 </button>
                                 <button
                                     onClick={() => handleResetPassword(assignment.userId, assignment.email)}
-                                    className="flex-1 px-3 py-2 text-xs text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors font-bold"
+                                    className="h-11 w-11 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center hover:bg-amber-100 transition-all"
+                                    title="Reset Password"
                                 >
-                                    🔑 Pass
+                                    <Key size={16} />
                                 </button>
                                 <button
                                     onClick={() => handleDeleteUser(assignment.userId, assignment.email, assignment.displayName)}
-                                    className="px-3 py-2 text-xs text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                                    className="h-11 w-11 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center hover:bg-rose-100 transition-all"
+                                    title="Delete User"
                                 >
-                                    🗑️
+                                    <Trash2 size={16} />
                                 </button>
                             </div>
                         </div>
@@ -358,7 +339,7 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                 </div>
             )}
 
-            {/* Create User Modal */}
+            {/* Modals */}
             {showCreateModal && (
                 <CreateUserModal
                     holdingId={holdingId}
@@ -370,7 +351,6 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                 />
             )}
 
-            {/* Edit User Modal */}
             {editingUser && (
                 <EditUserModal
                     user={editingUser}
@@ -383,16 +363,14 @@ export default function UserManagementView({ holdingId = 'ngr' }: UserManagement
                 />
             )}
 
-            {/* Bulk Import Modal */}
             <BulkImportUsersModal
                 show={showBulkImportModal}
-                holdingId="ngr"
-                createdBy="admin@ngr.pe"
+                holdingId={holdingId}
+                createdBy={authUser?.email || 'admin@liah.ai'}
                 onCancel={() => setShowBulkImportModal(false)}
-                onComplete={(result) => {
+                onComplete={() => {
                     setShowBulkImportModal(false);
                     loadAssignments();
-                    alert(`Importación completada: ${result.successCount}/${result.totalUsers} usuarios creados`);
                 }}
             />
         </div>

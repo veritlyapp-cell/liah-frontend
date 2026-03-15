@@ -17,6 +17,18 @@ import {
 import { getApprovalConfig, getNextApprovalLevel } from './approval-config';
 import type { JobProfile } from './job-profiles';
 
+async function triggerNotification(type: string, data: any) {
+    try {
+        await fetch('/api/notifications/notify-action', {
+            method: 'POST',
+            body: JSON.stringify({ type, data }),
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (e) {
+        console.error('Failed to trigger notification:', e);
+    }
+}
+
 // Códigos de marca para numeración de RQs
 const MARCA_CODES: Record<string, string> = {
     'marca_papajohns': 'PJ',
@@ -357,6 +369,16 @@ export async function createRQInstances(
         }
     }
 
+    // Notify Supervisor (Level 2)
+    if (creatorRole === 'store_manager') {
+        triggerNotification('RQ_PENDING_SUPERVISOR', {
+            posicion: jobProfile.posicion,
+            tiendaNombre: tiendaNombre,
+            marcaId: marcaId,
+            tiendaId: tiendaId
+        });
+    }
+
     return rqIds;
 }
 
@@ -418,6 +440,15 @@ export async function approveRQ(
             approvalChain: updatedApprovalChain,
             updatedAt: Timestamp.now()
         });
+
+        // Notify next level or completion
+        if (nextLevel === 3) {
+            triggerNotification('RQ_PENDING_JEFE_MARCA', {
+                posicion: rq.posicion,
+                tiendaNombre: rq.tiendaNombre,
+                marcaId: rq.marcaId
+            });
+        }
     } else {
         // Último nivel, marcar como aprobado
         await updateDoc(rqRef, {
@@ -427,6 +458,12 @@ export async function approveRQ(
             approvalHistory: updatedHistory,
             approvalChain: updatedApprovalChain,
             updatedAt: Timestamp.now()
+        });
+
+        triggerNotification('RQ_APPROVED', {
+            posicion: rq.posicion,
+            tiendaNombre: rq.tiendaNombre,
+            marcaId: rq.marcaId
         });
     }
 }

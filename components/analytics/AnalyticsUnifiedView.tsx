@@ -230,7 +230,7 @@ export default function AnalyticsUnifiedView({ isEmbedded = false, initialHoldin
                     stores={filterOptions.stores}
                     districts={filterOptions.districts}
                     initialFilters={currentFilters}
-                    onFilterChange={handleFilterChange}
+                    onFilterChange={(f) => setCurrentFilters(f)}
                     holdingId={(initialHoldingId || claims?.holdingId || claims?.tenant_id) ?? undefined}
                 />
 

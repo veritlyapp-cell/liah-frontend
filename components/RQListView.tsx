@@ -19,7 +19,8 @@ interface RQListViewProps {
 }
 
 type FilterType = 'todos' | 'pendientes' | 'aprobados' | 'finalizados' | 'rechazados';
-type CategoryFilterType = 'todos' | 'operativo' | 'gerencial'; // NEW
+type CategoryFilterType = 'todos' | 'operativo' | 'gerencial';
+type DateFilterType = 'semana' | 'mes' | 'todos'; // NEW
 
 export default function RQListView({
     rqs,
@@ -37,6 +38,7 @@ export default function RQListView({
 }: RQListViewProps) {
     const [filterType, setFilterType] = useState<FilterType>(initialFilter);
     const [categoryFilter, setCategoryFilter] = useState<CategoryFilterType>('todos');
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('semana'); // Default to last week
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTienda, setSelectedTienda] = useState('');
 
@@ -69,22 +71,29 @@ export default function RQListView({
                 if (categoryFilter === 'gerencial' && rq.categoria !== 'gerencial') return false;
             }
 
+            // Date filter
+            if (dateFilter !== 'todos') {
+                const createdAt = rq.createdAt?.toDate ? rq.createdAt.toDate() : new Date(rq.createdAt);
+                const now = new Date();
+                const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+                if (dateFilter === 'semana' && diffDays > 7) return false;
+                if (dateFilter === 'mes' && diffDays > 30) return false;
+            }
+
             return true;
         });
-    }, [rqs, searchTerm, selectedTienda, categoryFilter]);
+    }, [rqs, searchTerm, selectedTienda, categoryFilter, dateFilter]);
 
     // 2. Filtrado por tipo (Pestaña activa) - Este es el que se muestra
     const filteredRQs = useMemo(() => {
         return baseFilteredRQs.filter(rq => {
             // Filter by status - show only active by default
             if (filterType !== 'finalizados' && filterType !== 'rechazados') {
-                // Skip filled/closed/cancelled RQs unless specifically looking at finalizados or todos
-                // EXCEPTION: Show rejected RQs in 'todos' because they are cancelations of interest
-                if (filterType !== 'todos' && (rq.status === 'filled' || rq.status === 'closed' || rq.status === 'cancelled')) return false;
-
-                // If 'todos', we still hide standard closed/filled but show ACTIVE or REJECTED
+                // If 'todos', hide closed/filled
                 if (filterType === 'todos' && (rq.status === 'filled' || rq.status === 'closed')) return false;
-                if (filterType === 'todos' && rq.status === 'cancelled' && rq.approvalStatus !== 'rejected') return false;
+
+                // For other active tabs, hide closed/filled/cancelled
+                if (filterType !== 'todos' && (rq.status === 'filled' || rq.status === 'closed' || rq.status === 'cancelled')) return false;
             }
 
             // Filtro por tipo
@@ -198,6 +207,17 @@ export default function RQListView({
                             )}
                         </select>
                     )}
+
+                    {/* Filtro por fecha */}
+                    <select
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value as DateFilterType)}
+                        className="px-4 py-2 border border-blue-300 bg-blue-50 text-blue-700 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent font-bold"
+                    >
+                        <option value="semana">📅 Última Semana</option>
+                        <option value="mes">📅 Último Mes</option>
+                        <option value="todos">📅 Todo el Historial</option>
+                    </select>
                 </div>
 
                 {/* Filtros de estado */}

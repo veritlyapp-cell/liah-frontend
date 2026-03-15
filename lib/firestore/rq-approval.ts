@@ -2,6 +2,18 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import type { RQ } from './rqs';
 
+async function triggerNotification(type: string, data: any) {
+    try {
+        await fetch('/api/notifications/notify-action', {
+            method: 'POST',
+            body: JSON.stringify({ type, data }),
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (e) {
+        console.error('Failed to trigger notification:', e);
+    }
+}
+
 /**
  * Approve a single RQ
  */
@@ -48,6 +60,21 @@ export async function approveRQ(
         currentApprovalLevel: nextLevel,
         approvalStatus: finalApprovalStatus
     });
+
+    // Notify next level or completion
+    if (finalApprovalStatus === 'approved') {
+        triggerNotification('RQ_APPROVED', {
+            posicion: rq.posicion,
+            tiendaNombre: rq.tiendaNombre,
+            marcaId: rq.marcaId
+        });
+    } else if (nextLevel === 3 && currentLevel === 2) {
+        triggerNotification('RQ_PENDING_JEFE_MARCA', {
+            posicion: rq.posicion,
+            tiendaNombre: rq.tiendaNombre,
+            marcaId: rq.marcaId
+        });
+    }
 }
 
 /**
@@ -138,12 +165,28 @@ export async function bulkApproveRQs(
             let nextLevel = firstPending ? firstPending.level : currentLevel;
             let finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
 
-            // Add to batch
             batch.update(rqRef, {
                 approvalChain: updatedChain,
                 currentApprovalLevel: nextLevel,
                 approvalStatus: finalApprovalStatus
             });
+
+            // Notify (we pick the last one to notify next person, or we could loop but better one summary)
+            if (i === rqIds.length - 1) {
+                if (finalApprovalStatus === 'approved') {
+                    triggerNotification('RQ_APPROVED', {
+                        posicion: rq.posicion,
+                        tiendaNombre: rq.tiendaNombre,
+                        marcaId: rq.marcaId
+                    });
+                } else if (nextLevel === 3) {
+                    triggerNotification('RQ_PENDING_JEFE_MARCA', {
+                        posicion: rq.posicion,
+                        tiendaNombre: rq.tiendaNombre,
+                        marcaId: rq.marcaId
+                    });
+                }
+            }
 
             approvedCount++;
         } catch (error) {

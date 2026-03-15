@@ -35,10 +35,10 @@ function formatDate(timestamp: any): string {
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { tenantSlug: string } }
+    context: { params: Promise<{ tenantSlug: string }> }
 ) {
     try {
-        const { tenantSlug } = params;
+        const { tenantSlug } = await context.params;
 
         // Get holding by slug
         const holdingsRef = collection(db, 'holdings');

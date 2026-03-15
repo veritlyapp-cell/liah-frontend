@@ -295,6 +295,7 @@ export default function PremiumCareerPortal() {
                         tiendaDistrito: data.distrito || data.tiendaDistrito || '',
                         tiendaProvincia: data.provincia || '',
                         tiendaDepartamento: data.departamento || '',
+                        storeCoordinates: data.storeCoordinates || data.ubicacion || null,
                         marcaId: data.marcaId,
                         marcaNombre: data.marcaNombre || '',
                         modalidad: data.modalidad,
@@ -320,7 +321,8 @@ export default function PremiumCareerPortal() {
                 if (b.holdingId && !possibleHoldingIds.includes(b.holdingId)) continue;
 
                 try {
-                    const vacSnap = await getDocs(collection(db, 'marcas', b.id, 'vacantes'));
+                    const vacQuery = query(collection(db, 'marcas', b.id, 'vacantes'), where('estado', '==', 'activo'));
+                    const vacSnap = await getDocs(vacQuery);
                     vacSnap.docs.forEach(doc => {
                         const data = doc.data();
                         if (data.active !== false) {

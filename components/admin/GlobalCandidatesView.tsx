@@ -27,6 +27,7 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [holdingFilter, setHoldingFilter] = useState<string>('todos');
+    const [dateFilter, setDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
 
     useEffect(() => {
         loadAllCandidates();
@@ -62,6 +63,19 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
             );
             // For now, simple check if any holdingId matches
             if (candidate.holdingId !== holdingFilter) return false;
+        }
+
+        // Date filter
+        if (dateFilter !== 'todos') {
+            const createdAt = candidate.createdAt?.toDate ? candidate.createdAt.toDate() : (candidate.createdAt ? new Date(candidate.createdAt) : null);
+            if (createdAt) {
+                const now = new Date();
+                const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
+                if (dateFilter === 'semana' && diffDays > 7) return false;
+                if (dateFilter === 'mes' && diffDays > 30) return false;
+            } else {
+                return false; // Skip if no date and filter is active
+            }
         }
 
         // Search
@@ -135,6 +149,16 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
                         <option key={h.id} value={h.id}>{h.nombre}</option>
                     ))}
                 </select>
+
+                <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value as any)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                >
+                    <option value="semana">📅 Última Semana</option>
+                    <option value="mes">📅 Último Mes</option>
+                    <option value="todos">📅 Todo el Historial</option>
+                </select>
             </div>
 
             {/* Stats */}
@@ -156,59 +180,61 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
             </div>
 
             {/* Candidates Table */}
-            {filteredCandidates.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No se encontraron candidatos</p>
-                </div>
-            ) : (
-                <div className="glass-card rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Distrito</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Postulaciones</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registro</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {filteredCandidates.slice(0, 100).map(candidate => (
-                                    <tr key={candidate.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3">
-                                            <p className="font-medium text-gray-900">
-                                                {candidate.nombre} {candidate.apellidoPaterno} {candidate.apellidoMaterno}
-                                            </p>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600 font-mono">{candidate.dni}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">{candidate.email}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">{candidate.telefono}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">{candidate.distrito || '-'}</td>
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-1 bg-violet-100 text-violet-700 rounded text-xs font-medium">
-                                                {candidate.applications?.length || 0}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-500">
-                                            {candidate.createdAt?.toDate
-                                                ? candidate.createdAt.toDate().toLocaleDateString()
-                                                : '-'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            {
+                filteredCandidates.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg">
+                        <p className="text-gray-500">No se encontraron candidatos</p>
                     </div>
-                    {filteredCandidates.length > 100 && (
-                        <div className="px-4 py-3 bg-gray-50 text-center text-sm text-gray-500">
-                            Mostrando 100 de {filteredCandidates.length} candidatos. Usa filtros para ver más específicos o exporta a Excel.
+                ) : (
+                    <div className="glass-card rounded-xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Distrito</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Postulaciones</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registro</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {filteredCandidates.slice(0, 100).map(candidate => (
+                                        <tr key={candidate.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3">
+                                                <p className="font-medium text-gray-900">
+                                                    {candidate.nombre} {candidate.apellidoPaterno} {candidate.apellidoMaterno}
+                                                </p>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-600 font-mono">{candidate.dni}</td>
+                                            <td className="px-4 py-3 text-sm text-gray-600">{candidate.email}</td>
+                                            <td className="px-4 py-3 text-sm text-gray-600">{candidate.telefono}</td>
+                                            <td className="px-4 py-3 text-sm text-gray-600">{candidate.distrito || '-'}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="px-2 py-1 bg-violet-100 text-violet-700 rounded text-xs font-medium">
+                                                    {candidate.applications?.length || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {candidate.createdAt?.toDate
+                                                    ? candidate.createdAt.toDate().toLocaleDateString()
+                                                    : '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                    )}
-                </div>
-            )}
-        </div>
+                        {filteredCandidates.length > 100 && (
+                            <div className="px-4 py-3 bg-gray-50 text-center text-sm text-gray-500">
+                                Mostrando 100 de {filteredCandidates.length} candidatos. Usa filtros para ver más específicos o exporta a Excel.
+                            </div>
+                        )}
+                    </div>
+                )
+            }
+        </div >
     );
 }

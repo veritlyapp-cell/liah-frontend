@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminFirestore } from '@/lib/firebase-admin';
-import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
 import { v4 as uuidv4 } from 'uuid';
+import { notifyRoleAction } from '@/lib/notifications/send-push';
+import { getAdminFirestore, getFieldValue } from '@/lib/firebase-admin';
+
+const AdminFieldValue = getFieldValue();
 
 export async function POST(request: NextRequest) {
     try {
@@ -82,6 +84,20 @@ export async function POST(request: NextRequest) {
         }
 
         console.log('[Portal Register] Success for:', finalCandidateId, email);
+
+        // Notify recruiters of new registration
+        try {
+            await notifyRoleAction({
+                role: 'recruiter',
+                payload: {
+                    title: '👥 Nuevo Candidato Registrado',
+                    body: `${nombre} ${apellidos} se ha registrado en el portal.`,
+                    url: '/recruiter'
+                }
+            });
+        } catch (err) {
+            console.error('[Portal Register] Push Error:', err);
+        }
 
         return NextResponse.json({
             success: true,

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
-import { CheckCircle2, XCircle, UserX, CalendarClock, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, XCircle, UserX, CalendarClock, ChevronDown, ChevronUp, Briefcase } from 'lucide-react';
+import { getRQsByStore, type RQ } from '@/lib/firestore/rqs';
 
 interface Interview {
     id: string;
@@ -20,35 +21,73 @@ interface Interview {
 }
 
 interface InterviewAgendaProps {
-    storeId: string;
+    storeId?: string;
+    marcaIds?: string[];
+    allowedStoreIds?: string[];
     holdingId?: string;
     marcaColor?: string;
 }
 
-export default function InterviewAgenda({ storeId, holdingId, marcaColor }: InterviewAgendaProps) {
+export default function InterviewAgenda({ storeId, marcaIds, allowedStoreIds, holdingId, marcaColor }: InterviewAgendaProps) {
     const [interviews, setInterviews] = useState<Interview[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [storeRQs, setStoreRQs] = useState<Record<string, RQ[]>>({});
+    const [selectedRQs, setSelectedRQs] = useState<Record<string, string>>({});
+    const [loadingRQs, setLoadingRQs] = useState<Record<string, boolean>>({});
 
     const accent = marcaColor || '#7C3AED';
 
     useEffect(() => {
-        if (!storeId) return;
+        if (!storeId && (!marcaIds || marcaIds.length === 0)) return;
         loadInterviews();
-    }, [storeId]);
+    }, [storeId, marcaIds, allowedStoreIds]);
 
     async function loadInterviews() {
-        if (!storeId) return;
+        if (!storeId && (!marcaIds || marcaIds.length === 0)) return;
         setLoading(true);
         try {
-            const q = query(
-                collection(db, 'interviews'),
-                where('storeId', '==', storeId),
-                where('status', 'in', ['scheduled', 'manager_approved', 'pending_review'])
-            );
-            const snap = await getDocs(q);
-            const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Interview));
+            let list: Interview[] = [];
+
+            if (storeId) {
+                const q = query(
+                    collection(db, 'interviews'),
+                    where('storeId', '==', storeId),
+                    where('status', 'in', ['scheduled', 'manager_approved', 'pending_review'])
+                );
+                const snap = await getDocs(q);
+                list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Interview));
+            } else if (marcaIds && marcaIds.length > 0) {
+                // Determine valid query chunks for 'in' (max 10 elements)
+                const chunks = [];
+                for (let i = 0; i < marcaIds.length; i += 10) {
+                    chunks.push(marcaIds.slice(i, i + 10));
+                }
+
+                const promises = chunks.map(chunk => {
+                    const q = query(
+                        collection(db, 'interviews'),
+                        where('marcaId', 'in', chunk),
+                        where('status', 'in', ['scheduled', 'manager_approved', 'pending_review'])
+                    );
+                    return getDocs(q);
+                });
+
+                const snapshots = await Promise.all(promises);
+                snapshots.forEach(snap => {
+                    snap.docs.forEach(doc => {
+                        list.push({ id: doc.id, ...doc.data() } as Interview);
+                    });
+                });
+            }
+
+            // Filter by allowedStoreIds if provided
+            if (allowedStoreIds) {
+                const allowedSet = new Set(allowedStoreIds);
+                // @ts-ignore Let's assume interview document has storeId or similar
+                list = list.filter((i: any) => allowedSet.has(i.storeId) || allowedSet.has(i.tiendaId));
+            }
 
             // Sort by date then time
             setInterviews(list.sort((a, b) => {
@@ -63,12 +102,35 @@ export default function InterviewAgenda({ storeId, holdingId, marcaColor }: Inte
         }
     }
 
-    async function handleAction(interviewId: string, candidateId: string, rqId: string, action: 'approved' | 'discarded' | 'no_show') {
+    async function loadStoreRQs(storeId: string) {
+        if (!storeId || storeRQs[storeId]) return;
+        setLoadingRQs(prev => ({ ...prev, [storeId]: true }));
+        try {
+            const rqs = await getRQsByStore(storeId);
+            // Only keep recruiting or approved RQs
+            const activeRQs = rqs.filter(rq => rq.status === 'recruiting' || rq.approvalStatus === 'approved');
+            setStoreRQs(prev => ({ ...prev, [storeId]: activeRQs }));
+        } catch (e) {
+            console.error('Error loading store RQs:', e);
+        } finally {
+            setLoadingRQs(prev => ({ ...prev, [storeId]: false }));
+        }
+    }
+
+    async function handleAction(interviewId: string, candidateId: string, currentRqId: string, action: 'approved' | 'discarded' | 'no_show') {
+        const finalRqId = action === 'approved' ? (selectedRQs[interviewId] || currentRqId) : currentRqId;
+
+        if (action === 'approved' && (!finalRqId || finalRqId === 'general')) {
+            alert('Por favor selecciona un Requerimiento (RQ) específico para asignar al candidato.');
+            return;
+        }
+
         setActionLoading(interviewId + action);
         try {
             // Update interview
             await updateDoc(doc(db, 'interviews', interviewId), {
                 status: action === 'approved' ? 'manager_approved' : action === 'discarded' ? 'discarded' : 'no_show',
+                rqId: finalRqId, // Update to the selected one
                 updatedAt: new Date().toISOString()
             });
 
@@ -77,7 +139,11 @@ export default function InterviewAgenda({ storeId, holdingId, marcaColor }: Inte
                 await fetch('/api/portal/manager-approve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ interviewId, candidateId, rqId })
+                    body: JSON.stringify({
+                        interviewId,
+                        candidateId,
+                        rqId: finalRqId
+                    })
                 });
             }
 
@@ -146,7 +212,14 @@ export default function InterviewAgenda({ storeId, holdingId, marcaColor }: Inte
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setExpandedId(isExpanded ? null : interview.id)}
+                                    onClick={() => {
+                                        const newExpandedId = isExpanded ? null : interview.id;
+                                        setExpandedId(newExpandedId);
+                                        if (newExpandedId && isPending) {
+                                            // @ts-ignore
+                                            loadStoreRQs(interview.storeId || (interview as any).tiendaId);
+                                        }
+                                    }}
                                     className="p-2 rounded-xl hover:bg-gray-50 text-gray-400 transition-colors flex-shrink-0"
                                 >
                                     {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -168,52 +241,87 @@ export default function InterviewAgenda({ storeId, holdingId, marcaColor }: Inte
                                     </div>
 
                                     {isPending && (
-                                        <div>
-                                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Resultado de entrevista</p>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    onClick={() => handleAction(interview.id, interview.candidateId, interview.rqId, 'approved')}
-                                                    disabled={!!actionLoading}
-                                                    className="flex items-center justify-center gap-2 py-3 px-3 bg-green-600 text-white rounded-xl text-sm font-black uppercase italic tracking-tighter hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm"
-                                                >
-                                                    {actionLoading === interview.id + 'approved'
-                                                        ? <span className="animate-spin w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
-                                                        : <CheckCircle2 size={16} />}
-                                                    Aprobado
-                                                </button>
-                                                <button
-                                                    onClick={() => handleAction(interview.id, interview.candidateId, interview.rqId, 'discarded')}
-                                                    disabled={!!actionLoading}
-                                                    className="flex items-center justify-center gap-2 py-3 px-3 bg-red-100 text-red-700 rounded-xl text-sm font-black uppercase italic tracking-tighter hover:bg-red-200 transition-colors disabled:opacity-50"
-                                                >
-                                                    {actionLoading === interview.id + 'discarded'
-                                                        ? <span className="animate-spin w-4 h-4 border-2 border-red-300 border-t-red-700 rounded-full" />
-                                                        : <XCircle size={16} />}
-                                                    Descartado
-                                                </button>
-                                                <button
-                                                    onClick={() => handleAction(interview.id, interview.candidateId, interview.rqId, 'no_show')}
-                                                    disabled={!!actionLoading}
-                                                    className="flex items-center justify-center gap-2 py-3 px-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-black uppercase italic tracking-tighter hover:bg-gray-200 transition-colors disabled:opacity-50"
-                                                >
-                                                    {actionLoading === interview.id + 'no_show'
-                                                        ? <span className="animate-spin w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                                                        : <UserX size={16} />}
-                                                    No Acudió
-                                                </button>
-                                                <button
-                                                    onClick={() => alert('Próximamente: Modifica la fecha y el candidato recibirá un aviso.')}
-                                                    className="flex items-center justify-center gap-2 py-3 px-3 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm font-black uppercase italic tracking-tighter hover:border-gray-300 hover:text-gray-500 transition-colors"
-                                                >
-                                                    <CalendarClock size={16} />
-                                                    Reprogramar
-                                                </button>
+                                        <div className="space-y-4">
+                                            {/* RQ Assignment Selector */}
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                                                    <Briefcase size={12} /> Asignar a Requerimiento de Tienda
+                                                </p>
+                                                {/* @ts-ignore */}
+                                                {(loadingRQs[interview.storeId || (interview as any).tiendaId]) ? (
+                                                    <div className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-lg animate-pulse">
+                                                        <div className="w-4 h-4 bg-gray-200 rounded-full" />
+                                                        <div className="h-4 bg-gray-200 rounded w-full" />
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        // @ts-ignore
+                                                        value={selectedRQs[interview.id] || interview.rqId || ''}
+                                                        onChange={(e) => setSelectedRQs(prev => ({ ...prev, [interview.id]: e.target.value }))}
+                                                        className="w-full py-2 px-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none transition-all"
+                                                    >
+                                                        <option value="">Selecciona un RQ...</option>
+                                                        {/* @ts-ignore */}
+                                                        {(storeRQs[interview.storeId || (interview as any).tiendaId] || []).map(rq => (
+                                                            <option key={rq.id} value={rq.id}>
+                                                                {rq.rqNumber || 'General'} - {rq.posicion} ({rq.modalidad})
+                                                            </option>
+                                                        ))}
+                                                        {/* @ts-ignore */}
+                                                        {(!storeRQs[interview.storeId || (interview as any).tiendaId] || storeRQs[interview.storeId || (interview as any).tiendaId].length === 0) && (
+                                                            <option value="general" disabled>⚠️ No hay RQs activos en esta tienda</option>
+                                                        )}
+                                                    </select>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Resultado de entrevista</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={() => handleAction(interview.id, interview.candidateId, interview.rqId, 'approved')}
+                                                        disabled={!!actionLoading}
+                                                        className="flex items-center justify-center gap-2 py-3 px-3 bg-green-600 text-white rounded-xl text-sm font-black uppercase italic tracking-tighter hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm"
+                                                    >
+                                                        {actionLoading === interview.id + 'approved'
+                                                            ? <span className="animate-spin w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
+                                                            : <CheckCircle2 size={16} />}
+                                                        Aprobado
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleAction(interview.id, interview.candidateId, interview.rqId, 'discarded')}
+                                                        disabled={!!actionLoading}
+                                                        className="flex items-center justify-center gap-2 py-3 px-3 bg-red-100 text-red-700 rounded-xl text-sm font-black uppercase italic tracking-tighter hover:bg-red-200 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {actionLoading === interview.id + 'discarded'
+                                                            ? <span className="animate-spin w-4 h-4 border-2 border-red-300 border-t-red-700 rounded-full" />
+                                                            : <XCircle size={16} />}
+                                                        Descartado
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleAction(interview.id, interview.candidateId, interview.rqId, 'no_show')}
+                                                        disabled={!!actionLoading}
+                                                        className="flex items-center justify-center gap-2 py-3 px-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-black uppercase italic tracking-tighter hover:bg-gray-200 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {actionLoading === interview.id + 'no_show'
+                                                            ? <span className="animate-spin w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                                                            : <UserX size={16} />}
+                                                        No Acudió
+                                                    </button>
+                                                    <button
+                                                        onClick={() => alert('Próximamente: Modifica la fecha y el candidato recibirá un aviso.')}
+                                                        className="flex items-center justify-center gap-2 py-3 px-3 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm font-black uppercase italic tracking-tighter hover:border-gray-300 hover:text-gray-500 transition-colors"
+                                                    >
+                                                        <CalendarClock size={16} />
+                                                        Reprogramar
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
 
                                     {!isPending && interview.status === 'manager_approved' && (
-                                        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                                        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mt-4">
                                             <p className="text-green-800 text-sm font-medium">
                                                 ✅ Aprobado — Se envió email al candidato para completar su ficha.
                                             </p>
