@@ -132,8 +132,12 @@ export async function bulkApproveRQs(
     const batch = writeBatch(db);
     const failedIds: string[] = [];
     let approvedCount = 0;
+    let lastApprovedRQ: any = null;
+    let lastFinalStatus: string = 'pending';
+    let lastNextLevel: number = 0;
 
-    for (const rqId of rqIds) {
+    for (let i = 0; i < rqIds.length; i++) {
+        const rqId = rqIds[i];
         try {
             const rqRef = doc(db, 'rqs', rqId);
             const rqDoc = await getDoc(rqRef);
@@ -146,8 +150,15 @@ export async function bulkApproveRQs(
             const rq = rqDoc.data() as RQ;
             const currentLevel = rq.currentApprovalLevel;
 
+            // Verify this RQ is actually pending approval
+            if (rq.approvalStatus !== 'pending') {
+                console.warn(`[bulkApprove] RQ ${rqId} is not pending (status: ${rq.approvalStatus}), skipping`);
+                failedIds.push(rqId);
+                continue;
+            }
+
             // Update approval chain
-            const updatedChain = rq.approvalChain.map(item => {
+            const updatedChain = (rq.approvalChain || []).map(item => {
                 if (item.level === currentLevel) {
                     return {
                         ...item,
@@ -162,8 +173,8 @@ export async function bulkApproveRQs(
 
             // Determine next level
             const firstPending = updatedChain.find((item: any) => item.status === 'pending');
-            let nextLevel = firstPending ? firstPending.level : currentLevel;
-            let finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
+            const nextLevel = firstPending ? firstPending.level : currentLevel;
+            const finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
 
             batch.update(rqRef, {
                 approvalChain: updatedChain,
@@ -171,37 +182,64 @@ export async function bulkApproveRQs(
                 approvalStatus: finalApprovalStatus
             });
 
-            // Notify (we pick the last one to notify next person, or we could loop but better one summary)
-            if (i === rqIds.length - 1) {
-                if (finalApprovalStatus === 'approved') {
-                    triggerNotification('RQ_APPROVED', {
-                        posicion: rq.posicion,
-                        tiendaNombre: rq.tiendaNombre,
-                        marcaId: rq.marcaId
-                    });
-                } else if (nextLevel === 3) {
-                    triggerNotification('RQ_PENDING_JEFE_MARCA', {
-                        posicion: rq.posicion,
-                        tiendaNombre: rq.tiendaNombre,
-                        marcaId: rq.marcaId
-                    });
-                }
-            }
-
             approvedCount++;
+            lastApprovedRQ = rq;
+            lastFinalStatus = finalApprovalStatus;
+            lastNextLevel = nextLevel;
         } catch (error) {
-            console.error(`Error approving RQ ${rqId}:`, error);
+            console.error(`[bulkApprove] Error preparing RQ ${rqId}:`, error);
             failedIds.push(rqId);
         }
     }
 
     // Commit batch
     if (approvedCount > 0) {
-        await batch.commit();
+        try {
+            await batch.commit();
+        } catch (batchError) {
+            console.error('[bulkApprove] Batch commit failed, trying individual updates:', batchError);
+            // Fallback: try individual updates
+            let individualSuccess = 0;
+            for (let i = 0; i < rqIds.length; i++) {
+                const rqId = rqIds[i];
+                if (failedIds.includes(rqId)) continue;
+                try {
+                    await approveRQ(rqId, approverUserId, approverName, approverRole);
+                    individualSuccess++;
+                } catch (indivError) {
+                    console.error(`[bulkApprove] Individual approve failed for ${rqId}:`, indivError);
+                    failedIds.push(rqId);
+                }
+            }
+            return { approved: individualSuccess, failed: failedIds };
+        }
+    }
+
+    // Send notifications AFTER successful batch commit (non-blocking)
+    if (lastApprovedRQ) {
+        try {
+            if (lastFinalStatus === 'approved') {
+                triggerNotification('RQ_APPROVED', {
+                    posicion: lastApprovedRQ.posicion,
+                    tiendaNombre: lastApprovedRQ.tiendaNombre,
+                    marcaId: lastApprovedRQ.marcaId
+                });
+            } else if (lastNextLevel === 3) {
+                triggerNotification('RQ_PENDING_JEFE_MARCA', {
+                    posicion: lastApprovedRQ.posicion,
+                    tiendaNombre: lastApprovedRQ.tiendaNombre,
+                    marcaId: lastApprovedRQ.marcaId
+                });
+            }
+        } catch (notifError) {
+            // Notification failure should never break the approval flow
+            console.error('[bulkApprove] Notification failed (non-critical):', notifError);
+        }
     }
 
     return { approved: approvedCount, failed: failedIds };
 }
+
 
 /**
  * Bulk reject multiple RQs
