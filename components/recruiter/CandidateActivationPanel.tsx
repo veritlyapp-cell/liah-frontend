@@ -20,9 +20,10 @@ interface ImportRow {
 
 interface CandidateActivationPanelProps {
     candidates?: any[];
+    allowedMarcaIds?: string[]; // IDs of brands assigned to the recruiter
 }
 
-export default function CandidateActivationPanel({ candidates = [] }: CandidateActivationPanelProps) {
+export default function CandidateActivationPanel({ candidates = [], allowedMarcaIds = [] }: CandidateActivationPanelProps) {
     const { claims } = useAuth();
     const [rows, setRows] = useState<ImportRow[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -35,20 +36,35 @@ export default function CandidateActivationPanel({ candidates = [] }: CandidateA
 
     // Fetch Active RQs
     useEffect(() => {
-        if (!claims?.tenant_id) return;
+        const holdingId = claims?.tenant_id || claims?.holdingId;
+        if (!holdingId) {
+            console.log('⚠️ CandidateActivationPanel: No holdingId found in claims', claims);
+            // If internal loading, don't wait forever
+            const timer = setTimeout(() => {
+                if (loadingRQs) setLoadingRQs(false);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
         
-        const unsubscribe = subscribeToAllRQs(claims.tenant_id, (allRQs) => {
+        const unsubscribe = subscribeToAllRQs(holdingId, (allRQs) => {
+            console.log(`✅ CandidateActivationPanel: Fetched ${allRQs.length} RQs`);
             // Filter only approved and recruiting/active RQs
-            const filtered = allRQs.filter(rq => 
+            let filtered = allRQs.filter(rq => 
                 rq.approvalStatus === 'approved' && 
                 (rq.status === 'recruiting' || rq.status === 'active')
             );
+
+            // Further filter by allowed brands if provided
+            if (allowedMarcaIds.length > 0) {
+                filtered = filtered.filter(rq => allowedMarcaIds.includes(rq.marcaId));
+            }
+
             setActiveRQs(filtered);
             setLoadingRQs(false);
         });
 
         return () => unsubscribe();
-    }, [claims?.tenant_id]);
+    }, [claims, allowedMarcaIds]);
 
     // Grouping RQs by store for the selection view
     const rqsByStore = useMemo(() => {

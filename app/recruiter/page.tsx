@@ -57,7 +57,7 @@ export default function RecruiterDashboard() {
     const [selectedPosition, setSelectedPosition] = useState<string>('');
     const [selectedCULStatus, setSelectedCULStatus] = useState<string>('');
     const [selectedDateFilter, setSelectedDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
-    const [activeTab, setActiveTab] = useState<'candidatos' | 'requerimientos' | 'analitica' | 'configuracion' | 'entrevistas' | 'activacion'>('requerimientos');
+    const [activeTab, setActiveTab] = useState<'candidatos' | 'requerimientos' | 'analitica' | 'configuracion' | 'entrevistas' | 'activacion' | 'plantillas'>('requerimientos');
 
     // Marcas from user assignment (can be multiple)
     const [marcas, setMarcas] = useState<{ id: string; nombre: string }[]>([]);
@@ -378,6 +378,7 @@ export default function RecruiterDashboard() {
         { id: 'requerimientos', label: 'Requerimientos', icon: '📋' },
         { id: 'candidatos', label: 'Candidatos', icon: '👥' },
         { id: 'activacion', label: 'Exportar / SMS', icon: '📤' },
+        { id: 'plantillas', label: 'Plantillas de Correo', icon: '📧' },
         { id: 'entrevistas', label: 'Entrevistas', icon: '📅', hidden: !enableInterviews },
         { id: 'analitica', label: 'Analítica', icon: '📊' },
         { id: 'configuracion', label: 'Configuración', icon: '⚙️', hidden: true },
@@ -390,9 +391,10 @@ export default function RecruiterDashboard() {
             items={sidebarItems}
             activeTab={activeTab}
             onTabChange={(id) => setActiveTab(id as any)}
-            title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('requerimientos', 'Requerimientos')}
-            marcaId={selectedMarca !== 'all' ? selectedMarca : marcas[0]?.id}
-            holdingSubtitle={holdingName}
+            title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('requerimientos', 'Requerimientos').replace('plantillas', 'Plantillas')}
+            marcaId={selectedMarca !== 'all' ? selectedMarca : undefined}
+            marcaName={selectedMarca === 'all' ? holdingName : undefined}
+            holdingSubtitle={selectedMarca === 'all' ? 'Portal Corporativo' : holdingName}
             onConfigClick={() => setActiveTab('configuracion')}
         >
             <div className="space-y-8 pb-20">
@@ -470,7 +472,16 @@ export default function RecruiterDashboard() {
 
                 {activeTab === 'activacion' && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
-                        <CandidateActivationPanel candidates={candidates} />
+                        <CandidateActivationPanel 
+                            candidates={candidates} 
+                            allowedMarcaIds={marcas.map(m => m.id)}
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'plantillas' && (
+                    <div className="space-y-6">
+                        <EmailTemplatesConfig holdingId={holdingId} />
                     </div>
                 )}
 

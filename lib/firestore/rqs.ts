@@ -718,15 +718,28 @@ export function subscribeToAllRQs(
     const rqsRef = collection(db, 'rqs');
     const q = query(
         rqsRef,
-        where('tenantId', '==', tenantId),
-        orderBy('createdAt', 'desc')
+        where('tenantId', '==', tenantId)
+        // orderBy('createdAt', 'desc') // Removed to avoid index requirements
     );
 
     return onSnapshot(q, (snapshot) => {
-        const rqs = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as RQ));
+        const rqs = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data
+            } as RQ;
+        });
+
+        // Sort manually by createdAt desc
+        rqs.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0));
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0));
+            return dateB.getTime() - dateA.getTime();
+        });
+
         callback(rqs);
+    }, (error) => {
+        console.error('Error in subscribeToAllRQs:', error);
     });
 }

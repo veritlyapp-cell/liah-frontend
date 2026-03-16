@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getDepartmentNames, getProvincesByDepartment, getDistrictsByProvince } from '@/lib/data/peru-locations';
 import { calculateDistanceKm, getMaxDistanceForTurno, formatDistance, getDistanceCategory } from '@/lib/geo/distance-utils';
 import type { Coordinates } from '@/lib/geo/distance-utils';
 
@@ -42,7 +43,15 @@ function VacantesContent() {
         acceptable: Vacancy[];
         far: Vacancy[];
     }>({ near: [], acceptable: [], far: [] });
+    const [allVacancies, setAllVacancies] = useState<Vacancy[]>([]);
     const [showFar, setShowFar] = useState(false);
+
+    // Location Filters
+    const [selectedDept, setSelectedDept] = useState('');
+    const [selectedProv, setSelectedProv] = useState('');
+    const [selectedDist, setSelectedDist] = useState('');
+    const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
+    const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
 
     const holdingSlug = searchParams.get('holding');
     const [brandColor, setBrandColor] = useState<string | null>(null);
@@ -52,26 +61,27 @@ function VacantesContent() {
     useEffect(() => {
         async function loadData() {
             const token = searchParams.get('token');
-            if (!token) {
-                router.push('/portal');
-                return;
-            }
-
+            // If no token, we just continue in 'public mode'
+            
             try {
-                // Validate session and get candidate data
-                const sessionRes = await fetch('/api/portal/validate-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token })
-                });
+                let candidateCoords: Coordinates | null = null;
+                let candidateData: CandidateSession | null = null;
 
-                if (!sessionRes.ok) {
-                    router.push('/portal');
-                    return;
+                if (token) {
+                    // Validate session and get candidate data
+                    const sessionRes = await fetch('/api/portal/validate-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token })
+                    });
+
+                    if (sessionRes.ok) {
+                        const sessionData = await sessionRes.json();
+                        setCandidate(sessionData.candidate);
+                        candidateData = sessionData.candidate;
+                        candidateCoords = sessionData.candidate.coordinates;
+                    }
                 }
-
-                const sessionData = await sessionRes.json();
-                setCandidate(sessionData.candidate);
 
                 // Get aggregated vacancies - filter by holding if available
                 const vacanciesUrl = holdingSlug
@@ -79,28 +89,24 @@ function VacantesContent() {
                     : '/api/portal/vacancies-aggregated';
                 const vacanciesRes = await fetch(vacanciesUrl);
                 const vacanciesData = await vacanciesRes.json();
+                const vList = vacanciesData.vacancies || [];
+                setAllVacancies(vList);
 
                 // Calculate distance for each vacancy and categorize
-                const candidateCoords = sessionData.candidate.coordinates;
-
                 if (candidateCoords) {
                     const categorized = categorizeByDistance(
-                        vacanciesData.vacancies || [],
+                        vList,
                         candidateCoords
                     );
                     setVacancies(categorized);
                 } else {
-                    // No coordinates - put all in 'far' for now
-                    setVacancies({
-                        near: [],
-                        acceptable: [],
-                        far: vacanciesData.vacancies || []
-                    });
+                    // No candidate coords -> all are 'far' or 'near' based on manual filters (handled later by useMemo)
+                    setVacancies({ near: [], acceptable: [], far: vList });
                 }
 
             } catch (error) {
                 console.error('Error loading data:', error);
-                router.push('/portal');
+                // In public mode, don't redirect away on error, just show empty
             } finally {
                 setLoading(false);
             }
@@ -125,7 +131,38 @@ function VacantesContent() {
 
         loadData();
         fetchHoldingConfig();
-    }, [searchParams, router, holdingSlug]);
+    }, [searchParams, holdingSlug]); // Removed router from dependencies to avoid loop
+
+    // Update Provinces/Districts
+    useEffect(() => {
+        if (selectedDept) {
+            setAvailableProvinces(getProvincesByDepartment(selectedDept).map(p => p.name));
+            setAvailableDistricts([]);
+            setSelectedProv('');
+            setSelectedDist('');
+        } else {
+            setAvailableProvinces([]);
+            setAvailableDistricts([]);
+        }
+    }, [selectedDept]);
+
+    useEffect(() => {
+        if (selectedDept && selectedProv) {
+            setAvailableDistricts(getDistrictsByProvince(selectedDept, selectedProv).map(d => d.name));
+            setSelectedDist('');
+        } else {
+            setAvailableDistricts([]);
+        }
+    }, [selectedDept, selectedProv]);
+
+    // Apply manual filters
+    const filteredVacancies = useMemo(() => {
+        let list = [...allVacancies];
+        if (selectedDept) list = list.filter(v => v.tiendaDepartamento === selectedDept);
+        if (selectedProv) list = list.filter(v => v.tiendaProvincia === selectedProv);
+        if (selectedDist) list = list.filter(v => v.tiendaDistrito === selectedDist);
+        return list;
+    }, [allVacancies, selectedDept, selectedProv, selectedDist]);
 
     function categorizeByDistance(vacancies: Vacancy[], candidateCoords: Coordinates) {
         const near: Vacancy[] = [];
@@ -222,9 +259,54 @@ function VacantesContent() {
             </div>
 
             {/* Main Content */}
-            <div className="max-w-4xl mx-auto px-4 py-6">
-                {/* Near Section */}
-                {totalNear > 0 && (
+            <div className="max-w-4xl mx-auto px-4 py-8">
+                {/* Location Filters */}
+                <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 mb-8 -mt-12 relative z-10">
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="text-xl">📍</span>
+                        <h2 className="text-lg font-bold text-gray-900 uppercase italic tracking-tighter">Filtra por ubicación</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Departamento</label>
+                            <select
+                                value={selectedDept}
+                                onChange={(e) => setSelectedDept(e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
+                                <option value="">Todos los Departamentos</option>
+                                {getDepartmentNames().map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Provincia</label>
+                            <select
+                                value={selectedProv}
+                                onChange={(e) => setSelectedProv(e.target.value)}
+                                disabled={!selectedDept}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                            >
+                                <option value="">Todas las Provincias</option>
+                                {availableProvinces.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Distrito</label>
+                            <select
+                                value={selectedDist}
+                                onChange={(e) => setSelectedDist(e.target.value)}
+                                disabled={!selectedProv}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                            >
+                                <option value="">Todos los Distritos</option>
+                                {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Candidate specific view (Near) - Only if candidate has coordinates and NO manual filter is active */}
+                {candidate?.coordinates && !selectedDept && !selectedProv && !selectedDist && totalNear > 0 && (
                     <div className="mb-8">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="text-2xl">🎯</span>
@@ -236,7 +318,7 @@ function VacantesContent() {
                             </span>
                         </div>
                         <p className="text-gray-600 mb-4 text-sm">
-                            Estas vacantes están dentro de tu rango de distancia
+                            Estas vacantes están dentro de tu rango de distancia (San Isidro)
                         </p>
 
                         <div className="space-y-4">
@@ -252,52 +334,43 @@ function VacantesContent() {
                     </div>
                 )}
 
-                {/* No Near Matches */}
-                {totalNear === 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-8 text-center">
-                        <span className="text-4xl mb-4 block">🔍</span>
-                        <h3 className="text-lg font-semibold text-amber-800 mb-2">
-                            No hay vacantes cerca de ti ahora
-                        </h3>
-                        <p className="text-amber-700 text-sm">
-                            Pero puedes explorar otras oportunidades más lejos
-                        </p>
-                    </div>
-                )}
-
-                {/* Far Vacancies */}
-                {totalFar > 0 && (
-                    <div>
-                        <button
-                            onClick={() => setShowFar(!showFar)}
-                            className="flex items-center gap-2 font-medium mb-4"
-                            style={{ color: brandColor || '#4F46E5' }}
-                        >
-                            <span>{showFar ? '▼' : '►'}</span>
-                            Ver más vacantes ({totalFar})
-                        </button>
-
-                        {showFar && (
+                {/* Manual Filter or No Match View */}
+                {(selectedDept || (!candidate?.coordinates && totalFar > 0)) && (
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-gray-900">
+                                {selectedDept ? 'Resultados de búsqueda' : 'Todas las vacantes'}
+                            </h2>
+                            <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-black italic uppercase tracking-tighter">
+                                {filteredVacancies.length} vacantes
+                            </span>
+                        </div>
+                        
+                        {filteredVacancies.length > 0 ? (
                             <div className="space-y-4">
-                                <p className="text-gray-500 text-sm">
-                                    Estas vacantes están más lejos pero puedes aplicar
-                                </p>
-                                {vacancies.far.map((vacancy, idx) => (
+                                {filteredVacancies.map((vacancy, idx) => (
                                     <VacancyCard
-                                        key={`far-${vacancy.posicion}-${vacancy.tiendaId}-${idx}`}
+                                        key={`filtered-${vacancy.posicion}-${vacancy.tiendaId}-${idx}`}
                                         vacancy={vacancy}
                                         onApply={() => handleApply(vacancy)}
-                                        isFar={true}
                                         brandColor={brandColor}
                                     />
                                 ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+                                <span className="text-6xl mb-4 block opacity-20">🏪</span>
+                                <h3 className="text-xl font-bold text-slate-400">No encontramos vacantes</h3>
+                                <p className="text-slate-400 text-sm mt-2">Prueba cambiando los filtros de ubicación</p>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Empty State */}
-                {totalNear === 0 && totalFar === 0 && (
+                {/* Footer and far vacancies section removed if redundant with the new search logic */}
+
+                {/* Empty State (Original) */}
+                {!selectedDept && totalNear === 0 && totalFar === 0 && (
                     <div className="text-center py-12">
                         <span className="text-6xl mb-4 block">📭</span>
                         <h3 className="text-xl font-semibold text-gray-700 mb-2">
@@ -313,7 +386,7 @@ function VacantesContent() {
             {/* Footer */}
             <div className="bg-white border-t py-6 mt-8">
                 <p className="text-center text-gray-400 text-sm">
-                    Powered by <span className="font-semibold" style={{ color: brandColor || '#4F46E5' }}>LIAH</span>
+                    Powered by <span className="font-black italic uppercase tracking-tighter" style={{ color: brandColor || '#4F46E5' }}>LIAH</span>
                 </p>
             </div>
         </div>
