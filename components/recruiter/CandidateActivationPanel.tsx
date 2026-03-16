@@ -67,30 +67,35 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
     }, [claims, allowedMarcaIds]);
 
     // Grouping RQs by store for the selection view
-    const rqsByStore = useMemo(() => {
-        const groups: Record<string, { storeName: string; rqs: RQ[] }> = {};
+    const storesWithActiveRQs = useMemo(() => {
+        const groups: Record<string, { storeId: string; storeName: string; rqs: RQ[] }> = {};
         activeRQs.forEach(rq => {
             const storeId = rq.tiendaId || 'unknown';
             if (!groups[storeId]) {
-                groups[storeId] = { storeName: rq.tiendaNombre || 'Tienda sin nombre', rqs: [] };
+                groups[storeId] = { storeId, storeName: rq.tiendaNombre || 'Tienda sin nombre', rqs: [] };
             }
             groups[storeId].rqs.push(rq);
         });
         return Object.values(groups).sort((a, b) => a.storeName.localeCompare(b.storeName));
     }, [activeRQs]);
 
+    const [selectedStoreGroup, setSelectedStoreGroup] = useState<{ storeId: string; storeName: string; rqs: RQ[] } | null>(null);
+
     // Mock parsing of CompuTrabajo CSV
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Simulate parsing logic from Excel/CSV - now using selectedRQ data
+        // Default position from first RQ in group
+        const defaultPuesto = selectedStoreGroup?.rqs[0]?.puesto || 'Multifuncional';
+
+        // Simulate parsing logic from Excel/CSV
         setRows([
-            { id: '1', nombre: 'Juan Perez', celular: '51999888777', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
-            { id: '2', nombre: 'Maria Garcia', celular: '51988777666', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
-            { id: '3', nombre: 'Carlos Ruiz', celular: '51977666555', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
-            { id: '4', nombre: 'Ana Lopez', celular: '51966555444', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
-            { id: '5', nombre: 'Luis Torres', celular: '51955444333', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true }
+            { id: '1', nombre: 'Juan Perez', celular: '51999888777', puesto: defaultPuesto, status: 'pending', selected: true },
+            { id: '2', nombre: 'Maria Garcia', celular: '51988777666', puesto: defaultPuesto, status: 'pending', selected: true },
+            { id: '3', nombre: 'Carlos Ruiz', celular: '51977666555', puesto: defaultPuesto, status: 'pending', selected: true },
+            { id: '4', nombre: 'Ana Lopez', celular: '51966555444', puesto: defaultPuesto, status: 'pending', selected: true },
+            { id: '5', nombre: 'Luis Torres', celular: '51955444333', puesto: defaultPuesto, status: 'pending', selected: true }
         ]);
     };
 
@@ -156,8 +161,8 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
         r.celular.includes(searchTerm)
     );
 
-    // IF NO RQ SELECTED, SHOW SELECTION SCREEN
-    if (!selectedRQ) {
+    // IF NO STORE SELECTED, SHOW SELECTION SCREEN
+    if (!selectedStoreGroup) {
         return (
             <div className="space-y-8 animate-fade-in">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -166,7 +171,7 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
                             LIAH FLOW: Motor de Activación
                         </h2>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                            Selecciona una tienda con Requerimiento Activo para comenzar
+                            Selecciona una tienda con requerimiento activo para comenzar
                         </p>
                     </div>
                 </div>
@@ -174,9 +179,9 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
                 {loadingRQs ? (
                     <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50">
                         <div className="w-10 h-10 rounded-full border-4 border-slate-200 border-t-brand animate-spin" />
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Cargando requerimientos...</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Cargando tiendas...</p>
                     </div>
-                ) : rqsByStore.length === 0 ? (
+                ) : storesWithActiveRQs.length === 0 ? (
                     <div className="white-label-card p-20 text-center space-y-4">
                         <AlertCircle className="mx-auto text-slate-200" size={48} />
                         <div>
@@ -186,40 +191,37 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {rqsByStore.map((group, idx) => (
-                            <div key={idx} className="white-label-card p-6 flex flex-col gap-4">
+                        {storesWithActiveRQs.map((group, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setSelectedStoreGroup(group)}
+                                className="white-label-card p-6 flex flex-col gap-4 text-left hover:border-brand/40 hover:shadow-xl hover:shadow-brand/5 transition-all group"
+                            >
                                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                                    <div className="p-2.5 rounded-xl bg-slate-50 text-slate-400">
+                                    <div className="p-2.5 rounded-xl bg-slate-50 text-slate-400 group-hover:bg-brand-soft group-hover:text-brand transition-colors">
                                         <Store size={20} />
                                     </div>
-                                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate">{group.storeName}</h3>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate">{group.storeName}</h3>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{group.rqs.length} RQ(s) activos</p>
+                                    </div>
+                                    <ArrowLeft size={16} className="text-slate-200 group-hover:text-brand rotate-180 transition-all group-hover:translate-x-1" />
                                 </div>
-                                <div className="space-y-3">
-                                    {group.rqs.map(rq => (
-                                        <button
-                                            key={rq.id}
-                                            onClick={() => setSelectedRQ(rq)}
-                                            className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-brand-soft hover:border-brand/20 text-left transition-all group"
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-[10px] font-black text-brand uppercase tracking-widest">{rq.rqNumber || 'RQ-SCAN'}</p>
-                                                    <p className="text-xs font-bold text-slate-900 mt-1">{rq.puesto}</p>
-                                                </div>
-                                                <div className="soft-badge-emerald scale-75 origin-top-right">
-                                                    {rq.status === 'recruiting' ? 'Publicado' : 'Aprobado'}
-                                                </div>
+                                <div className="space-y-2">
+                                    {group.rqs.slice(0, 3).map(rq => (
+                                        <div key={rq.id} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg">
+                                            <span className="text-[10px] font-bold text-slate-600 truncate mr-2">{rq.puesto}</span>
+                                            <div className="flex gap-1">
+                                                <span className="text-[8px] font-black p-1 bg-white rounded border border-slate-100 uppercase text-slate-400">{rq.modalidad?.substring(0, 2)}</span>
+                                                <span className="text-[8px] font-black p-1 bg-white rounded border border-slate-100 uppercase text-slate-400">{rq.turno?.substring(0, 1)}</span>
                                             </div>
-                                            <div className="mt-4 flex items-center justify-between">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase italic">
-                                                    {rq.modalidad} • {rq.turno}
-                                                </span>
-                                                <ArrowLeft size={16} className="text-slate-300 group-hover:text-brand rotate-180 transition-all group-hover:translate-x-1" />
-                                            </div>
-                                        </button>
+                                        </div>
                                     ))}
+                                    {group.rqs.length > 3 && (
+                                        <p className="text-[9px] font-bold text-slate-400 text-center uppercase">+ {group.rqs.length - 3} más</p>
+                                    )}
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 )}
@@ -235,20 +237,20 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <button 
-                            onClick={() => { setSelectedRQ(null); setRows([]); }}
+                            onClick={() => { setSelectedStoreGroup(null); setRows([]); }}
                             className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
                         >
                             <ArrowLeft size={16} />
                         </button>
                         <span className="text-[10px] font-black text-brand uppercase tracking-widest bg-brand-soft px-2 py-0.5 rounded">
-                            {selectedRQ.tiendaNombre}
+                            {selectedStoreGroup.storeName}
                         </span>
                     </div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic mb-1">
                         LIAH FLOW: Motor de Activación
                     </h2>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Importando candidatos para <span className="text-slate-900">{selectedRQ.puesto}</span>
+                        Importando candidatos para <span className="text-slate-900">{selectedStoreGroup.rqs[0]?.puesto || 'Puesto'}</span>
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -320,7 +322,7 @@ export default function CandidateActivationPanel({ candidates = [], allowedMarca
                                         nombre: r.nombre,
                                         celular: r.celular,
                                         puesto: r.puesto,
-                                        tienda: selectedRQ?.tiendaNombre || 'Sede Central'
+                                        tienda: selectedStoreGroup?.storeName || 'Sede Central'
                                     }));
                                     exportSmsCampaignExcel(exportData, claims?.tenant_id || 'ngr');
                                 }}
