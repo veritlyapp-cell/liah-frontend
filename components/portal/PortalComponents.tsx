@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChefHat, Heart, Zap, ArrowRight, MapPin, Clock, ChevronRight, ChevronLeft, Search, Navigation } from 'lucide-react';
 import Link from 'next/link';
+import { getDepartmentNames, getProvincesByDepartment, getDistrictsByProvince } from '@/lib/data/peru-locations';
 import GeolocationJobSearch from './GeolocationJobSearch';
 import { formatDistance, calculateDistanceKm } from '@/lib/geo/distance-utils';
 
@@ -277,11 +278,32 @@ export function JobsSection({
     holdingSlug: string;
 }) {
     const { colors } = config;
-    const [filterDepartamento, setFilterDepartamento] = React.useState('');
-    const [filterDistrito, setFilterDistrito] = React.useState('');
+    const [selectedDept, setSelectedDept] = React.useState('');
+    const [selectedProv, setSelectedProv] = React.useState('');
+    const [selectedDist, setSelectedDist] = React.useState('');
+    const [availableProvinces, setAvailableProvinces] = React.useState<string[]>([]);
+    const [availableDistricts, setAvailableDistricts] = React.useState<string[]>([]);
+
     const [viewMode, setViewMode] = React.useState<'list' | 'districts'>('list');
     const [geoStatus, setGeoStatus] = React.useState<'idle' | 'loading' | 'success' | 'failed'>('idle');
     const [userCoords, setUserCoords] = React.useState<{ lat: number; lng: number } | null>(null);
+
+    // Location dependency updates
+    React.useEffect(() => {
+        if (selectedDept) {
+            setAvailableProvinces(getProvincesByDepartment(selectedDept).map(p => p.name));
+            setAvailableDistricts([]);
+            setSelectedProv('');
+            setSelectedDist('');
+        }
+    }, [selectedDept]);
+
+    React.useEffect(() => {
+        if (selectedDept && selectedProv) {
+            setAvailableDistricts(getDistrictsByProvince(selectedDept, selectedProv).map(d => d.name));
+            setSelectedDist('');
+        }
+    }, [selectedDept, selectedProv]);
 
     // Initial check for geolocation
     React.useEffect(() => {
@@ -314,14 +336,26 @@ export function JobsSection({
     const departamentos = React.useMemo(() => {
         const deps = new Set(allJobs.map(j => j.tiendaDepartamento).filter(Boolean).map(d => d.toUpperCase()));
         const list = Array.from(deps).sort();
-        if (list.length === 0 && allJobs.length > 0) return ['LIMA'];
+        // Fallback to full list if data is incomplete but we want filters enabled
+        if (list.length === 0) return getDepartmentNames();
         return list;
     }, [allJobs]);
 
-    // Group jobs by District for the summary view
+    // List view filters
+    const displayJobs = React.useMemo(() => {
+        let list = [...allJobs];
+        if (selectedBrand) list = list.filter(j => j.marcaId === selectedBrand);
+        if (selectedDept) list = list.filter(j => j.tiendaDepartamento === selectedDept);
+        if (selectedProv) list = list.filter(j => j.tiendaProvincia === selectedProv);
+        if (selectedDist) list = list.filter(j => j.tiendaDistrito === selectedDist);
+        return list;
+    }, [allJobs, selectedBrand, selectedDept, selectedProv, selectedDist]);
+
+    // Summary view filters (districts)
     const jobsByDistrict = React.useMemo(() => {
         const filtered = allJobs.filter(j => 
-            (!filterDepartamento || j.tiendaDepartamento === filterDepartamento) &&
+            (!selectedDept || j.tiendaDepartamento === selectedDept) &&
+            (!selectedProv || j.tiendaProvincia === selectedProv) &&
             (!selectedBrand || j.marcaId === selectedBrand)
         );
         const groups: Record<string, any[]> = {};
@@ -331,18 +365,7 @@ export function JobsSection({
             groups[dist].push(job);
         });
         return groups;
-    }, [allJobs, filterDepartamento, selectedBrand]);
-
-    const districtsList = Object.keys(jobsByDistrict).sort();
-
-    // Final filtered jobs for the list view
-    const displayJobs = React.useMemo(() => {
-        let list = filteredJobs;
-        if (filterDepartamento) list = list.filter(j => j.tiendaDepartamento === filterDepartamento);
-        if (filterDistrito) list = list.filter(j => j.tiendaDistrito === filterDistrito);
-        if (selectedBrand) list = list.filter(j => j.marcaId === selectedBrand);
-        return list;
-    }, [filteredJobs, filterDepartamento, filterDistrito, selectedBrand]);
+    }, [allJobs, selectedDept, selectedProv, selectedBrand]);
 
     const selectStyle = {
         padding: '12px 20px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)',
@@ -373,71 +396,88 @@ export function JobsSection({
                     )}
                 </div>
 
-                {/* Main Filter Control (Fallback or Toggle) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginBottom: 48 }}>
-
-                    {(geoStatus === 'failed' || geoStatus === 'idle') && !filterDepartamento && (
-                        <div style={{ textAlign: 'center', padding: '60px 24px', borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <MapPin size={48} style={{ margin: '0 auto 24px', color: colors.yellow, opacity: 0.5 }} />
-                            <h3 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 32 }}>¿En qué departamento te encuentras?</h3>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-                                {departamentos.map(d => (
-                                    <button
-                                        key={d}
-                                        onClick={() => { setFilterDepartamento(d); setViewMode('districts'); }}
-                                        style={{
-                                            padding: '16px 32px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)',
-                                            backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 800, cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        className="hover:bg-white hover:text-black"
-                                    >
-                                        {d.toUpperCase()}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {filterDepartamento && (
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                            padding: '12px 24px', borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.05)',
-                            margin: '0 auto', width: 'fit-content'
-                        }}>
-                            <span style={{ fontSize: 12, fontWeight: 800, color: colors.yellow }}>📍 {filterDepartamento.toUpperCase()}</span>
-                            <button
-                                onClick={() => { setFilterDepartamento(''); setFilterDistrito(''); setViewMode('list'); onFilterResults(allJobs, null); }}
-                                style={{ color: 'white', opacity: 0.5, fontSize: 11, fontWeight: 800, border: 'none', background: 'none', cursor: 'pointer' }}
+                {/* Main Filter Control */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 48 }}>
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                        gap: 16,
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        padding: 24,
+                        borderRadius: 32,
+                        border: '1px solid rgba(255,255,255,0.08)'
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <label style={{ fontSize: 10, fontWeight: 900, color: colors.lavender, textTransform: 'uppercase', letterSpacing: '1px', marginLeft: 12 }}>Departamento</label>
+                            <select 
+                                value={selectedDept}
+                                onChange={(e) => setSelectedDept(e.target.value)}
+                                style={selectStyle}
                             >
-                                (CAMBIAR)
-                            </button>
+                                <option value="">Todos</option>
+                                {departamentos.map(d => <option key={d} value={d} style={{ color: 'black' }}>{d}</option>)}
+                            </select>
                         </div>
-                    )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <label style={{ fontSize: 10, fontWeight: 900, color: colors.lavender, textTransform: 'uppercase', letterSpacing: '1px', marginLeft: 12 }}>Provincia</label>
+                            <select 
+                                value={selectedProv}
+                                onChange={(e) => setSelectedProv(e.target.value)}
+                                disabled={!selectedDept}
+                                style={{ ...selectStyle, opacity: !selectedDept ? 0.3 : 1 }}
+                            >
+                                <option value="">Todas</option>
+                                {availableProvinces.map(p => <option key={p} value={p} style={{ color: 'black' }}>{p}</option>)}
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <label style={{ fontSize: 10, fontWeight: 900, color: colors.lavender, textTransform: 'uppercase', letterSpacing: '1px', marginLeft: 12 }}>Distrito</label>
+                            <select 
+                                value={selectedDist}
+                                onChange={(e) => setSelectedDist(e.target.value)}
+                                disabled={!selectedProv}
+                                style={{ ...selectStyle, opacity: !selectedProv ? 0.3 : 1 }}
+                            >
+                                <option value="">Todos</option>
+                                {availableDistricts.map(d => <option key={d} value={d} style={{ color: 'black' }}>{d}</option>)}
+                            </select>
+                        </div>
+                    </div>
 
-                    {/* View Switcher only if we have a department */}
-                    {filterDepartamento && !filterDistrito && (
-                        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                            <h3 style={{ fontSize: 20, fontWeight: 900, color: 'white' }}>Selecciona tu distrito</h3>
+                    {/* Quick Geo Status if active */}
+                    {geoStatus === 'success' && !selectedDept && (
+                        <div style={{ textAlign: 'center' }}>
+                            <button 
+                                onClick={() => {
+                                    setSelectedDept('');
+                                    setSelectedProv('');
+                                    setSelectedDist('');
+                                    onFilterResults(allJobs.filter(j => j.distance <= 10), userCoords);
+                                }}
+                                style={{ color: colors.yellow, fontSize: 12, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                            >
+                                Restaurar filtros por cercanía GPS
+                            </button>
                         </div>
                     )}
                 </div>
 
                 {/* Content Rendering Logic */}
-                {viewMode === 'districts' && filterDepartamento && !filterDistrito ? (
+                {viewMode === 'districts' && selectedDept && !selectedDist ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {districtsList.map(dist => (
+                        {Object.keys(jobsByDistrict).sort().map(dist => (
                             <motion.div
                                 key={dist}
                                 whileHover={{ scale: 1.02, y: -4, borderColor: colors.yellow }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => { setFilterDistrito(dist); setViewMode('list'); }}
+                                onClick={() => { setSelectedDist(dist); setViewMode('list'); }}
                                 style={{
                                     padding: '32px 24px', borderRadius: 32, cursor: 'pointer',
                                     backgroundColor: 'rgba(255,255,255,0.03)', border: '2px solid rgba(255,255,255,0.08)',
                                     display: 'flex', flexDirection: 'column', gap: 12,
                                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+                                    boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                                    isolation: 'isolate'
                                 }}
                             >
                                 <div style={{
@@ -475,25 +515,25 @@ export function JobsSection({
                                 <p style={{ fontSize: 16, color: colors.lavender, maxWidth: 500, margin: '0 auto 32px', fontWeight: 600 }}>No encontramos vacantes a 10km de tu posición actual, prueba seleccionando tu ubicación manualmente.</p>
                                 
                                 <button
-                                    onClick={() => { setFilterDepartamento(''); setFilterDistrito(''); setViewMode('list'); onFilterResults(allJobs, null); }}
+                                    onClick={() => { setSelectedDept(''); setSelectedProv(''); setSelectedDist(''); setViewMode('list'); }}
                                     style={{ 
                                         padding: '16px 40px', borderRadius: 99, backgroundColor: colors.yellow, color: colors.purpleDeep,
                                         fontWeight: 900, border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px',
                                         boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
                                     }}
                                 >
-                                    VER TODAS LAS VACANTES DE {config.name.toUpperCase()}
+                                    MOSTRAR TODAS LAS POSICIONES
                                 </button>
                             </div>
                         ) : (
                             <>
-                                {filterDistrito && (
+                                {selectedDist && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                                         <button
-                                            onClick={() => { setFilterDistrito(''); setViewMode('districts'); }}
+                                            onClick={() => { setSelectedDist(''); setViewMode('districts'); }}
                                             style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'white', fontSize: 12, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer' }}
                                         >
-                                            <ChevronLeft size={16} /> VOLVER A DISTRITOS EN {filterDepartamento.toUpperCase()}
+                                            <ChevronLeft size={16} /> VOLVER A DISTRITOS EN {selectedDept.toUpperCase()}
                                         </button>
                                     </div>
                                 )}

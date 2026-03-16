@@ -12,7 +12,7 @@ interface RecruiterCandidatesViewProps {
 }
 
 export default function RecruiterCandidatesView({ candidates, onRefresh }: RecruiterCandidatesViewProps) {
-    const { user } = useAuth();
+    const { user, claims } = useAuth();
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [culFilter, setCulFilter] = useState<string>('all');
@@ -106,6 +106,8 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                 return 'Completado';
             case 'selected':
                 return 'Seleccionado';
+            case 'no_show':
+                return 'No Acudió';
             default:
                 return 'Invitado';
         }
@@ -194,10 +196,16 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                 ) : (
                     <div className="space-y-3">
                         {filteredCandidates.map(candidate => {
-                            // Get latest application
-                            const latestApp = candidate.applications && candidate.applications.length > 0
-                                ? candidate.applications[candidate.applications.length - 1]
-                                : null;
+                            // Get latest application relevant to this recruiter's marcas if possible
+                            // For simplicity, we filter the apps list to avoid cross-brand pollution
+                            const recruiterMarcaIds = (claims as any)?.allowedMarcaIds || [];
+                            const relevantApps = recruiterMarcaIds.length > 0
+                                ? (candidate.applications || []).filter(a => recruiterMarcaIds.includes(a.marcaId))
+                                : (candidate.applications || []);
+
+                            const latestApp = relevantApps.length > 0
+                                ? relevantApps[relevantApps.length - 1]
+                                : (candidate.applications?.[candidate.applications.length - 1] || null);
 
                             return (
                                 <div key={candidate.id} className="white-label-card p-4 md:p-6 group hover:translate-y-[-2px] transition-all duration-300">
@@ -266,17 +274,17 @@ export default function RecruiterCandidatesView({ candidates, onRefresh }: Recru
                                                 )}
                                             </div>
 
-                                            {/* Applications Summary */}
-                                            {candidate.applications && candidate.applications.length > 0 && (
+                                            {/* Applications Summary - Strictly filter by recruiter brands to avoid Tambo/other leakage */}
+                                            {relevantApps.length > 0 && (
                                                 <div className="pt-3 border-t border-slate-50 flex items-center gap-3">
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Historial:</span>
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Historial en Marca:</span>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {candidate.applications.slice(-2).map((app, idx) => (
+                                                        {relevantApps.slice(-2).map((app, idx) => (
                                                             <div key={idx} className="text-[9px] font-bold bg-slate-50 text-slate-500 rounded-md px-2 py-1 border border-slate-100">
-                                                                {app.tiendaNombre}
+                                                                 {app.marcaNombre} • {app.tiendaNombre}
                                                             </div>
                                                         ))}
-                                                        {candidate.applications.length > 2 && <span className="text-[9px] text-slate-300">+{candidate.applications.length - 2}</span>}
+                                                        {relevantApps.length > 2 && <span className="text-[9px] text-slate-300">+{relevantApps.length - 2}</span>}
                                                     </div>
                                                 </div>
                                             )}

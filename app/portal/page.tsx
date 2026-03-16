@@ -18,6 +18,12 @@ function PortalContent() {
     const [brandLogo, setBrandLogo] = useState<string | null>(null);
 
     useEffect(() => {
+        // Redirection logic to consolidate URLs
+        if (holdingSlug) {
+            router.replace(`/empleos/${holdingSlug.toLowerCase()}`);
+            return;
+        }
+
         // Fetch vacancy count
         async function fetchVacancyCount() {
             try {

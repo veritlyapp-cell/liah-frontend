@@ -735,38 +735,7 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                     Rechazar
                                                 </button>
 
-                                                {/* No Acudió button - only for interview_scheduled and NOT in selection/pending tab */}
-                                                {(latestApp.status === 'interview_scheduled' && listFilter !== 'pending') && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            const { rejectCandidate } = await import('@/lib/firestore/candidate-actions');
-                                                            setProcessingIds(prev => new Set(prev).add(candidate.id));
-                                                            try {
-                                                                await rejectCandidate(candidate.id, latestApp.id, user?.uid || 'system', 'No acudió a la entrevista');
-                                                                loadCandidates();
-                                                                alert('Candidato marcado como No Acudió.');
-                                                            } catch (error) {
-                                                                console.error('Error:', error);
-                                                                alert('Error al procesar');
-                                                            } finally {
-                                                                setProcessingIds(prev => {
-                                                                    const next = new Set(prev);
-                                                                    next.delete(candidate.id);
-                                                                    return next;
-                                                                });
-                                                            }
-                                                        }}
-                                                        disabled={processingIds.has(candidate.id)}
-                                                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-full hover:bg-gray-600 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        {processingIds.has(candidate.id) ? (
-                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                        ) : (
-                                                            <span>🚫</span>
-                                                        )}
-                                                        No Acudió
-                                                    </button>
-                                                )}
+                                                {/* No Acudió button removed from here as per user request to simplify Selection flow */}
                                             </>
                                         )}
 
