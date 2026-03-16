@@ -320,6 +320,9 @@ export async function createRQInstances(
 
             // NEW: Geolocation & Slugs
             storeCoordinates: storeData?.location || null,
+            tiendaDistrito: storeData?.distrito || '',
+            tiendaProvincia: storeData?.provincia || '',
+            tiendaDepartamento: storeData?.departamento || '',
             tiendaSlug: storeData?.slug || '',
             marcaSlug: brandSlug || '',
 

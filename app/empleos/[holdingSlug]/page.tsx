@@ -231,6 +231,13 @@ export default function PremiumCareerPortal() {
             const brandsList = brandsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setBrands(brandsList);
 
+            // 1b. Fetch Stores to map location to RQs efficiently
+            const storesSnap = await getDocs(query(collection(db, 'tiendas'), where('holdingId', 'in', possibleHoldingIds)));
+            const storesMap: Record<string, any> = {};
+            storesSnap.docs.forEach(doc => {
+                storesMap[doc.id] = doc.data();
+            });
+
             // Apply branding config if available
             console.log("[DEBUG] Holding Doc loaded:", holdingId, !!holdingDocData);
 
@@ -288,7 +295,7 @@ export default function PremiumCareerPortal() {
             rqsSnap.docs.forEach(doc => {
                 const data = doc.data();
                 if (data.status === 'recruiting' || data.status === 'approved' || data.estado === 'aprobado' || data.status === 'activo' || data.status === 'active' || data.status === 'published') {
-                    allJobsList.push({
+                    const job: any = {
                         id: doc.id,
                         titulo: data.puesto || data.posicion || data.posicionNombre || data.title || 'Vacante',
                         tiendaNombre: data.tiendaNombre || 'Sede Central',
@@ -302,7 +309,18 @@ export default function PremiumCareerPortal() {
                         turno: data.turno,
                         createdAt: data.createdAt,
                         holdingSlug: holdingSlug // Explicitly tag with current holding
-                    });
+                    };
+
+                    // Backfill missing location data from storesMap if needed
+                    if (!job.tiendaDistrito && data.tiendaId && storesMap[data.tiendaId]) {
+                        const s = storesMap[data.tiendaId];
+                        job.tiendaDistrito = s.distrito || '';
+                        job.tiendaProvincia = s.provincia || '';
+                        job.tiendaDepartamento = s.departamento || '';
+                        if (!job.storeCoordinates) job.storeCoordinates = s.location || null;
+                    }
+
+                    allJobsList.push(job);
                 }
             });
 

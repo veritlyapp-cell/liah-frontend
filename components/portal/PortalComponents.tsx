@@ -346,8 +346,18 @@ export function JobsSection({
         let list = [...allJobs];
         if (selectedBrand) list = list.filter(j => j.marcaId === selectedBrand);
         if (selectedDept) list = list.filter(j => j.tiendaDepartamento === selectedDept);
-        if (selectedProv) list = list.filter(j => j.tiendaProvincia === selectedProv);
-        if (selectedDist) list = list.filter(j => j.tiendaDistrito === selectedDist);
+        if (selectedProv) list = list.filter(j => (j.tiendaProvincia || '').trim().toLowerCase() === selectedProv.trim().toLowerCase());
+        if (selectedDist) {
+            const normalizedSelected = selectedDist.trim().toLowerCase();
+            list = list.filter(j => {
+                const dist = (j.tiendaDistrito || '').trim().toLowerCase();
+                if (dist === normalizedSelected) return true;
+                // Handle common aliases manually for better UX
+                if (normalizedSelected === 'santiago de surco' && dist === 'surco') return true;
+                if (normalizedSelected === 'surco' && dist === 'santiago de surco') return true;
+                return false;
+            });
+        }
         return list;
     }, [allJobs, selectedBrand, selectedDept, selectedProv, selectedDist]);
 
@@ -360,7 +370,10 @@ export function JobsSection({
         );
         const groups: Record<string, any[]> = {};
         filtered.forEach(job => {
-            const dist = job.tiendaDistrito || 'Otros';
+            let dist = job.tiendaDistrito || 'Otros';
+            // Normalize district name for grouping
+            if (dist.toLowerCase().trim() === 'surco') dist = 'Santiago de Surco';
+            
             if (!groups[dist]) groups[dist] = [];
             groups[dist].push(job);
         });
