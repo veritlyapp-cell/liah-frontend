@@ -1,7 +1,9 @@
+'use client';
+
 import { useState, useMemo, useEffect } from 'react';
 import { Upload, CheckCircle2, AlertCircle, Send, Search, FileText, Smartphone, UserCheck, Eye, MousePointer2, UserPlus, Store, ArrowLeft } from 'lucide-react';
 import { SmsService } from '@/lib/notifications/sms-service';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToAllRQs, type RQ } from '@/lib/firestore/rqs';
 
 interface ImportRow {
