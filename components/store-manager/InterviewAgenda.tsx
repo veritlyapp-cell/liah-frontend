@@ -107,8 +107,12 @@ export default function InterviewAgenda({ storeId, marcaIds, allowedStoreIds, ho
         setLoadingRQs(prev => ({ ...prev, [storeId]: true }));
         try {
             const rqs = await getRQsByStore(storeId);
-            // Only keep recruiting or approved RQs
-            const activeRQs = rqs.filter(rq => rq.status === 'recruiting' || rq.approvalStatus === 'approved');
+            // Only keep RQs that are approved AND not in a terminal state (closed, filled, cancelled, deleted)
+            const activeRQs = rqs.filter(rq => 
+                rq.approvalStatus === 'approved' && 
+                !['closed', 'filled', 'cancelled', 'deleted'].includes(rq.status || '') &&
+                !rq.deletion_approved
+            );
             setStoreRQs(prev => ({ ...prev, [storeId]: activeRQs }));
         } catch (e) {
             console.error('Error loading store RQs:', e);

@@ -311,7 +311,12 @@ export function JobsSection({
         }
     }, []);
 
-    const departamentos = [...new Set(allJobs.map(j => j.tiendaDepartamento || 'Otros').filter(Boolean))].sort();
+    const departamentos = React.useMemo(() => {
+        const deps = new Set(allJobs.map(j => j.tiendaDepartamento).filter(Boolean).map(d => d.toUpperCase()));
+        const list = Array.from(deps).sort();
+        if (list.length === 0 && allJobs.length > 0) return ['LIMA'];
+        return list;
+    }, [allJobs]);
 
     // Group jobs by District for the summary view
     const jobsByDistrict = React.useMemo(() => {
@@ -459,14 +464,25 @@ export function JobsSection({
                 ) : (
                     <div style={{ display: 'grid', gap: 20 }}>
                         {displayJobs.length === 0 ? (
-                            <div style={{ padding: '80px 0', textAlign: 'center' }}>
-                                <Search size={48} style={{ margin: '0 auto 24px', opacity: 0.2 }} />
-                                <h3 style={{ fontSize: 20, fontWeight: 700, color: colors.lavender }}>No encontramos vacantes disponibles</h3>
+                            <div style={{ padding: '80px 24px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 40, border: '2px dashed rgba(255,255,255,0.05)' }}>
+                                <div style={{ 
+                                    width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', color: colors.yellow 
+                                }}>
+                                    <MapPin size={40} />
+                                </div>
+                                <h3 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 12, fontStyle: 'italic', textTransform: 'uppercase' }}>Mira las tiendas con vacantes según ubicación</h3>
+                                <p style={{ fontSize: 16, color: colors.lavender, maxWidth: 500, margin: '0 auto 32px', fontWeight: 600 }}>No encontramos vacantes a 10km de tu posición actual, prueba seleccionando tu ubicación manualmente.</p>
+                                
                                 <button
                                     onClick={() => { setFilterDepartamento(''); setFilterDistrito(''); setViewMode('list'); onFilterResults(allJobs, null); }}
-                                    style={{ marginTop: 20, color: colors.yellow, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                    style={{ 
+                                        padding: '16px 40px', borderRadius: 99, backgroundColor: colors.yellow, color: colors.purpleDeep,
+                                        fontWeight: 900, border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px',
+                                        boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+                                    }}
                                 >
-                                    Ver todas las vacantes de {config.name}
+                                    VER TODAS LAS VACANTES DE {config.name.toUpperCase()}
                                 </button>
                             </div>
                         ) : (

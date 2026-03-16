@@ -633,12 +633,14 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                             </div>
                                         )}
 
-                                        {/* Historial Expandible */}
+                                        {/* Historial Expandible - Filtrado por holding para privacidad */}
                                         {showCandidateHistory && otherApplications.length > 0 && (
                                             <div className="mt-2 bg-gray-50 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-200">
                                                 <p className="text-xs text-gray-500 mb-2 font-medium">📜 Historial de Procesos Anteriores:</p>
                                                 <div className="space-y-1">
-                                                    {otherApplications.map((app, idx) => (
+                                                    {otherApplications
+                                                        .filter(app => !claims?.tenant_id || app.holdingId === claims.tenant_id)
+                                                        .map((app, idx) => (
                                                         <div key={idx} className="text-xs bg-white rounded px-2 py-1.5 flex items-center justify-between border border-gray-200">
                                                             <span className="text-gray-700">
                                                                 {app.tiendaNombre} • {app.posicion || 'N/A'} • {new Date(app.appliedAt?.toDate ? app.appliedAt.toDate() : app.appliedAt).toLocaleDateString()}
@@ -657,6 +659,9 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                             </span>
                                                         </div>
                                                     ))}
+                                                    {otherApplications.filter(app => !claims?.tenant_id || app.holdingId === claims.tenant_id).length === 0 && (
+                                                        <p className="text-[10px] text-gray-400 italic">No hay historial previo en este holding.</p>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -730,8 +735,8 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                     Rechazar
                                                 </button>
 
-                                                {/* No Acudió button - only for interview_scheduled */}
-                                                {latestApp.status === 'interview_scheduled' && (
+                                                {/* No Acudió button - only for interview_scheduled and NOT in selection/pending tab */}
+                                                {(latestApp.status === 'interview_scheduled' && listFilter !== 'pending') && (
                                                     <button
                                                         onClick={async () => {
                                                             const { rejectCandidate } = await import('@/lib/firestore/candidate-actions');
