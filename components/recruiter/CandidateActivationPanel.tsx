@@ -171,17 +171,37 @@ export default function CandidateActivationPanel({ candidates = [] }: CandidateA
                             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand/20 focus:bg-white"
                         />
                     </div>
-                    {rows.length > 0 && (
-                        <button
-                            onClick={async () => {
-                                const { exportAllCandidatesExcel } = await import('@/lib/utils/export-excel');
-                                exportAllCandidatesExcel(candidates);
-                            }}
-                            className="flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors"
-                        >
-                            <FileText size={14} /> Exportar Base Actual
-                        </button>
-                    )}
+                    <div className="flex gap-2">
+                        {rows.length > 0 && (
+                            <button
+                                onClick={async () => {
+                                    const { exportSmsCampaignExcel } = await import('@/lib/utils/export-excel');
+                                    // Map current rows to the format expected by the exporter
+                                    const exportData = rows.filter(r => r.selected).map(r => ({
+                                        nombre: r.nombre,
+                                        celular: r.celular,
+                                        puesto: r.puesto,
+                                        tienda: 'Sede Central' // Should come from mapping if available
+                                    }));
+                                    exportSmsCampaignExcel(exportData, 'ngr'); // Hardcoded ngr for now as example
+                                }}
+                                className="flex items-center gap-2 text-[10px] font-black text-slate-600 border border-slate-200 uppercase tracking-widest hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+                            >
+                                <Smartphone size={14} className="text-brand" /> Export XL para SMS
+                            </button>
+                        )}
+                        {rows.length > 0 && (
+                            <button
+                                onClick={async () => {
+                                    const { exportAllCandidatesExcel } = await import('@/lib/utils/export-excel');
+                                    exportAllCandidatesExcel(candidates);
+                                }}
+                                className="flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors"
+                            >
+                                <FileText size={14} /> Exportar Base Actual
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <table className="w-full">
                     <thead>

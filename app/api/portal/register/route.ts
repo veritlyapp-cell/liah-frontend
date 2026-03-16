@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
             coordinates,
             formattedAddress,
             holdingSlug,
-            existingCandidateId
+            existingCandidateId,
+            documentType,
+            documentNumber
         } = body;
 
         // Validate required fields
@@ -57,6 +59,12 @@ export async function POST(request: NextRequest) {
             portalSessionExpiry: sessionExpiry.toISOString(),
             updatedAt: AdminFieldValue.serverTimestamp(),
         };
+
+        // Add document info if provided
+        if (documentNumber) {
+            updateData.dni = documentNumber.trim();
+            updateData.documentType = documentType || 'DNI';
+        }
 
         if (cvUrl) updateData.cvUrl = cvUrl;
         if (coordinates) updateData.coordinates = coordinates;

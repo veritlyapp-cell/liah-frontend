@@ -315,7 +315,10 @@ export function JobsSection({
 
     // Group jobs by District for the summary view
     const jobsByDistrict = React.useMemo(() => {
-        const filtered = allJobs.filter(j => !filterDepartamento || j.tiendaDepartamento === filterDepartamento);
+        const filtered = allJobs.filter(j => 
+            (!filterDepartamento || j.tiendaDepartamento === filterDepartamento) &&
+            (!selectedBrand || j.marcaId === selectedBrand)
+        );
         const groups: Record<string, any[]> = {};
         filtered.forEach(job => {
             const dist = job.tiendaDistrito || 'Otros';
@@ -323,7 +326,7 @@ export function JobsSection({
             groups[dist].push(job);
         });
         return groups;
-    }, [allJobs, filterDepartamento]);
+    }, [allJobs, filterDepartamento, selectedBrand]);
 
     const districtsList = Object.keys(jobsByDistrict).sort();
 
@@ -417,29 +420,38 @@ export function JobsSection({
 
                 {/* Content Rendering Logic */}
                 {viewMode === 'districts' && filterDepartamento && !filterDistrito ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {districtsList.map(dist => (
                             <motion.div
                                 key={dist}
-                                whileHover={{ scale: 1.05, y: -5 }}
+                                whileHover={{ scale: 1.02, y: -4, borderColor: colors.yellow }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => { setFilterDistrito(dist); setViewMode('list'); }}
                                 style={{
-                                    padding: 40, borderRadius: 32, cursor: 'pointer',
-                                    backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    padding: '32px 24px', borderRadius: 32, cursor: 'pointer',
+                                    backgroundColor: 'rgba(255,255,255,0.03)', border: '2px solid rgba(255,255,255,0.08)',
+                                    display: 'flex', flexDirection: 'column', gap: 12,
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                     boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
                                 }}
                             >
-                                <div>
-                                    <h4 style={{ fontSize: 20, fontWeight: 900, color: 'white', textTransform: 'uppercase', fontStyle: 'italic' }}>{dist}</h4>
-                                    <p style={{ fontSize: 12, fontWeight: 800, color: colors.yellow, marginTop: 4 }}>{jobsByDistrict[dist].length} VACANTES</p>
+                                <div style={{
+                                    width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.yellow,
+                                    marginBottom: 8
+                                }}>
+                                    <MapPin size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 style={{ fontSize: 22, fontWeight: 900, color: 'white', textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1 }}>{dist}</h4>
+                                    <p style={{ fontSize: 13, fontWeight: 800, color: colors.yellow, marginTop: 8, textTransform: 'uppercase', letterSpacing: '1px' }}>{jobsByDistrict[dist].length} VACANTES</p>
                                 </div>
                                 <div style={{
-                                    width: 40, height: 40, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.yellow
+                                    width: '100%', padding: '12px', borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, fontWeight: 900,
+                                    textTransform: 'uppercase', letterSpacing: '1px', gap: 6
                                 }}>
-                                    <ChevronRight size={20} />
+                                    Ver todas <ChevronRight size={14} />
                                 </div>
                             </motion.div>
                         ))}

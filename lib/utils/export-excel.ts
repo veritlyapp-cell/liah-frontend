@@ -158,3 +158,42 @@ export function exportRQsExcel(rqs: any[], filename?: string) {
     const defaultFilename = `REQUERIMIENTOS_LISTA_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, filename || defaultFilename);
 }
+
+/**
+ * Export specialized data for SMS Campaign
+ */
+export function exportSmsCampaignExcel(rows: any[], holdingSlug: string, filename?: string) {
+    const data = rows.map(row => {
+        // Clean phone number (remove non-digits, ensure 51 prefix if missing for Peru)
+        let phone = String(row.celular || row.telefono || '').replace(/\D/g, '');
+        if (phone.length === 9 && (phone.startsWith('9') || phone.startsWith('8'))) {
+            phone = '51' + phone;
+        }
+
+        // Generate invitation link
+        // Base URL depends on current environment, but we'll use a placeholder or the real one
+        const baseUrl = 'https://mia.racso.app/portal/registro';
+        let invitationUrl = `${baseUrl}?holding=${holdingSlug}`;
+        
+        // If we have a store or RQ, we can make it more specific
+        if (row.rqId) invitationUrl += `&rqId=${row.rqId}`;
+        
+        const message = `Hola ${row.nombre}, te invitamos a postular para ${row.puesto || 'nuestras vacantes'} en ${row.tienda || 'nuestras tiendas'}. Regístrate aquí: ${invitationUrl}`;
+
+        return {
+            'Teléfono': phone,
+            'Nombre': row.nombre || '',
+            'Puesto': row.puesto || '',
+            'Tienda': row.tienda || '',
+            'Link Invitación': invitationUrl,
+            'Mensaje SMS (Listo para enviar)': message
+        };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Campaña SMS');
+
+    const defaultFilename = `CAMPAÑA_SMS_${holdingSlug.toUpperCase()}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, filename || defaultFilename);
+}

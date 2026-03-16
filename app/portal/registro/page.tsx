@@ -47,7 +47,9 @@ function RegistroContent() {
         nombre: '', apellidos: '', celular: '',
         fechaNacimiento: '',
         departamento: 'LIMA', provincia: 'LIMA', distrito: '',
-        direccion: ''
+        direccion: '',
+        documentType: 'DNI',
+        documentNumber: ''
     });
     const [selectedDep, setSelectedDep] = useState('15');
     const [selectedProv, setSelectedProv] = useState('1501');
@@ -172,7 +174,7 @@ function RegistroContent() {
     // ── STEP 3: Register new candidate ──
     async function handleRegister(e: React.FormEvent) {
         e.preventDefault();
-        if (!formData.nombre || !formData.apellidos || !formData.celular || !formData.distrito) {
+        if (!formData.nombre || !formData.apellidos || !formData.celular || !formData.distrito || !formData.documentNumber) {
             setSubmitError('Completa todos los campos obligatorios (*)');
             return;
         }
@@ -193,6 +195,8 @@ function RegistroContent() {
                     provincia: formData.provincia,
                     distrito: formData.distrito,
                     direccion: formData.direccion.trim(),
+                    documentType: formData.documentType,
+                    documentNumber: formData.documentNumber.trim(),
                     holdingSlug: holdingSlug || 'public'
                 })
             });
@@ -405,6 +409,27 @@ function RegistroContent() {
                                     <input type="date" value={formData.fechaNacimiento}
                                         onChange={e => setFormData(f => ({ ...f, fechaNacimiento: e.target.value }))}
                                         className={inputCls} style={{ colorScheme: 'dark' }} />
+                                </div>
+                            </div>
+
+                            {/* Tipo y N° de Documento */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className={labelCls}>Tipo Doc <span className="text-red-400">*</span></label>
+                                    <select value={formData.documentType}
+                                        onChange={e => setFormData(f => ({ ...f, documentType: e.target.value }))}
+                                        className={selectCls} style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                                        <option value="DNI" style={{ backgroundColor: '#1a1a2e' }}>DNI</option>
+                                        <option value="CE" style={{ backgroundColor: '#1a1a2e' }}>CE</option>
+                                        <option value="Pasaporte" style={{ backgroundColor: '#1a1a2e' }}>Pasaporte</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-2">
+                                    <label className={labelCls}>N° Documento <span className="text-red-400">*</span></label>
+                                    <input type="text" value={formData.documentNumber}
+                                        onChange={e => setFormData(f => ({ ...f, documentNumber: e.target.value }))}
+                                        placeholder={formData.documentType === 'DNI' ? '12345678' : 'Número'}
+                                        required className={inputCls} />
                                 </div>
                             </div>
 

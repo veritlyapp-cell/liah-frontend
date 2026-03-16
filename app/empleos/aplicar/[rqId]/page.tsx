@@ -15,6 +15,7 @@ interface Vacancy {
     tiendaNombre: string;
     tiendaDistrito: string;
     requisitos: any; // Dynamic KQs
+    killerQuestions?: KQQuestion[];
     storeCoordinates: { lat: number, lng: number } | null;
     categoria: string;
 }
@@ -102,21 +103,16 @@ function AplicarContent({ params }: { params: Promise<{ rqId: string }> }) {
 
     // Parse requisitos into KQ list
     const getKQs = (): KQQuestion[] => {
-        if (!vacancy?.requisitos) return [];
+        if (!vacancy) return [];
 
-        // Handle different formats if necessary, for now assume it's the standard JobProfileRequisitos
-        const reqs = vacancy.requisitos;
-        const kqs: KQQuestion[] = [];
+        // API returns them directly in vacancy.killerQuestions
+        if (vacancy.killerQuestions && Array.isArray(vacancy.killerQuestions)) {
+            return vacancy.killerQuestions;
+        }
 
-        // Example: converting from JobProfile structure or similar
-        // If it's keys like 'experienciaMinima', 'educacion', etc.
-        // For simplicity, let's assume it's an array of questions or transform key requirements
-
-        if (Array.isArray(reqs)) return reqs;
-
-        // If it's the standard object from JobProfile:
-        if (reqs.killerQuestions && Array.isArray(reqs.killerQuestions)) {
-            return reqs.killerQuestions;
+        // Fallback to requisitos if available
+        if (vacancy.requisitos?.killerQuestions && Array.isArray(vacancy.requisitos.killerQuestions)) {
+            return vacancy.requisitos.killerQuestions;
         }
 
         return [];

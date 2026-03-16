@@ -30,6 +30,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [precioPorTienda, setPrecioPorTienda] = useState(50);
     const [costosAdicionales, setCostosAdicionales] = useState(0);
     const [precioMensual, setPrecioMensual] = useState(0);
+    const [moneda, setMoneda] = useState<'PEN' | 'USD'>('PEN');
+    const [periodoFacturacion, setPeriodoFacturacion] = useState<'mensual' | 'trimestral' | 'semestral' | 'anual'>('mensual');
 
     const [tempPassword, setTempPassword] = useState('Liah2024!Cambiar');
 
@@ -54,9 +56,11 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [brandDescription, setBrandDescription] = useState('');
 
     // Auto-calculate price
+    const periodoMultiplier = { mensual: 1, trimestral: 3, semestral: 6, anual: 12 };
     useEffect(() => {
-        setPrecioMensual((maxStores * precioPorTienda) + costosAdicionales);
-    }, [maxStores, precioPorTienda, costosAdicionales]);
+        const base = (maxStores * precioPorTienda) + costosAdicionales;
+        setPrecioMensual(base * periodoMultiplier[periodoFacturacion]);
+    }, [maxStores, precioPorTienda, costosAdicionales, periodoFacturacion]);
 
     // Actualizar valores cuando cambia el holding
     useEffect(() => {
@@ -72,6 +76,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
 
             setPrecioPorTienda(config?.precioPorTienda || 50);
             setCostosAdicionales(config?.costosAdicionales || 0);
+            setMoneda(config?.moneda || 'PEN');
+            setPeriodoFacturacion(config?.periodoFacturacion || 'mensual');
 
             setMaxBrands(config?.maxBrands || 1);
             setMaxStores(config?.maxStores || 5);
@@ -117,6 +123,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                 precioPorTienda,
                 costosAdicionales,
                 precioMensual,
+                moneda,
+                periodoFacturacion,
                 tempPassword,
                 requiredDocuments,
                 approvalLevels,
@@ -218,26 +226,67 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                             {/* Pricing Model */}
                             <div className="space-y-6">
                                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                                    <FileText size={14} /> Modelo de Suscripción Mensual
+                                    <FileText size={14} /> Modelo de Suscripción
                                 </h4>
+
+                                {/* Currency & Period Selectors */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="white-label-card p-5 border-slate-200 border-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Moneda</label>
+                                        <div className="flex gap-2">
+                                            {(['PEN', 'USD'] as const).map(cur => (
+                                                <button
+                                                    key={cur}
+                                                    onClick={() => setMoneda(cur)}
+                                                    className={`flex-1 py-3 rounded-xl font-black text-sm transition-all border-2 ${moneda === cur
+                                                        ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                                        : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                                                    }`}
+                                                >
+                                                    {cur === 'PEN' ? 'S/ Soles' : '$ Dólares'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="white-label-card p-5 border-slate-200 border-2">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Período de Facturación</label>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {[
+                                                { id: 'mensual' as const, label: 'Mensual' },
+                                                { id: 'trimestral' as const, label: 'Trimestral' },
+                                                { id: 'semestral' as const, label: 'Semestral' },
+                                                { id: 'anual' as const, label: 'Anual' }
+                                            ].map(p => (
+                                                <button
+                                                    key={p.id}
+                                                    onClick={() => setPeriodoFacturacion(p.id)}
+                                                    className={`flex-1 min-w-[70px] py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border-2 ${periodoFacturacion === p.id
+                                                        ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                                        : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                                                    }`}
+                                                >
+                                                    {p.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="white-label-card p-5 border-slate-200 border-2">
                                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Tiendas Máximas</label>
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => setMaxStores(Math.max(1, maxStores - 1))} className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-black transition-colors">-</button>
-                                            <input
-                                                type="number"
-                                                value={maxStores}
-                                                onChange={(e) => setMaxStores(parseInt(e.target.value) || 1)}
-                                                className="flex-1 text-center font-black text-lg bg-transparent outline-none"
-                                            />
-                                            <button onClick={() => setMaxStores(maxStores + 1)} className="w-10 h-10 rounded-xl bg-slate-900 text-white hover:brightness-110 flex items-center justify-center font-black transition-all shadow-lg shadow-slate-900/10">+</button>
-                                        </div>
+                                        <input
+                                            type="number"
+                                            value={maxStores}
+                                            min={1}
+                                            onChange={(e) => setMaxStores(parseInt(e.target.value) || 1)}
+                                            className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl font-black text-2xl text-center focus:ring-2 focus:ring-brand outline-none transition-all"
+                                        />
                                     </div>
                                     <div className="white-label-card p-5 border-slate-200 border-2">
                                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Precio x Tienda</label>
                                         <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">{moneda === 'PEN' ? 'S/' : '$'}</span>
                                             <input
                                                 type="number"
                                                 value={precioPorTienda}
@@ -249,7 +298,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                     <div className="white-label-card p-5 border-slate-200 border-2">
                                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 italic">Otros Adicionales</label>
                                         <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">{moneda === 'PEN' ? 'S/' : '$'}</span>
                                             <input
                                                 type="number"
                                                 value={costosAdicionales}
@@ -266,12 +315,12 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total a Facturar</p>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Recurrente Mensual</p>
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Recurrente {periodoFacturacion}</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-5xl font-black text-slate-900 italic tracking-tighter leading-none">${precioMensual}</p>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD + IGV</p>
+                                        <p className="text-5xl font-black text-slate-900 italic tracking-tighter leading-none">{moneda === 'PEN' ? 'S/' : '$'}{precioMensual}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{moneda} + IGV</p>
                                     </div>
                                 </div>
                             </div>
@@ -376,7 +425,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                             </div>
 
                             {/* Employer Branding Toggle */}
-                            <div className="p-8 bg-orange-50/50 rounded-[2.5rem] border-2 border-orange-100/50 space-y-8">
+                            <div className="p-8 bg-orange-50/50 rounded-[2.5rem] border-2 border-orange-100/50 space-y-4">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h4 className="text-sm font-black text-slate-900 uppercase italic tracking-tight flex items-center gap-2">
@@ -389,30 +438,11 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                     </div>
                                 </div>
 
-                                {brandingEnabled && (
-                                    <div className="space-y-6 animate-fade-in">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Color Primario</label>
-                                                <div className="flex gap-2">
-                                                    <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-4 border-white shadow-sm" />
-                                                    <input type="text" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl font-mono text-xs uppercase" />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Color Secundario</label>
-                                                <div className="flex gap-2">
-                                                    <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-4 border-white shadow-sm" />
-                                                    <input type="text" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl font-mono text-xs uppercase" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Descripción de Empresa (Portal)</label>
-                                            <textarea value={brandDescription} onChange={(e) => setBrandDescription(e.target.value)} className="w-full px-4 py-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold h-32 outline-none focus:border-orange-400" placeholder="Cuenta la historia y cultura de la empresa..." />
-                                        </div>
-                                    </div>
-                                )}
+                                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                                    {brandingEnabled 
+                                        ? '✅ Habilitado — El holding puede personalizar su portal público con colores, logo, galería y videos desde su panel de Admin.'
+                                        : '❌ Deshabilitado — El portal público usará los estilos genéricos de LIAH.'}
+                                </p>
                             </div>
                         </div>
                     )}

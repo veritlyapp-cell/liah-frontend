@@ -26,52 +26,52 @@ export async function GET(request: NextRequest) {
         const holdingData = holdingDoc.exists ? holdingDoc.data() : null;
         const responsible = holdingData?.interviewResponsible || 'store_manager';
 
-        let availability = null;
+        let availability = storeData.availability || null;
         let responsibleId = null;
 
-        if (responsible === 'recruiter') {
-            // Find a recruiter/zonal/hrbp assigned to this zone
-            const recruiterSnap = await db.collection('userAssignments')
-                .where('assignedZones', 'array-contains', { zoneId, zoneNombre: storeData.zoneNombre || '' }) // Try matching the object
-                // Note: assignedZones is an array of objects {zoneId, zoneNombre}
-                .where('active', '==', true)
-                .get();
+        if (!availability) {
+            if (responsible === 'recruiter') {
+                // Find a recruiter/zonal/hrbp assigned to this zone
+                const recruiterSnap = await db.collection('userAssignments')
+                    .where('assignedZones', 'array-contains', { zoneId, zoneNombre: storeData.zoneNombre || '' }) // Try matching the object
+                    .where('active', '==', true)
+                    .get();
 
-            let recruiterDoc = recruiterSnap.docs.find(doc => {
-                const data = doc.data();
-                return data.assignedZones?.some((z: any) => z.zoneId === zoneId) &&
-                    (data.role === 'recruiter' || data.role === 'jefe_zonal' || data.role === 'hrbp');
-            });
+                let recruiterDoc = recruiterSnap.docs.find(doc => {
+                    const data = doc.data();
+                    return data.assignedZones?.some((z: any) => z.zoneId === zoneId) &&
+                        (data.role === 'recruiter' || data.role === 'jefe_zonal' || data.role === 'hrbp');
+                });
 
-            if (!recruiterDoc) {
-                // Try simple array match if objects fail
-                const fallbackSnap = await db.collection('userAssignments')
-                    .where('role', 'in', ['recruiter', 'jefe_zonal', 'hrbp'])
-                    .where('assignedZones', 'array-contains', zoneId)
+                if (!recruiterDoc) {
+                    const fallbackSnap = await db.collection('userAssignments')
+                        .where('role', 'in', ['recruiter', 'jefe_zonal', 'hrbp'])
+                        .where('assignedZones', 'array-contains', zoneId)
+                        .where('active', '==', true)
+                        .limit(1)
+                        .get();
+                    if (!fallbackSnap.empty) recruiterDoc = fallbackSnap.docs[0];
+                }
+
+                if (recruiterDoc) {
+                    const data = recruiterDoc.data();
+                    availability = data.availability || null;
+                    responsibleId = data.userId;
+                }
+            } else {
+                // Default: Store Manager
+                const managerSnap = await db.collection('userAssignments')
+                    .where('assignedStore.tiendaId', '==', storeId)
+                    .where('role', '==', 'store_manager')
                     .where('active', '==', true)
                     .limit(1)
                     .get();
-                if (!fallbackSnap.empty) recruiterDoc = fallbackSnap.docs[0];
-            }
 
-            if (recruiterDoc) {
-                const data = recruiterDoc.data();
-                availability = data.availability || null;
-                responsibleId = data.userId;
-            }
-        } else {
-            // Default: Store Manager
-            const managerSnap = await db.collection('userAssignments')
-                .where('assignedStore.tiendaId', '==', storeId)
-                .where('role', '==', 'store_manager')
-                .where('active', '==', true)
-                .limit(1)
-                .get();
-
-            if (!managerSnap.empty) {
-                const data = managerSnap.docs[0].data();
-                availability = data.availability || null;
-                responsibleId = data.userId;
+                if (!managerSnap.empty) {
+                    const data = managerSnap.docs[0].data();
+                    availability = data.availability || null;
+                    responsibleId = data.userId;
+                }
             }
         }
 
