@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
-import { Upload, CheckCircle2, AlertCircle, Send, Search, FileText, Smartphone, UserCheck, Eye, MousePointer2, UserPlus } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Upload, CheckCircle2, AlertCircle, Send, Search, FileText, Smartphone, UserCheck, Eye, MousePointer2, UserPlus, Store, ArrowLeft } from 'lucide-react';
 import { SmsService } from '@/lib/notifications/sms-service';
+import { useAuth } from '@/context/AuthContext';
+import { subscribeToAllRQs, type RQ } from '@/lib/firestore/rqs';
 
 interface ImportRow {
     id: string;
@@ -19,22 +21,58 @@ interface CandidateActivationPanelProps {
 }
 
 export default function CandidateActivationPanel({ candidates = [] }: CandidateActivationPanelProps) {
+    const { claims } = useAuth();
     const [rows, setRows] = useState<ImportRow[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // RQ Selection state
+    const [activeRQs, setActiveRQs] = useState<RQ[]>([]);
+    const [selectedRQ, setSelectedRQ] = useState<RQ | null>(null);
+    const [loadingRQs, setLoadingRQs] = useState(true);
+
+    // Fetch Active RQs
+    useEffect(() => {
+        if (!claims?.tenant_id) return;
+        
+        const unsubscribe = subscribeToAllRQs(claims.tenant_id, (allRQs) => {
+            // Filter only approved and recruiting/active RQs
+            const filtered = allRQs.filter(rq => 
+                rq.approvalStatus === 'approved' && 
+                (rq.status === 'recruiting' || rq.status === 'active')
+            );
+            setActiveRQs(filtered);
+            setLoadingRQs(false);
+        });
+
+        return () => unsubscribe();
+    }, [claims?.tenant_id]);
+
+    // Grouping RQs by store for the selection view
+    const rqsByStore = useMemo(() => {
+        const groups: Record<string, { storeName: string; rqs: RQ[] }> = {};
+        activeRQs.forEach(rq => {
+            const storeId = rq.tiendaId || 'unknown';
+            if (!groups[storeId]) {
+                groups[storeId] = { storeName: rq.tiendaNombre || 'Tienda sin nombre', rqs: [] };
+            }
+            groups[storeId].rqs.push(rq);
+        });
+        return Object.values(groups).sort((a, b) => a.storeName.localeCompare(b.storeName));
+    }, [activeRQs]);
 
     // Mock parsing of CompuTrabajo CSV
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Simulate parsing logic from Excel/CSV
+        // Simulate parsing logic from Excel/CSV - now using selectedRQ data
         setRows([
-            { id: '1', nombre: 'Juan Perez', celular: '51999888777', puesto: 'Multifuncional', status: 'pending', selected: true },
-            { id: '2', nombre: 'Maria Garcia', celular: '51988777666', puesto: 'Multifuncional', status: 'pending', selected: true },
-            { id: '3', nombre: 'Carlos Ruiz', celular: '51977666555', puesto: 'Cajero', status: 'pending', selected: true },
-            { id: '4', nombre: 'Ana Lopez', celular: '51966555444', puesto: 'Auxiliar', status: 'pending', selected: true },
-            { id: '5', nombre: 'Luis Torres', celular: '51955444333', puesto: 'Multifuncional', status: 'pending', selected: true }
+            { id: '1', nombre: 'Juan Perez', celular: '51999888777', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
+            { id: '2', nombre: 'Maria Garcia', celular: '51988777666', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
+            { id: '3', nombre: 'Carlos Ruiz', celular: '51977666555', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
+            { id: '4', nombre: 'Ana Lopez', celular: '51966555444', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true },
+            { id: '5', nombre: 'Luis Torres', celular: '51955444333', puesto: selectedRQ?.puesto || 'Multifuncional', status: 'pending', selected: true }
         ]);
     };
 
@@ -100,16 +138,99 @@ export default function CandidateActivationPanel({ candidates = [] }: CandidateA
         r.celular.includes(searchTerm)
     );
 
+    // IF NO RQ SELECTED, SHOW SELECTION SCREEN
+    if (!selectedRQ) {
+        return (
+            <div className="space-y-8 animate-fade-in">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic mb-1">
+                            LIAH FLOW: Motor de Activación
+                        </h2>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                            Selecciona una tienda con Requerimiento Activo para comenzar
+                        </p>
+                    </div>
+                </div>
+
+                {loadingRQs ? (
+                    <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50">
+                        <div className="w-10 h-10 rounded-full border-4 border-slate-200 border-t-brand animate-spin" />
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Cargando requerimientos...</p>
+                    </div>
+                ) : rqsByStore.length === 0 ? (
+                    <div className="white-label-card p-20 text-center space-y-4">
+                        <AlertCircle className="mx-auto text-slate-200" size={48} />
+                        <div>
+                            <h3 className="text-lg font-black text-slate-900 uppercase">Sin Requerimientos Activos</h3>
+                            <p className="text-xs font-bold text-slate-400 mt-2">No se encontraron tiendas con RQs en etapa de reclutamiento.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {rqsByStore.map((group, idx) => (
+                            <div key={idx} className="white-label-card p-6 flex flex-col gap-4">
+                                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                                    <div className="p-2.5 rounded-xl bg-slate-50 text-slate-400">
+                                        <Store size={20} />
+                                    </div>
+                                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate">{group.storeName}</h3>
+                                </div>
+                                <div className="space-y-3">
+                                    {group.rqs.map(rq => (
+                                        <button
+                                            key={rq.id}
+                                            onClick={() => setSelectedRQ(rq)}
+                                            className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-brand-soft hover:border-brand/20 text-left transition-all group"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="text-[10px] font-black text-brand uppercase tracking-widest">{rq.rqNumber || 'RQ-SCAN'}</p>
+                                                    <p className="text-xs font-bold text-slate-900 mt-1">{rq.puesto}</p>
+                                                </div>
+                                                <div className="soft-badge-emerald scale-75 origin-top-right">
+                                                    {rq.status === 'recruiting' ? 'Publicado' : 'Aprobado'}
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase italic">
+                                                    {rq.modalidad} • {rq.turno}
+                                                </span>
+                                                <ArrowLeft size={16} className="text-slate-300 group-hover:text-brand rotate-180 transition-all group-hover:translate-x-1" />
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // MAIN PANEL VIEW (After Selection)
     return (
         <div className="space-y-8 animate-fade-in">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <button 
+                            onClick={() => { setSelectedRQ(null); setRows([]); }}
+                            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+                        >
+                            <ArrowLeft size={16} />
+                        </button>
+                        <span className="text-[10px] font-black text-brand uppercase tracking-widest bg-brand-soft px-2 py-0.5 rounded">
+                            {selectedRQ.tiendaNombre}
+                        </span>
+                    </div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic mb-1">
                         LIAH FLOW: Motor de Activación
                     </h2>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Gestión masiva, Detección de reincidentes y Conversión
+                        Importando candidatos para <span className="text-slate-900">{selectedRQ.puesto}</span>
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -181,9 +302,9 @@ export default function CandidateActivationPanel({ candidates = [] }: CandidateA
                                         nombre: r.nombre,
                                         celular: r.celular,
                                         puesto: r.puesto,
-                                        tienda: 'Sede Central' // Should come from mapping if available
+                                        tienda: selectedRQ?.tiendaNombre || 'Sede Central'
                                     }));
-                                    exportSmsCampaignExcel(exportData, 'ngr'); // Hardcoded ngr for now as example
+                                    exportSmsCampaignExcel(exportData, claims?.tenant_id || 'ngr');
                                 }}
                                 className="flex items-center gap-2 text-[10px] font-black text-slate-600 border border-slate-200 uppercase tracking-widest hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
                             >
