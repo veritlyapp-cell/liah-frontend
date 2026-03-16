@@ -49,17 +49,25 @@ export async function approveRQ(
         return item;
     });
 
-    // Determine next level
-    const firstPending = updatedChain.find((item: any) => item.status === 'pending');
+    // Determine next level - only look for pending levels AFTER current
+    const firstPending = updatedChain.find((item: any) => item.status === 'pending' && item.level > currentLevel);
     let nextLevel = firstPending ? firstPending.level : currentLevel;
     let finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
 
     // Update RQ
-    await updateDoc(rqRef, {
+    const updateData: any = {
         approvalChain: updatedChain,
         currentApprovalLevel: nextLevel,
-        approvalStatus: finalApprovalStatus
-    });
+        approvalStatus: finalApprovalStatus,
+        updatedAt: Timestamp.now()
+    };
+
+    // If fully approved, also update status to 'recruiting'
+    if (finalApprovalStatus === 'approved') {
+        updateData.status = 'recruiting';
+    }
+
+    await updateDoc(rqRef, updateData);
 
     // Notify next level or completion
     if (finalApprovalStatus === 'approved') {
@@ -171,16 +179,24 @@ export async function bulkApproveRQs(
                 return item;
             });
 
-            // Determine next level
-            const firstPending = updatedChain.find((item: any) => item.status === 'pending');
+            // Determine next level - only look for pending levels AFTER current
+            const firstPending = updatedChain.find((item: any) => item.status === 'pending' && item.level > currentLevel);
             const nextLevel = firstPending ? firstPending.level : currentLevel;
             const finalApprovalStatus: 'pending' | 'approved' = firstPending ? 'pending' : 'approved';
 
-            batch.update(rqRef, {
+            const updateData: any = {
                 approvalChain: updatedChain,
                 currentApprovalLevel: nextLevel,
-                approvalStatus: finalApprovalStatus
-            });
+                approvalStatus: finalApprovalStatus,
+                updatedAt: Timestamp.now()
+            };
+
+            // If fully approved (no more pending levels), also update status to 'recruiting'
+            if (finalApprovalStatus === 'approved') {
+                updateData.status = 'recruiting';
+            }
+
+            batch.update(rqRef, updateData);
 
             approvedCount++;
             lastApprovedRQ = rq;

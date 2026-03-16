@@ -74,7 +74,7 @@ export async function GET(
                     if (posicion && holdingId) {
                         // Check both collection names
                         let profilesSnap = await db.collection('job_profiles')
-                            .where('holdingId', 'in', [holdingId, 'tambo']) // Fallback to explicitly check tambo if needed
+                            .where('holdingId', '==', holdingId)
                             .where('posicion', '==', posicion)
                             .limit(1).get();
 
