@@ -274,6 +274,13 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 }
             }
 
+            // Validar mayoría de edad
+            if (edad !== undefined && edad < 18) {
+                alert('Lo sentimos, debes ser mayor de 18 años para postular a esta vacante.');
+                setSubmitting(false);
+                return;
+            }
+
             // Format birth date to DD/MM/YYYY for storage
             let formattedBirthDate = formData.fechaNacimiento;
             if (formData.fechaNacimiento && formData.fechaNacimiento.includes('-')) {
@@ -362,6 +369,11 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                         const data = await culResponse.json();
                         console.log('🤖 Auto-validation result:', data.validationStatus);
                         setAiValidationResult(data);
+
+                        // If AI detected invalid document (DNI/Name mismatch), alert the user and block the success screen from looking final
+                        if (data.validationStatus === 'rejected_invalid_doc') {
+                            alert('⚠️ CUIDADO: Hemos detectado que el CUL subido no coincide con tu DNI o nombres ingresados. Por favor corrigelo subiendo el correcto. Tu postulación requerirá revisión extra.');
+                        }
                     }
                 } catch (err) {
                     console.warn('Auto-validation failed (non-blocking):', err);
@@ -464,7 +476,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     )}
                     {aiValidationResult?.validationStatus === 'rejected_invalid_doc' && (
                         <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-red-700 font-medium text-sm flex items-center justify-center gap-2">
-                            <span>⚠️</span> Hubo un problema validando tu documento subido.
+                            <span>🚨</span> Tu CUL no coincide con el DNI/Nombres brindados. 
                         </div>
                     )}
                     {aiValidationResult?.validationStatus === 'rejected_ai' && (
