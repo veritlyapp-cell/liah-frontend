@@ -263,9 +263,9 @@ export default function PremiumCareerPortal() {
                     logo_url: holdingData.logoUrl || baseConfig.logo_url,
                     colors: {
                         ...baseConfig.colors,
-                        purple: b.primaryColor || baseConfig.colors.purple,
+                        purple: b.secondaryColor || baseConfig.colors.purple,
                         purpleDeep: b.secondaryColor || baseConfig.colors.purpleDeep,
-                        yellow: b.primaryColor || baseConfig.colors.yellow, // Use primary for accents too
+                        yellow: b.primaryColor || baseConfig.colors.yellow,
                     },
                     hero: {
                         ...baseConfig.hero,

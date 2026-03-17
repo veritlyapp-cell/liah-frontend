@@ -220,8 +220,10 @@ function UneteContent() {
                                 required
                                 value={formData.nombre}
                                 onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors focus:border-opacity-50"
-                                style={{ focusBorderColor: colors.primary } as any}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                style={{ '--focus-color': colors.primary } as any}
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                                 placeholder="Juan Gabriel"
                             />
                         </div>
@@ -234,7 +236,9 @@ function UneteContent() {
                                 required
                                 value={formData.apellidos}
                                 onChange={e => setFormData({ ...formData, apellidos: e.target.value })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                                 placeholder="Pérez García"
                             />
                         </div>
@@ -251,7 +255,9 @@ function UneteContent() {
                                 maxLength={12}
                                 value={formData.dni}
                                 onChange={e => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '') })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                                 placeholder="76543210"
                             />
                         </div>
@@ -265,7 +271,9 @@ function UneteContent() {
                                 maxLength={9}
                                 value={formData.telefono}
                                 onChange={e => setFormData({ ...formData, telefono: e.target.value.replace(/\D/g, '') })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                                 placeholder="987654321"
                             />
                         </div>
@@ -280,7 +288,9 @@ function UneteContent() {
                             required
                             value={formData.email}
                             onChange={e => setFormData({ ...formData, email: e.target.value })}
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                            onFocus={(e) => e.target.style.borderColor = colors.primary}
+                            onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                             placeholder="juan@ejemplo.com"
                         />
                     </div>
@@ -294,14 +304,18 @@ function UneteContent() {
                             <select
                                 value={formData.departamento}
                                 onChange={e => setFormData({ ...formData, departamento: e.target.value, provincia: getProvincias(e.target.value)[0] || '', distrito: '' })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                             >
                                 {getDepartamentos().map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                             <select
                                 value={formData.provincia}
                                 onChange={e => setFormData({ ...formData, provincia: e.target.value, distrito: '' })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                             >
                                 {getProvincias(formData.departamento).map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
@@ -309,7 +323,9 @@ function UneteContent() {
                                 value={formData.distrito}
                                 required
                                 onChange={e => setFormData({ ...formData, distrito: e.target.value })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                                onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                             >
                                 <option value="">Distrito</option>
                                 {getDistritos(formData.departamento, formData.provincia).map(d => <option key={d} value={d} className="text-slate-900">{d}</option>)}
@@ -346,7 +362,7 @@ function UneteContent() {
 
                     {/* Notificaciones */}
                     <div className="flex items-center gap-4 bg-slate-50 p-6 rounded-3xl border-2 border-slate-100">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${formData.notificacionesCerca ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${formData.notificacionesCerca ? 'text-white' : 'bg-slate-200 text-slate-400'}`} style={formData.notificacionesCerca ? { backgroundColor: colors.primary } : {}}>
                             <Bell size={24} />
                         </div>
                         <div className="flex-1">
@@ -372,7 +388,9 @@ function UneteContent() {
                             required
                             value={formData.expectativa}
                             onChange={e => setFormData({ ...formData, expectativa: e.target.value })}
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors"
+                            onFocus={(e) => e.target.style.borderColor = colors.primary}
+                            onBlur={(e) => e.target.style.borderColor = '#f1f5f9'}
                             placeholder="S/ 2,500 - S/ 3,000 o monto fijo"
                         />
                     </div>
@@ -386,9 +404,10 @@ function UneteContent() {
                             onDrop={handleDrop}
                             className={`
                                 relative border-4 border-dashed rounded-[2.5rem] p-12 text-center transition-all
-                                ${dragging ? 'border-violet-400 bg-violet-50 scale-[0.98]' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}
+                                ${dragging ? 'scale-[0.98]' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}
                                 ${file ? 'border-green-200 bg-green-50' : ''}
                             `}
+                            style={dragging ? { borderColor: colors.primary, backgroundColor: `${colors.primary}10` } : {}}
                         >
                             <input
                                 type="file"

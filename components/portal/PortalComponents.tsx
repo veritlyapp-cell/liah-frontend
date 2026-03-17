@@ -347,6 +347,17 @@ export function JobsSection({
     // List view filters
     const displayJobs = React.useMemo(() => {
         let list = [...allJobs];
+
+        // 1. Geolocation Filter (if active and no manual location filters)
+        if (geoStatus === 'success' && userCoords && !selectedDept && !selectedBrand) {
+            list = list.filter(job => {
+                if (!job.storeCoordinates) return false;
+                const distNum = calculateDistanceKm(userCoords, job.storeCoordinates);
+                return distNum <= 10;
+            });
+        }
+
+        // 2. Manual Filters
         if (selectedBrand) list = list.filter(j => j.marcaId === selectedBrand);
         if (selectedDept) list = list.filter(j => j.tiendaDepartamento === selectedDept);
         if (selectedProv) list = list.filter(j => (j.tiendaProvincia || '').trim().toLowerCase() === selectedProv.trim().toLowerCase());
@@ -355,14 +366,13 @@ export function JobsSection({
             list = list.filter(j => {
                 const dist = (j.tiendaDistrito || '').trim().toLowerCase();
                 if (dist === normalizedSelected) return true;
-                // Handle common aliases manually for better UX
                 if (normalizedSelected === 'santiago de surco' && dist === 'surco') return true;
                 if (normalizedSelected === 'surco' && dist === 'santiago de surco') return true;
                 return false;
             });
         }
         return list;
-    }, [allJobs, selectedBrand, selectedDept, selectedProv, selectedDist]);
+    }, [allJobs, selectedBrand, selectedDept, selectedProv, selectedDist, geoStatus, userCoords]);
 
     // Summary view filters (districts)
     const jobsByDistrict = React.useMemo(() => {
