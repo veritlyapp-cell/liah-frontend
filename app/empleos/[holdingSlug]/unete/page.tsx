@@ -60,20 +60,53 @@ function UneteContent() {
     useEffect(() => {
         async function loadHolding() {
             try {
+                // Try query by slug first
                 const q = query(collection(db, 'holdings'), where('slug', '==', holdingSlug.toLowerCase()));
-                const snap = await getDocs(q);
+                let snap = await getDocs(q);
+                let data: any = null;
+
                 if (!snap.empty) {
-                    const data = snap.docs[0].data() as any;
-                    setHoldingName(data.nombre || holdingSlug.toUpperCase());
-                    if (data.config?.branding) {
-                        const b = data.config.branding;
-                        setColors({
-                            primary: b.primaryColor || '#7c3aed',
-                            primaryDeep: b.secondaryColor || '#4f46e5',
-                            accent: b.primaryColor || '#FF6B35',
-                            lavender: b.primaryColor ? `${b.primaryColor}10` : '#f5f3ff' // 10% opacity fallback
-                        });
+                    data = snap.docs[0].data();
+                } else {
+                    // Fallback to ID
+                    const { doc, getDoc } = await import('firebase/firestore');
+                    const directDoc = await getDoc(doc(db, 'holdings', holdingSlug));
+                    if (directDoc.exists()) {
+                        data = directDoc.data();
                     }
+                }
+
+                if (data) {
+                    setHoldingName(data.nombre || holdingSlug.toUpperCase());
+                    const b = data.config?.branding || data.branding || null;
+                    if (b) {
+                        setColors({
+                            primary: b.primaryColor || '#FF6B35', // Match yellow/accent logic
+                            primaryDeep: b.secondaryColor || '#0A0A0A', // Match background
+                            accent: b.primaryColor || '#FF6B35',
+                            lavender: b.primaryColor ? `${b.primaryColor}10` : '#f5f3ff'
+                        });
+                        return; // Successfully loaded from DB
+                    }
+                }
+
+                // If no DB branding, fallback to HOLDING_CONFIGS
+                const baseColors = {
+                    'ngr': { primary: '#FF6B35', primaryDeep: '#0A0A0A', accent: '#FF6B35' },
+                    'tambo': { primary: '#602B89', primaryDeep: '#4C206B', accent: '#F6C100' },
+                    'mainframe': { primary: '#22D3EE', primaryDeep: '#020617', accent: '#22D3EE' },
+                    'bot_whatsapp': { primary: '#1E40AF', primaryDeep: '#1e3a8a', accent: '#3B82F6' }
+                } as any;
+                
+                const fallback = baseColors[holdingSlug.toLowerCase()];
+                if (fallback) {
+                    setHoldingName(holdingSlug.toUpperCase());
+                    setColors({
+                        primary: fallback.primary,
+                        primaryDeep: fallback.primaryDeep,
+                        accent: fallback.accent,
+                        lavender: fallback.primary + '10'
+                    });
                 }
             } catch (error) {
                 console.error('Error loading holding:', error);
@@ -143,7 +176,7 @@ function UneteContent() {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+            <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: colors.primaryDeep }}>
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -193,10 +226,10 @@ function UneteContent() {
                 </div>
             </nav>
 
-            <header className="bg-slate-900 text-white pt-20 pb-40 px-6 w-full flex justify-center">
+            <header className="text-white pt-20 pb-40 px-6 w-full flex justify-center" style={{ backgroundColor: colors.primaryDeep }}>
                 <div className="max-w-3xl mx-auto text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-xs font-black uppercase tracking-widest mb-6">
-                        <Zap size={14} className="text-yellow-400" /> Únete a nuestra red de talento
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-xs font-black uppercase tracking-widest mb-6" style={{ color: colors.accent }}>
+                        <Zap size={14} style={{ color: colors.accent }} /> Únete a nuestra red de talento
                     </div>
                     <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-none mb-6 text-white">
                         Impulsa tu <br /><span style={{ color: colors.primary }}>carrera_</span>

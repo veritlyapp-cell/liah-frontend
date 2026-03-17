@@ -40,6 +40,18 @@ export async function GET(
             killerQuestions = data.killerQuestions;
         }
 
+        // Normalize killerQuestions if any found directly
+        if (killerQuestions.length > 0) {
+            killerQuestions = killerQuestions.map((kq: any, i: number) => ({
+                ...kq,
+                id: kq.id || `kq_${i}`,
+                question: kq.question || kq.pregunta || '',
+                type: kq.type || kq.tipo || 'boolean',
+                isRequired: kq.isRequired ?? kq.isMandatory ?? kq.esEliminatoria ?? true,
+                requiredAnswer: kq.requiredAnswer || kq.correctAnswer || kq.respuestaCorrecta || ''
+            }));
+        }
+
         // If still empty, look up the jobProfile by posicion name or jobProfileId
         if (killerQuestions.length === 0) {
             const jobProfileId = data.jobProfileId || data.perfilId || null;
@@ -58,8 +70,12 @@ export async function GET(
                             || [];
                         if (Array.isArray(profileKQs) && profileKQs.length > 0) {
                             killerQuestions = profileKQs.map((kq: any, i: number) => ({
+                                ...kq,
                                 id: kq.id || `kq_${i}`,
-                                ...kq
+                                question: kq.question || kq.pregunta || '',
+                                type: kq.type || kq.tipo || 'boolean',
+                                isRequired: kq.isRequired ?? kq.isMandatory ?? kq.esEliminatoria ?? true,
+                                requiredAnswer: kq.requiredAnswer || kq.correctAnswer || kq.respuestaCorrecta || ''
                             }));
                         }
                     }
@@ -92,8 +108,12 @@ export async function GET(
                                 || [];
                             if (Array.isArray(profileKQs) && profileKQs.length > 0) {
                                 killerQuestions = profileKQs.map((kq: any, i: number) => ({
+                                    ...kq,
                                     id: kq.id || `kq_${i}`,
-                                    ...kq
+                                    question: kq.question || kq.pregunta || '',
+                                    type: kq.type || kq.tipo || 'boolean',
+                                    isRequired: kq.isRequired ?? kq.isMandatory ?? kq.esEliminatoria ?? true,
+                                    requiredAnswer: kq.requiredAnswer || kq.correctAnswer || kq.respuestaCorrecta || ''
                                 }));
                             }
                         }
