@@ -57,11 +57,14 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                     collection(db, 'rqs'),
                     where('marcaId', '==', marcaId),
                     where('approvalStatus', '==', 'pending'),
-                    where('currentApprovalLevel', '==', 3),
-                    limit(20)
+                    limit(50)
                 );
                 const snap = await getDocs(rqQuery);
-                count += snap.size;
+                count += snap.docs.filter(doc => {
+                    const chain = doc.data().approvalChain || [];
+                    const pendingLvl = chain.find((l: any) => l.status === 'pending');
+                    return pendingLvl?.role === 'jefe_marca';
+                }).length;
             }
 
             if (role === 'supervisor' && marcaId) {
@@ -69,11 +72,14 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                     collection(db, 'rqs'),
                     where('marcaId', '==', marcaId),
                     where('approvalStatus', '==', 'pending'),
-                    where('currentApprovalLevel', '==', 2),
-                    limit(20)
+                    limit(50)
                 );
                 const snap = await getDocs(rqQuery);
-                count += snap.size;
+                count += snap.docs.filter(doc => {
+                    const chain = doc.data().approvalChain || [];
+                    const pendingLvl = chain.find((l: any) => l.status === 'pending');
+                    return pendingLvl?.role === 'supervisor';
+                }).length;
             }
 
             // For recruiter/store_manager - use indexed culStatus/selectionStatus queries
@@ -133,18 +139,20 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                     collection(db, 'rqs'),
                     where('marcaId', '==', marcaId),
                     where('approvalStatus', '==', 'pending'),
-                    where('currentApprovalLevel', '==', 3),
-                    limit(10)
+                    limit(50)
                 );
                 const snap = await getDocs(rqQuery);
                 snap.docs.forEach(doc => {
                     const data = doc.data();
-                    items.push({
-                        id: doc.id,
-                        type: 'rq_approval',
-                        title: `RQ: ${data.posicion}`,
-                        subtitle: data.tiendaNombre
-                    });
+                    const pendingLvl = (data.approvalChain || []).find((l: any) => l.status === 'pending');
+                    if (pendingLvl?.role === 'jefe_marca') {
+                        items.push({
+                            id: doc.id,
+                            type: 'rq_approval',
+                            title: `RQ: ${data.posicion}`,
+                            subtitle: data.tiendaNombre
+                        });
+                    }
                 });
             }
 
@@ -153,13 +161,13 @@ export default function NotificationBell({ marcaId, storeId, storeIds }: Notific
                     collection(db, 'rqs'),
                     where('marcaId', '==', marcaId),
                     where('approvalStatus', '==', 'pending'),
-                    where('currentApprovalLevel', '==', 2),
-                    limit(10)
+                    limit(50)
                 );
                 const snap = await getDocs(rqQuery);
                 snap.docs.forEach(doc => {
                     const data = doc.data();
-                    if (!storeIds || storeIds.includes(data.tiendaId)) {
+                    const pendingLvl = (data.approvalChain || []).find((l: any) => l.status === 'pending');
+                    if (pendingLvl?.role === 'supervisor' && (!storeIds || storeIds.includes(data.tiendaId))) {
                         items.push({
                             id: doc.id,
                             type: 'rq_approval',

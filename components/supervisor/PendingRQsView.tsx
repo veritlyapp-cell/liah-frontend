@@ -40,7 +40,6 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
             const q = query(
                 rqsRef,
                 where('tiendaId', 'in', storeIds.slice(0, 10)), // Firestore limit
-                where('currentApprovalLevel', '==', 2), // Pending supervisor approval
                 where('approvalStatus', '==', 'pending')
             );
 
@@ -50,7 +49,12 @@ export default function PendingRQsView({ storeIds, storeNames, supervisorId, sup
                     id: doc.id,
                     ...doc.data()
                 } as RQ))
-                .filter(rq => rq.status !== 'cancelled');
+                .filter(rq => {
+                    if (rq.status === 'cancelled') return false;
+                    const chain = rq.approvalChain || [];
+                    const pendingLvl = chain.find((l: any) => l.status === 'pending');
+                    return pendingLvl?.role === 'supervisor';
+                });
 
             setRQs(pendingRQs);
         } catch (error) {

@@ -46,8 +46,8 @@ export default function ApprovedRQsView({ storeIds, storeNames }: ApprovedRQsVie
                     // Skip cancelled RQs
                     if (rq.status === 'cancelled') return false;
 
-                    // Show RQs where supervisor has approved (level 2 approved in chain)
-                    const supervisorApproval = rq.approvalChain?.find(a => a.level === 2);
+                    // Show RQs where supervisor has approved
+                    const supervisorApproval = rq.approvalChain?.find((a: any) => a.role === 'supervisor');
                     return supervisorApproval?.status === 'approved';
                 });
 

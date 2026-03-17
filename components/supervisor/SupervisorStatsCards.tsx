@@ -62,9 +62,11 @@ export default function SupervisorStatsCards({ storeIds }: SupervisorStatsCardsP
 
                     newBreakdown.total++;
                     // Count by approval status
-                    const isApprovedByMe = rq.approvalChain?.some(a => a.level === 2 && a.status === 'approved');
+                    const isApprovedByMe = rq.approvalChain?.some((a: any) => a.role === 'supervisor' && a.status === 'approved');
+                    const pendingLvl = rq.approvalChain?.find((a: any) => a.status === 'pending');
+                    const isPendingMe = pendingLvl?.role === 'supervisor';
 
-                    if (rq.currentApprovalLevel === 2 && rq.approvalStatus === 'pending') {
+                    if (isPendingMe && rq.approvalStatus === 'pending') {
                         newBreakdown.pending++;
                     } else if (isApprovedByMe || rq.approvalStatus === 'approved') {
                         newBreakdown.approved++;

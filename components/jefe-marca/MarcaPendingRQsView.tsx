@@ -40,7 +40,6 @@ export default function MarcaPendingRQsView({ marcaId, jefeId, jefeNombre }: Mar
             const q = query(
                 rqsRef,
                 where('marcaId', '==', marcaId),
-                where('currentApprovalLevel', '==', 3), // Pending jefe de marca approval
                 where('approvalStatus', '==', 'pending')
             );
 
@@ -50,7 +49,12 @@ export default function MarcaPendingRQsView({ marcaId, jefeId, jefeNombre }: Mar
                     id: doc.id,
                     ...doc.data()
                 } as RQ))
-                .filter(rq => rq.status !== 'cancelled');
+                .filter(rq => {
+                    if (rq.status === 'cancelled') return false;
+                    const chain = rq.approvalChain || [];
+                    const pendingLvl = chain.find((l: any) => l.status === 'pending');
+                    return pendingLvl?.role === 'jefe_marca';
+                });
 
             setRQs(pendingRQs);
 
