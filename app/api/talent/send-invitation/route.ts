@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
         // 2. Send email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'Liah Talent <talent@relielabs.com>',
+            from: `Talent <noreply@notifications.getliah.com>`,
             to: [email],
             subject: `Invitación: Proceso para ${jobTitle}`,
             html: `

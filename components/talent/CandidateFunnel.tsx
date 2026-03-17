@@ -72,6 +72,8 @@ interface Application {
     };
     joiningDate?: any;
     onboardingEmailSent?: boolean;
+    marcaNombre?: string;
+    marcaId?: string;
 }
 
 interface FunnelStage {
@@ -335,7 +337,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
             if (newStage === 'hired' && candidate) {
                 try {
                     const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
-                    const companyName = holdingDoc.exists() ? holdingDoc.data().nombre : 'La empresa';
+                    const companyName = candidate.marcaNombre || (holdingDoc.exists() ? holdingDoc.data().nombre : 'LIAH');
 
                     await fetch('/api/talent/send-welcome-email', {
                         method: 'POST',
@@ -359,7 +361,7 @@ export default function CandidateFunnel({ jobId, jobTitulo, holdingId, salarioMi
                 try {
                     // Get holding info for company name
                     const holdingDoc = await getDoc(doc(db, 'holdings', holdingId));
-                    const companyName = holdingDoc.exists() ? holdingDoc.data().nombre : 'La empresa';
+                    const companyName = candidate.marcaNombre || (holdingDoc.exists() ? holdingDoc.data().nombre : 'LIAH');
 
                     await fetch('/api/talent/send-rejection-email', {
                         method: 'POST',

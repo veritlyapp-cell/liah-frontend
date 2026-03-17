@@ -12,7 +12,7 @@ export async function POST(req: Request) {
         }
 
         const { data, error } = await resend.emails.send({
-            from: 'Liah Talent <talent@relielabs.com>',
+            from: `${companyName} <noreply@notifications.getliah.com>`,
             to: [candidateEmail],
             subject: `¡Bienvenido(a) a ${companyName}!`,
             html: `

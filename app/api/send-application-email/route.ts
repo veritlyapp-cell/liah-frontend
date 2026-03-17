@@ -42,9 +42,9 @@ export async function POST(request: Request) {
 
         // Send real email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'LIAH <noreply@getliah.com>',
+            from: 'Talent - Selección <noreply@notifications.getliah.com>',
             to: candidateEmail,
-            subject: subject || '¡Felicitaciones! Continúa tu proceso en NGR',
+            subject: subject || '¡Felicitaciones! Continúa tu proceso',
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h2 style="color: #7c3aed;">¡Hola ${candidateName || 'Candidato'}! 👋</h2>
@@ -65,14 +65,14 @@ export async function POST(request: Request) {
                     </div>
                     
                     <p style="color: #666; font-size: 14px;">
-                        Si no puedes hacer clic, copia y pega este enlace en tu navegador:<br/>
+                         Si no puedes hacer clic, copia y pega este enlace en tu navegador:<br/>
                         <a href="${applicationLink}">${applicationLink}</a>
                     </p>
                     
                     <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
                     
                     <p style="color: #999; font-size: 12px;">
-                        Este correo fue enviado por LIAH, el asistente de reclutamiento de NGR.<br/>
+                        Este correo fue enviado de forma automática por el sistema de selección.<br/>
                         Si no solicitaste esto, puedes ignorar este mensaje.
                     </p>
                 </div>

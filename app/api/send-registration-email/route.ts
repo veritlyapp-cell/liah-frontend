@@ -22,7 +22,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing email' }, { status: 400 });
         }
 
-        const companyName = holdingName || marcaNombre || 'LIAH';
+        const companyName = marcaNombre || holdingName || 'LIAH';
 
         // Check if Resend is configured
         if (!process.env.RESEND_API_KEY) {
@@ -98,7 +98,6 @@ export async function POST(request: Request) {
                     
                     <div style="text-align: center;">
                         <p style="color: #999; font-size: 12px; margin: 0;">
-                            Este correo fue enviado por LIAH - Asistente de Reclutamiento Inteligente<br/>
                             © ${new Date().getFullYear()} ${companyName}
                         </p>
                     </div>

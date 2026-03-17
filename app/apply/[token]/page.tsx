@@ -25,6 +25,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
     const [holdingConfig, setHoldingConfig] = useState<any>(null);
     const [marcaLogo, setMarcaLogo] = useState<string>('');
     const [holdingLogo, setHoldingLogo] = useState<string>('');
+    const [error, setError] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         dni: '',
@@ -52,10 +53,19 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
     }, [token]);
 
     async function loadInvitation() {
+        if (!token) {
+            console.error('[ApplyPage] No token provided in URL');
+            setError('Enlace inválido');
+            setLoading(false);
+            return;
+        }
+
         try {
+            console.log('[ApplyPage] Loading invitation for token:', token);
             const inv = await getInvitationByToken(token);
 
             if (!inv) {
+                console.warn('[ApplyPage] Invitation not found for token:', token);
                 alert('Invitación no encontrada');
                 router.push('/');
                 return;
@@ -69,7 +79,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
             if (inv.status === 'completed') {
                 const now = new Date();
-                const expiresAt = inv.expiresAt.toDate();
+                const expiresAt = inv.expiresAt?.toDate ? inv.expiresAt.toDate() : new Date(inv.expiresAt);
 
                 // Si ya completó pero aún no expira el link (48h), le dejamos entrar
                 // para que pueda subir su CUL si le faltaba.
@@ -81,70 +91,83 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
                 // Si entra aquí, es que status === 'completed' Y aún no expira.
                 // Continuamos para que vea su éxito o suba CUL.
-                console.log('Invitation completed but still within 48h window. Allowing access for updates.');
+                console.log('Invitation completed but still within window. Allowing access for updates.');
             }
 
             setInvitation(inv);
 
             // Obtener configuración del holding y logos
-            const brandSnap = await getDoc(doc(db, 'marcas', inv.marcaId));
-            if (brandSnap.exists()) {
-                const brandData = brandSnap.data();
-                setMarcaLogo(brandData.logoUrl || '');
-                const holdingId = brandData.holdingId;
-                if (holdingId) {
-                    const holdingSnap = await getDoc(doc(db, 'holdings', holdingId));
-                    if (holdingSnap.exists()) {
-                        const hData = holdingSnap.data();
-                        setHoldingConfig(hData.config || {});
-                        setHoldingLogo(hData.logoUrl || '');
+            if (inv.marcaId) {
+                try {
+                    const brandSnap = await getDoc(doc(db, 'marcas', inv.marcaId));
+                    if (brandSnap.exists()) {
+                        const brandData = brandSnap.data();
+                        setMarcaLogo(brandData.logoUrl || '');
+                        const holdingId = brandData.holdingId;
+                        if (holdingId) {
+                            const holdingSnap = await getDoc(doc(db, 'holdings', holdingId));
+                            if (holdingSnap.exists()) {
+                                const hData = holdingSnap.data();
+                                setHoldingConfig(hData.config || {});
+                                setHoldingLogo(hData.logoUrl || '');
+                            }
+                        }
                     }
+                } catch (brandErr) {
+                    console.warn('[ApplyPage] Could not load brand/holding info:', brandErr);
+                    // Non-blocking for the flow itself
                 }
             }
 
             // Marcar como abierta
             if (inv.status === 'sent') {
-                await markInvitationAsOpened(inv.id);
+                try {
+                    await markInvitationAsOpened(inv.id);
+                } catch (openErr) {
+                    console.warn('[ApplyPage] Could not mark as opened:', openErr);
+                }
             }
 
             // Verificar si el candidato ya existe
-            const existing = await getCandidateByEmail(inv.candidateEmail);
-            if (existing) {
-                setExistingCandidate(existing);
-                // Convert DD/MM/YYYY to YYYY-MM-DD for date input
-                let fechaNacimientoForInput = existing.fechaNacimiento || '';
-                if (fechaNacimientoForInput && fechaNacimientoForInput.includes('/')) {
-                    const [day, month, year] = fechaNacimientoForInput.split('/');
-                    fechaNacimientoForInput = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                }
-                // Pre-llenar formulario
-                setFormData({
-                    dni: existing.dni || '',
-                    documentType: (existing as any).documentType || 'DNI',
-                    nombre: existing.nombre || '',
-                    apellidoPaterno: existing.apellidoPaterno || '',
-                    apellidoMaterno: existing.apellidoMaterno || '',
-                    email: existing.email || '',
-                    telefono: existing.telefono || '',
-                    fechaNacimiento: fechaNacimientoForInput,
-                    departamento: existing.departamento || '',
-                    provincia: existing.provincia || '',
-                    distrito: existing.distrito || '',
-                    direccion: existing.direccion || '',
-                    certificadoUnicoLaboral: existing.certificadoUnicoLaboral || '',
-                    origenConvocatoria: existing.origenConvocatoria || (existing.applications && existing.applications.length > 0 ? existing.applications[existing.applications.length - 1]?.origenConvocatoria : '') || '',
-                    documents: existing.documents || {}
-                });
+            if (inv.candidateEmail) {
+                const existing = await getCandidateByEmail(inv.candidateEmail);
+                if (existing) {
+                    setExistingCandidate(existing);
+                    // Convert DD/MM/YYYY to YYYY-MM-DD for date input
+                    let fechaNacimientoForInput = existing.fechaNacimiento || '';
+                    if (fechaNacimientoForInput && fechaNacimientoForInput.includes('/')) {
+                        const [day, month, year] = fechaNacimientoForInput.split('/');
+                        fechaNacimientoForInput = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    }
+                    // Pre-llenar formulario
+                    setFormData({
+                        dni: existing.dni || '',
+                        documentType: (existing as any).documentType || 'DNI',
+                        nombre: existing.nombre || '',
+                        apellidoPaterno: existing.apellidoPaterno || '',
+                        apellidoMaterno: existing.apellidoMaterno || '',
+                        email: existing.email || '',
+                        telefono: existing.telefono || '',
+                        fechaNacimiento: fechaNacimientoForInput,
+                        departamento: existing.departamento || '',
+                        provincia: existing.provincia || '',
+                        distrito: existing.distrito || '',
+                        direccion: existing.direccion || '',
+                        certificadoUnicoLaboral: existing.certificadoUnicoLaboral || '',
+                        origenConvocatoria: existing.origenConvocatoria || (existing.applications && existing.applications.length > 0 ? existing.applications[existing.applications.length - 1]?.origenConvocatoria : '') || '',
+                        documents: existing.documents || {}
+                    });
 
-            } else {
-                // Nuevo candidato, pre-llenar email
-                setFormData(prev => ({ ...prev, email: inv.candidateEmail }));
+                } else {
+                    // Nuevo candidato, pre-llenar email
+                    setFormData(prev => ({ ...prev, email: inv.candidateEmail }));
+                }
             }
 
             setLoading(false);
         } catch (error) {
-            console.error('Error loading invitation:', error);
-            alert('Error al cargar invitación');
+            console.error('[ApplyPage] Critical error loading invitation:', error);
+            alert('Error al cargar invitación. Por favor intenta de nuevo.');
             router.push('/');
         }
     }
@@ -343,7 +366,11 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                     body: JSON.stringify({
                         candidateEmail: formData.email,
                         candidateName: `${formData.nombre} ${formData.apellidoPaterno}`,
-                        holdingName: invitation.marcaNombre || 'NGR',
+                        marcaNombre: invitation.marcaNombre,
+                        holdingName: holdingConfig?.name || 'NGR',
+                        marcaLogo: marcaLogo,
+                        holdingLogo: holdingLogo,
+                        primaryColor: holdingConfig?.colors?.primary,
                         applicationLink: `${window.location.origin}/apply/${token}`
                     })
                 });
@@ -362,6 +389,24 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             setSubmitting(false);
         }
     };
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Aviso</h1>
+                    <p className="text-gray-600 mb-6">{error}</p>
+                    <button
+                        onClick={() => router.push('/')}
+                        className="w-full bg-violet-600 text-white py-2 rounded-lg font-medium"
+                    >
+                        Volver al inicio
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

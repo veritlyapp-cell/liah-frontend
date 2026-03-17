@@ -44,7 +44,7 @@ export default function InviteCandidateModal({
     const { branding } = useBranding(holdingId, marcaId);
 
     // Combine props with auto-loaded data (props take priority)
-    const effectiveHoldingName = holdingName || branding.holdingName || (claims as any)?.holding_name || 'la empresa';
+    const effectiveCompanyName = marcaNombre || branding.marcaName || holdingName || branding.holdingName || (claims as any)?.holding_name || 'LIAH';
     const effectiveHoldingLogo = holdingLogo || branding.holdingLogo;
     const effectiveMarcaLogo = marcaLogo || branding.marcaLogo;
 
@@ -91,8 +91,8 @@ export default function InviteCandidateModal({
             // Filter for only approved and active RQs
             let activeApprovedRQs = rqs.filter(rq => {
                 const isApproved = rq.approvalStatus === 'approved';
-                const isActive = rq.status === 'active' || rq.status === 'recruiting' || rq.status === 'recruitment';
-                const isNotDeleted = !rq.deletion_approved && rq.status !== 'deleted';
+                const isActive = rq.status === 'active' || rq.status === 'recruiting';
+                const isNotDeleted = !rq.deletion_approved;
                 
                 if (!isApproved || !isActive || !isNotDeleted) return false;
 
@@ -200,7 +200,7 @@ export default function InviteCandidateModal({
                         modalidad: rq.modalidad,
                         turno: rq.turno,
                         // NEW: Branding
-                        holdingName: effectiveHoldingName,
+                        holdingName: effectiveCompanyName,
                         holdingLogo: effectiveHoldingLogo,
                         marcaLogo: effectiveMarcaLogo
                     })

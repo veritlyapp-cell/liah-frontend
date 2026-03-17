@@ -54,8 +54,12 @@ export async function POST(request: NextRequest) {
                     const h = holdingsSnap.docs[0].data();
                     const b = h.config?.branding || h.branding || {};
                     if (b?.primaryColor) brandColor = b.primaryColor;
-                    if (h.nombre) brandName = h.nombre;
                     if (h.logoUrl) brandLogo = h.logoUrl;
+                    
+                    // Only use holding name if brand name is generic or missing
+                    if (!brandName || brandName === 'LIAH') {
+                        if (h.nombre) brandName = h.nombre;
+                    }
                 }
             } catch (e) { console.warn('Could not load brand:', e); }
         }
