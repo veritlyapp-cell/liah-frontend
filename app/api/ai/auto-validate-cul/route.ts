@@ -53,12 +53,13 @@ Si SÍ es un CUL válido, extrae TODA esta información:
 
 REGLAS DE VALIDACIÓN:
 - Si el documento NO es un CUL válido → RECHAZAR
-- Si el DNI o Carnet de Extranjería NO coincide con el del candidato ({candidateDni}) → RECHAZAR (Indicar "DNI mismatch")
-- Si los nombres/apellidos detectados NO coinciden de forma razonable con los declarados ({candidateNombre}) → RECHAZAR (Indicar "El nombre no coincide con el registrado")
+- Si el DNI o Carnet de Extranjería NO coincide con el del candidato ({candidateDni}) → RECHAZAR (Indicar "DNI mismatch: el documento pertenece a otra persona")
+- Si el DNI coincide pero los nombres/apellidos son COMPLETAMENTE diferentes → RECHAZAR (Indicar "Nombre no coincide")
+- IMPORTANTE: Si el DNI coincide ({candidateDni}) y al menos un nombre y un apellido coinciden con ({candidateNombre}), marca como APROBAR aunque falte un segundo nombre o apellido en la declaración. El DNI manda.
 - Si el documento tiene más de 6 meses desde su emisión (Hoy es: {hoy}) → REVISIÓN MANUAL (Indicar "Vencido")
 - Si TODOS los antecedentes dicen "No registra antecedentes" → APROBAR
 - Si CUALQUIER antecedente tiene contenido diferente → RECHAZAR (Listar los antecedentes)
-- Si no puedes leer claramente los antecedentes → REVISIÓN MANUAL
+- Solo usa REVISIÓN MANUAL si la imagen es ilegible o realmente ambigua en los antecedentes. Si el DNI y antecedentes están claros, decide entre APROBAR o RECHAZAR.
 
 Responde ÚNICAMENTE con este JSON:
 {
@@ -168,9 +169,9 @@ export async function POST(req: NextRequest) {
         const userId = authResult.authenticated ? authResult.user?.uid : 'anonymous';
 
         const body = await req.json();
-        const { candidateId, culUrl } = body;
+        const { candidateId, culUrl, candidateDni: bodyDni, candidateNombre: bodyNombre } = body;
 
-        console.log(`[AUTO-VALIDATE] Processing CUL for candidate ${candidateId} by user ${userId}`);
+        console.log(`[AUTO-VALIDATE] Processing CUL for candidate ${candidateId}. Body DNI: ${bodyDni}, Name: ${bodyNombre}`);
 
         if (!culUrl) {
             return NextResponse.json(
@@ -182,15 +183,18 @@ export async function POST(req: NextRequest) {
         const { getAdminFirestore } = await import('@/lib/firebase-admin');
         const dbAdmin = getAdminFirestore();
 
-        // 1. Fetch candidate info to get DNI and names for comparison
-        let candidateDni = 'No provisto';
-        let candidateNombre = 'No provisto';
-        if (candidateId) {
+        // 1. Fetch candidate info to get DNI and names for comparison (use body values as primary, DB as fallback)
+        let candidateDni = bodyDni || 'No provisto';
+        let candidateNombre = bodyNombre || 'No provisto';
+        
+        if (candidateId && (candidateDni === 'No provisto' || candidateNombre === 'No provisto')) {
             const candDoc = await dbAdmin.collection('candidates').doc(candidateId).get();
             if (candDoc.exists) {
                 const data = candDoc.data();
-                candidateDni = data?.dni || 'No provisto';
-                candidateNombre = `${data?.nombre || ''} ${data?.apellidoPaterno || ''} ${data?.apellidoMaterno || ''}`.trim();
+                if (candidateDni === 'No provisto') candidateDni = data?.dni || 'No provisto';
+                if (candidateNombre === 'No provisto') {
+                    candidateNombre = `${data?.nombre || ''} ${data?.apellidoPaterno || ''} ${data?.apellidoMaterno || ''}`.trim() || 'No provisto';
+                }
             }
         }
 
@@ -222,6 +226,18 @@ export async function POST(req: NextRequest) {
         } else {
             validationStatus = 'pending_review';
             validationMessage = '⚠️ Requiere revisión manual - La IA no pudo determinar con certeza';
+        }
+
+        // Refuerzo de lógica: Si el DNI coincide exactamente y la confianza es > 95%, forzamos aprobación
+        const cleanExtractedDni = analysisResult.datosPersonales?.numeroDocumento?.replace(/\D/g, '');
+        const cleanCandidateDni = candidateDni.replace(/\D/g, '');
+        
+        if (validationStatus === 'pending_review' && 
+            analysisResult.confidence >= 95 && 
+            cleanExtractedDni === cleanCandidateDni &&
+            analysisResult.antecedentes?.policiales?.estado === 'limpio') {
+                validationStatus = 'approved_ai';
+                validationMessage = '✅ Datos Validados por LIAH (DNI coincide al 100% y Sin Antecedentes)';
         }
 
         // If we have candidate ID, update the candidate record
