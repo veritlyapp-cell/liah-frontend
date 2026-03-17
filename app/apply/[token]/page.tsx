@@ -327,29 +327,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 }
             }
 
-            // 3. Crear application vinculada al RQ
-            if (candidateId) {
-                const { createApplication } = await import('@/lib/firestore/applications');
-                await createApplication(candidateId, {
-                    rqId: invitation.rqId || '',
-                    rqNumber: invitation.rqNumber || '',
-                    posicion: invitation.posicion || 'Posición no especificada',
-                    modalidad: invitation.modalidad || 'Full Time',
-                    marcaId: invitation.marcaId,
-                    marcaNombre: invitation.marcaNombre,
-                    tiendaId: invitation.tiendaId,
-                    tiendaNombre: invitation.tiendaNombre,
-                    invitationId: invitation.id,
-                    sentBy: invitation.sentBy,
-                    origenConvocatoria: formData.origenConvocatoria, // [NEW] Save origin in application
-                    categoria: invitation.categoria // [NEW] Save category in application
-                });
-            }
-
-            // 4. Marcar invitación como completada
-            await markInvitationAsCompleted(invitation.id, candidateId);
-
-            // 5. NUEVO: Validación automática de CUL con IA (sincrona)
+            // 2.5. Validación automática de CUL con IA (síncrona) ANTES de postulación firme
             const culUrl = uploadedDocs['cul'] || candidateData.certificadoUnicoLaboral;
             if (culUrl && candidateId) {
                 console.log('🤖 Triggering automatic CUL validation...');
@@ -372,13 +350,39 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
 
                         // If AI detected invalid document (DNI/Name mismatch), alert the user and block the success screen from looking final
                         if (data.validationStatus === 'rejected_invalid_doc') {
-                            alert('⚠️ CUIDADO: Hemos detectado que el CUL subido no coincide con tu DNI o nombres ingresados. Por favor corrigelo subiendo el correcto. Tu postulación requerirá revisión extra.');
+                            alert('⚠️ CUIDADO: Hemos detectado que el CUL subido no coincide con tu DNI o nombres ingresados. Por favor súbelo de nuevo correctamente para poder continuar.');
+                            setSubmitting(false);
+                            return; // STOP execution here, do not create application
                         }
                     }
                 } catch (err) {
                     console.warn('Auto-validation failed (non-blocking):', err);
                 }
             }
+
+            // 3. Crear application vinculada al RQ
+            if (candidateId) {
+                const { createApplication } = await import('@/lib/firestore/applications');
+                await createApplication(candidateId, {
+                    rqId: invitation.rqId || '',
+                    rqNumber: invitation.rqNumber || '',
+                    posicion: invitation.posicion || 'Posición no especificada',
+                    modalidad: invitation.modalidad || 'Full Time',
+                    marcaId: invitation.marcaId,
+                    marcaNombre: invitation.marcaNombre,
+                    tiendaId: invitation.tiendaId,
+                    tiendaNombre: invitation.tiendaNombre,
+                    invitationId: invitation.id,
+                    sentBy: invitation.sentBy,
+                    origenConvocatoria: formData.origenConvocatoria, // [NEW] Save origin in application
+                    categoria: invitation.categoria // [NEW] Save category in application
+                });
+            }
+
+            // 4. Marcar invitación como completada
+            await markInvitationAsCompleted(invitation.id, candidateId);
+
+
 
             // 5. Enviar correo de confirmación al candidato
             try {
