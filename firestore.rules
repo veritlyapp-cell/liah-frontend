@@ -58,19 +58,14 @@ service cloud.firestore {
     // CANDIDATES
     // ==========================================
     match /candidates/{candidateId} {
-      // Lectura: Admin ve todo, otros solo de su marca
-      allow read: if isAuthenticated() && 
-                     (isAdmin() || 
-                      resource.data.applications[0].marcaId == getUserMarca());
+      // Lectura: Todos pueden leer (para verificar si existen)
+      allow read: if true;
       
-      // Crear: Cualquier autenticado (registro público) o admin
-      allow create: if isAuthenticated();
+      // Crear: Todos (registro público o portal)
+      allow create: if true;
       
-      // Actualizar: Admin, Recruiter de la marca, o el propio candidato
-      allow update: if isAuthenticated() && 
-                       (isAdmin() || 
-                        isRecruiter() ||
-                        resource.data.applications[0].marcaId == getUserMarca());
+      // Actualizar: Todos pueden modificar su perfil o registrarse
+      allow update: if true;
       
       allow delete: if isAdmin();
     }
@@ -139,6 +134,16 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAuthenticated() && (isAdmin() || isRecruiter());
       allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    match /talent_applications/{appId} {
+      allow read, create, update: if true;
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    match /invitations/{invitationId} {
+      allow read, update: if true;
+      allow create, delete: if isAuthenticated();
     }
 
     match /{path=**}/vacantes/{vacanteId} {
