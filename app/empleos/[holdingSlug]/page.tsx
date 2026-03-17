@@ -39,6 +39,7 @@ interface BrandConfig {
     };
     gallery?: string[];
     videos?: { id: string; title: string }[];
+    showCompanyInfo?: boolean;
 }
 
 // ============ CONFIGURACIONES POR HOLDING ============
@@ -280,7 +281,8 @@ export default function PremiumCareerPortal() {
                         secondary_description: b.secondaryDescription || baseConfig.culture?.secondary_description
                     },
                     gallery: b.gallery?.length ? b.gallery : baseConfig.gallery,
-                    videos: b.videos?.length ? b.videos : baseConfig.videos
+                    videos: b.videos?.length ? b.videos : baseConfig.videos,
+                    showCompanyInfo: b.showCompanyInfo !== false
                 };
             }
 
@@ -445,10 +447,16 @@ export default function PremiumCareerPortal() {
             </nav>
 
             <HeroSection config={config} onExplore={() => document.getElementById('vacantes')?.scrollIntoView({ behavior: 'smooth' })} />
-            <BrandsSection holdingSlug={holdingSlug} />
-            <CultureSection config={config} />
-            <GallerySection config={config} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} />
-            <VideoSection config={config} />
+            
+            {config.showCompanyInfo !== false && (
+                <>
+                    <BrandsSection holdingSlug={holdingSlug} />
+                    <CultureSection config={config} />
+                    <GallerySection config={config} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} />
+                    <VideoSection config={config} />
+                </>
+            )}
+
             <JobsSection
                 config={config}
                 allJobs={allJobs}
@@ -462,7 +470,11 @@ export default function PremiumCareerPortal() {
                 }}
                 holdingSlug={holdingSlug}
             />
-            <UneteSection config={config} holdingSlug={holdingSlug} />
+            
+            {config.showCompanyInfo !== false && (
+                <UneteSection config={config} holdingSlug={holdingSlug} />
+            )}
+            
             <FooterSection config={config} jobsCount={allJobs.length} />
 
         </div>

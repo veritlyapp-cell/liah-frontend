@@ -334,10 +334,13 @@ export function JobsSection({
     }, []);
 
     const departamentos = React.useMemo(() => {
-        const deps = new Set(allJobs.map(j => j.tiendaDepartamento).filter(Boolean).map(d => d.toUpperCase()));
-        const list = Array.from(deps).sort();
-        // Fallback to full list if data is incomplete but we want filters enabled
-        if (list.length === 0) return getDepartmentNames();
+        const depsFromJobs = new Set(allJobs.map(j => j.tiendaDepartamento).filter(Boolean).map(d => d.toUpperCase()));
+        const list = Array.from(depsFromJobs).sort();
+        
+        // If we only have jobs in one or zero departments, show the full list so the portal doesn't look empty
+        if (list.length <= 1) {
+            return getDepartmentNames();
+        }
         return list;
     }, [allJobs]);
 
@@ -465,9 +468,9 @@ export function JobsSection({
                                     setSelectedDept('');
                                     setSelectedProv('');
                                     setSelectedDist('');
-                                    onFilterResults(allJobs.filter(j => j.distance <= 10), userCoords);
+                                    onFilterResults(allJobs.filter(j => (j.distance || 0) <= 10), userCoords);
                                 }}
-                                style={{ color: colors.yellow, fontSize: 12, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                style={{ color: colors.yellow, fontSize: 12, fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', width: '100%', maxWidth: 300 }}
                             >
                                 Restaurar filtros por cercanía GPS
                             </button>
@@ -564,45 +567,54 @@ export function JobsSection({
                                             <div
                                                 className="job-card-hover"
                                                 style={{
-                                                    padding: '32px 40px', borderRadius: 40,
+                                                    padding: '24px', borderRadius: 32,
                                                     backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
-                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                                                    display: 'flex', flexDirection: 'column', gap: 20,
+                                                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                                                    position: 'relative', overflow: 'hidden'
                                                 }}
                                             >
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                                                        <span style={{
-                                                            backgroundColor: colors.yellow, color: colors.purpleDeep,
-                                                            padding: '6px 14px', borderRadius: 99, fontSize: 10, fontWeight: 900, textTransform: 'uppercase',
-                                                            letterSpacing: '1px'
-                                                        }}>
-                                                            {job.marcaNombre || config.name}
-                                                        </span>
-                                                        {job.distance && (
-                                                            <span style={{ fontSize: 11, fontWeight: 800, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                                <Navigation size={10} className="fill-current" /> A {Math.round(job.distance * 10) / 10} KM DE TI
+                                                <div className="md:flex md:justify-between md:items-center">
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                                            <span style={{
+                                                                backgroundColor: colors.yellow, color: colors.purpleDeep,
+                                                                padding: '4px 12px', borderRadius: 99, fontSize: 9, fontWeight: 900, textTransform: 'uppercase',
+                                                                letterSpacing: '1px'
+                                                            }}>
+                                                                {job.marcaNombre || config.name}
                                                             </span>
-                                                        )}
+                                                            {job.distance && (
+                                                                <span style={{ fontSize: 10, fontWeight: 800, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                    <Navigation size={10} className="fill-current" /> A {Math.round(job.distance * 10) / 10} KM DE TI
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <h3 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.6rem)', fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.02em', color: 'white', marginBottom: 12, lineHeight: 1.1 }}>
+                                                            {job.posicion || job.titulo}
+                                                        </h3>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 24px', color: colors.lavender, fontSize: 12, fontWeight: 700 }}>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                <MapPin size={14} style={{ color: colors.yellow }} /> {job.tiendaNombre} • {job.tiendaDistrito || 'Sede'}
+                                                            </span>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                <Clock size={14} style={{ color: colors.yellow }} /> {job.turno || 'Rotativo'}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <h3 style={{ fontSize: 26, fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.02em', color: 'white', marginBottom: 12 }}>
-                                                        {job.posicion || job.titulo}
-                                                    </h3>
-                                                    <div style={{ display: 'flex', gap: 24, color: colors.lavender, fontSize: 14, fontWeight: 700 }}>
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <MapPin size={16} style={{ color: colors.yellow }} /> {job.tiendaNombre} • {job.tiendaDistrito || 'Sede'}
-                                                        </span>
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <Clock size={16} style={{ color: colors.yellow }} /> {job.turno || 'Rotativo'}
-                                                        </span>
+
+                                                    <div className="hidden md:flex arrow-circle transition-all duration-300" style={{
+                                                        width: 56, height: 56, borderRadius: '50%', border: `1px solid rgba(255,255,255,0.1)`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white'
+                                                    }}>
+                                                        <ArrowRight size={24} />
                                                     </div>
                                                 </div>
-                                                <div style={{
-                                                    width: 64, height: 64, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-                                                    transition: 'all 0.3s'
-                                                }} className="arrow-circle">
-                                                    <ChevronRight size={28} />
+                                                
+                                                {/* Mobile Arrow */}
+                                                <div className="flex md:hidden items-center justify-between pt-4 border-t border-white/5 mt-4">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Más detalles</span>
+                                                    <ArrowRight size={18} className="text-white/60" />
                                                 </div>
                                             </div>
                                         </Link>

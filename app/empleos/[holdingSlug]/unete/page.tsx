@@ -13,10 +13,14 @@ import {
     DollarSign,
     CheckCircle2,
     Zap,
-    ChevronLeft
+    ChevronLeft,
+    MapPin,
+    Briefcase,
+    Bell
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getDepartamentos, getProvincias, getDistritos } from '@/lib/data/peru-locations';
 
 function UneteContent() {
     const router = useRouter();
@@ -30,8 +34,9 @@ function UneteContent() {
     const [holdingName, setHoldingName] = useState('...');
     const [colors, setColors] = useState({
         primary: '#7c3aed',
-        secondary: '#4f46e5',
-        yellow: '#FF6B35'
+        primaryDeep: '#4f46e5',
+        accent: '#FF6B35',
+        lavender: '#f5f3ff'
     });
 
     const [formData, setFormData] = useState({
@@ -40,6 +45,11 @@ function UneteContent() {
         dni: '',
         email: '',
         telefono: '',
+        departamento: 'Lima',
+        provincia: 'Lima',
+        distrito: '',
+        preferenciaRol: 'tienda', // tienda | administrativo
+        notificacionesCerca: true,
         expectativa: '',
         mensaje: ''
     });
@@ -55,11 +65,13 @@ function UneteContent() {
                 if (!snap.empty) {
                     const data = snap.docs[0].data() as any;
                     setHoldingName(data.nombre || holdingSlug.toUpperCase());
-                    if (data.config?.branding?.enabled) {
+                    if (data.config?.branding) {
+                        const b = data.config.branding;
                         setColors({
-                            primary: data.config.branding.primaryColor || '#7c3aed',
-                            secondary: data.config.branding.secondaryColor || '#4f46e5',
-                            yellow: '#FF6B35'
+                            primary: b.primaryColor || '#7c3aed',
+                            primaryDeep: b.secondaryColor || '#4f46e5',
+                            accent: b.primaryColor || '#FF6B35',
+                            lavender: b.primaryColor ? `${b.primaryColor}10` : '#f5f3ff' // 10% opacity fallback
                         });
                     }
                 }
@@ -124,7 +136,7 @@ function UneteContent() {
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <div className="animate-spin w-12 h-12 border-4 border-slate-200 border-t-violet-600 rounded-full" />
+                <div className="animate-spin w-12 h-12 border-4 border-slate-200 rounded-full" style={{ borderTopColor: colors.primary }} />
             </div>
         );
     }
@@ -147,7 +159,8 @@ function UneteContent() {
                     </p>
                     <button
                         onClick={() => router.push(`/empleos/${holdingSlug}`)}
-                        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase italic tracking-widest hover:bg-violet-600 transition-all shadow-xl"
+                        className="w-full py-5 text-white rounded-2xl font-black uppercase italic tracking-widest transition-all shadow-xl"
+                        style={{ backgroundColor: colors.primary }}
                     >
                         Volver al portal
                     </button>
@@ -170,7 +183,7 @@ function UneteContent() {
 
                     <div className="text-center">
                         <span className="font-black italic text-slate-900 uppercase tracking-tighter whitespace-nowrap">
-                            {holdingName} <span className="text-violet-600">Talent</span>
+                            {holdingName} <span style={{ color: colors.primary }}>Talent</span>
                         </span>
                     </div>
 
@@ -185,8 +198,8 @@ function UneteContent() {
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-xs font-black uppercase tracking-widest mb-6">
                         <Zap size={14} className="text-yellow-400" /> Únete a nuestra red de talento
                     </div>
-                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-none mb-6">
-                        Impulsa tu <br /><span className="text-violet-400">carrera_</span>
+                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-none mb-6 text-white">
+                        Impulsa tu <br /><span style={{ color: colors.primary }}>carrera_</span>
                     </h1>
                     <p className="text-lg text-slate-400 max-w-xl mx-auto font-medium">
                         No necesitas esperar a una vacante específica. Déjanos tu CV y nuestra IA te encontrará el puesto ideal.
@@ -207,7 +220,8 @@ function UneteContent() {
                                 required
                                 value={formData.nombre}
                                 onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none transition-colors focus:border-opacity-50"
+                                style={{ focusBorderColor: colors.primary } as any}
                                 placeholder="Juan Gabriel"
                             />
                         </div>
@@ -271,6 +285,84 @@ function UneteContent() {
                         />
                     </div>
 
+                    {/* Ubicación */}
+                    <div className="space-y-4">
+                        <label className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <MapPin size={14} /> Mi Ubicación (Para enviarte vacantes cerca)
+                        </label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <select
+                                value={formData.departamento}
+                                onChange={e => setFormData({ ...formData, departamento: e.target.value, provincia: getProvincias(e.target.value)[0] || '', distrito: '' })}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                            >
+                                {getDepartamentos().map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                            <select
+                                value={formData.provincia}
+                                onChange={e => setFormData({ ...formData, provincia: e.target.value, distrito: '' })}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                            >
+                                {getProvincias(formData.departamento).map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                            <select
+                                value={formData.distrito}
+                                required
+                                onChange={e => setFormData({ ...formData, distrito: e.target.value })}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-violet-400 transition-colors"
+                            >
+                                <option value="">Distrito</option>
+                                {getDistritos(formData.departamento, formData.provincia).map(d => <option key={d} value={d} className="text-slate-900">{d}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Preferencia de Rol */}
+                    <div className="space-y-4">
+                        <label className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <Briefcase size={14} /> ¿Qué tipo de trabajo buscas?
+                        </label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, preferenciaRol: 'tienda' })}
+                                className={`p-4 rounded-2xl border-2 font-bold transition-all flex items-center justify-center gap-3 ${formData.preferenciaRol === 'tienda' ? 'bg-white' : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'}`}
+                                style={formData.preferenciaRol === 'tienda' ? { borderColor: colors.primary, color: colors.primary } : {}}
+                            >
+                                <div className={`w-3 h-3 rounded-full transition-colors`} style={{ backgroundColor: formData.preferenciaRol === 'tienda' ? colors.primary : '#cbd5e1' }} />
+                                Operativo / Tiendas
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, preferenciaRol: 'administrativo' })}
+                                className={`p-4 rounded-2xl border-2 font-bold transition-all flex items-center justify-center gap-3 ${formData.preferenciaRol === 'administrativo' ? 'bg-white' : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'}`}
+                                style={formData.preferenciaRol === 'administrativo' ? { borderColor: colors.primary, color: colors.primary } : {}}
+                            >
+                                <div className={`w-3 h-3 rounded-full transition-colors`} style={{ backgroundColor: formData.preferenciaRol === 'administrativo' ? colors.primary : '#cbd5e1' }} />
+                                Administrativo / Oficina
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Notificaciones */}
+                    <div className="flex items-center gap-4 bg-slate-50 p-6 rounded-3xl border-2 border-slate-100">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${formData.notificacionesCerca ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                            <Bell size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-black uppercase tracking-widest text-slate-900 leading-none mb-1">Alertas de Empleo</p>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Avisarme cuando existan vacantes cerca de mi ubicación</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, notificacionesCerca: !formData.notificacionesCerca })}
+                            className={`w-14 h-8 rounded-full p-1 transition-colors relative ${formData.notificacionesCerca ? '' : 'bg-slate-300'}`}
+                            style={formData.notificacionesCerca ? { backgroundColor: colors.primary } : {}}
+                        >
+                            <div className={`w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${formData.notificacionesCerca ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+
                     <div className="space-y-2">
                         <label className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <DollarSign size={14} /> Pretensión Salarial Mensual (Bruto)
@@ -325,8 +417,9 @@ function UneteContent() {
                             disabled={submitting}
                             className={`
                                 w-full py-6 rounded-[2rem] font-black uppercase italic tracking-widest text-lg shadow-2xl transition-all
-                                ${submitting ? 'bg-slate-100 text-slate-400 cursor-wait' : 'bg-slate-900 text-white hover:bg-violet-600 active:scale-[0.98]'}
+                                ${submitting ? 'bg-slate-100 text-slate-400 cursor-wait' : 'text-white hover:brightness-110 active:scale-[0.98]'}
                             `}
+                            style={!submitting ? { backgroundColor: colors.primary } : {}}
                         >
                             {submitting ? 'Procesando tu perfil...' : 'Unirme a la red de talento'}
                         </button>

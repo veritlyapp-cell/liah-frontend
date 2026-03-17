@@ -54,6 +54,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
     const [brandGallery, setBrandGallery] = useState<string[]>([]);
     const [brandVideos, setBrandVideos] = useState<{ id: string, title: string }[]>([]);
     const [brandDescription, setBrandDescription] = useState('');
+    const [showCompanyInfo, setShowCompanyInfo] = useState(true);
 
     // Auto-calculate price
     const periodoMultiplier = { mensual: 1, trimestral: 3, semestral: 6, anual: 12 };
@@ -102,6 +103,7 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
             setBrandGallery(config?.branding?.gallery || []);
             setBrandVideos(config?.branding?.videos || []);
             setBrandDescription(config?.branding?.description || '');
+            setShowCompanyInfo(config?.branding?.showCompanyInfo !== false); // Default true
         }
     }, [holding]);
 
@@ -140,7 +142,8 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                     phrases: brandPhrases,
                     gallery: brandGallery,
                     videos: brandVideos,
-                    description: brandDescription
+                    description: brandDescription,
+                    showCompanyInfo: showCompanyInfo
                 }
             }
         });
@@ -443,6 +446,20 @@ export default function EditHoldingModal({ show, holding, onCancel, onSave }: Ed
                                         ? '✅ Habilitado — El holding puede personalizar su portal público con colores, logo, galería y videos desde su panel de Admin.'
                                         : '❌ Deshabilitado — El portal público usará los estilos genéricos de LIAH.'}
                                 </p>
+
+                                {brandingEnabled && (
+                                    <div className="pt-4 border-t border-orange-200/50 mt-4 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none">Mostrar Información de Empresa</p>
+                                                <p className="text-[9px] font-medium text-slate-500 uppercase tracking-widest mt-1">Si se desactiva, solo se verán las vacantes activas</p>
+                                            </div>
+                                            <div onClick={() => setShowCompanyInfo(!showCompanyInfo)} className={`w-12 h-6 rounded-full p-1 transition-all duration-300 cursor-pointer ${showCompanyInfo ? 'bg-orange-500' : 'bg-slate-300'}`}>
+                                                <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 ${showCompanyInfo ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

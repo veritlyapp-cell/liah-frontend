@@ -28,9 +28,12 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
     const [searchTerm, setSearchTerm] = useState('');
     const [holdingFilter, setHoldingFilter] = useState<string>('todos');
     const [dateFilter, setDateFilter] = useState<'semana' | 'mes' | 'todos'>('semana'); // Default to last week
+    const [viewMode, setViewMode] = useState<'candidates' | 'talent'>('candidates');
+    const [talentPool, setTalentPool] = useState<any[]>([]);
 
     useEffect(() => {
         loadAllCandidates();
+        loadTalentPool();
     }, []);
 
     async function loadAllCandidates() {
@@ -54,50 +57,76 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
         }
     }
 
+    async function loadTalentPool() {
+        try {
+            const talentRef = collection(db, 'talent_pool');
+            const q = query(talentRef, orderBy('appliedAt', 'desc'), limit(500));
+            const snapshot = await getDocs(q);
+
+            const allTalent = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            setTalentPool(allTalent);
+            console.log('✅ Red de talento cargada:', allTalent.length);
+        } catch (error) {
+            console.error('Error loading talent pool:', error);
+        }
+    }
+
     // Filter candidates
-    const filteredCandidates = candidates.filter(candidate => {
-        // Holding filter (extract from applications)
+    // Filter data based on viewMode
+    const currentData = viewMode === 'candidates' ? candidates : talentPool;
+
+    const filteredData = currentData.filter(item => {
+        // Holding filter
         if (holdingFilter !== 'todos') {
-            const hasMatchingApp = candidate.applications?.some(app =>
-                holdings.find(h => h.id === holdingFilter)?.nombre
-            );
-            // For now, simple check if any holdingId matches
-            if (candidate.holdingId !== holdingFilter) return false;
+            const holdingIdOrSlug = item.holdingId || item.holdingSlug;
+            if (holdingIdOrSlug !== holdingFilter) return false;
         }
 
         // Date filter
-        if (dateFilter !== 'todos') {
-            const createdAt = candidate.createdAt?.toDate ? candidate.createdAt.toDate() : (candidate.createdAt ? new Date(candidate.createdAt) : null);
-            if (createdAt) {
-                const now = new Date();
-                const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
-                if (dateFilter === 'semana' && diffDays > 7) return false;
-                if (dateFilter === 'mes' && diffDays > 30) return false;
-            } else {
-                return false; // Skip if no date and filter is active
-            }
+        const dateField = item.createdAt || item.appliedAt;
+        if (dateFilter !== 'todos' && dateField) {
+            const date = dateField?.toDate ? dateField.toDate() : new Date(dateField);
+            const now = new Date();
+            const diffDays = (now.getTime() - date.getTime()) / (1000 * 3600 * 24);
+            if (dateFilter === 'semana' && diffDays > 7) return false;
+            if (dateFilter === 'mes' && diffDays > 30) return false;
         }
 
         // Search
         const search = searchTerm.toLowerCase();
-        return (
-            candidate.nombre?.toLowerCase().includes(search) ||
-            candidate.apellidoPaterno?.toLowerCase().includes(search) ||
-            candidate.dni?.includes(search) ||
-            candidate.email?.toLowerCase().includes(search)
-        );
+        const nameMatch = (item.nombre || item.nombreCompleto || '').toLowerCase().includes(search);
+        const surnameMatch = (item.apellidoPaterno || item.apellidos || '').toLowerCase().includes(search);
+        const dniMatch = (item.dni || '').includes(search);
+        const emailMatch = (item.email || '').toLowerCase().includes(search);
+
+        return nameMatch || surnameMatch || dniMatch || emailMatch;
     });
 
     async function handleExportToExcel() {
         try {
             const { exportCandidates } = await import('@/lib/utils/export-csv');
-            const dataToExport = filteredCandidates.map(c => ({
-                ...c,
-                // Flatten some fields for better Excel output
-                fullName: `${c.nombre} ${c.apellidoPaterno || ''} ${c.apellidoMaterno || ''}`.trim(),
-                applicationCount: c.applications?.length || 0
-            }));
-            exportCandidates(dataToExport as any[], `candidatos_global_${new Date().toISOString().split('T')[0]}.csv`);
+            const dataToExport = filteredData.map(item => {
+                if (viewMode === 'candidates') {
+                    const c = item as GlobalCandidate;
+                    return {
+                        ...c,
+                        fullName: `${c.nombre} ${c.apellidoPaterno || ''} ${c.apellidoMaterno || ''}`.trim(),
+                        applicationCount: c.applications?.length || 0
+                    };
+                } else {
+                    return {
+                        ...item,
+                        fullName: item.nombreCompleto || `${item.nombre} ${item.apellidos}`,
+                        type: 'Red de Talento'
+                    };
+                }
+            });
+            const filename = viewMode === 'candidates' ? 'candidatos_global' : 'red_de_talento';
+            exportCandidates(dataToExport as any[], `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
             alert('✅ Exportación iniciada');
         } catch (error) {
             console.error('Export error:', error);
@@ -118,13 +147,29 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Base de Datos de Candidatos (Global)</h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Bases de Datos de Talento</h2>
+                    <div className="flex bg-gray-100 p-1 rounded-xl mt-3 w-fit">
+                        <button
+                            onClick={() => setViewMode('candidates')}
+                            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'candidates' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Postulantes (RQs)
+                        </button>
+                        <button
+                            onClick={() => setViewMode('talent')}
+                            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'talent' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Red de Talento (Unete)
+                        </button>
+                    </div>
+                </div>
                 <button
                     onClick={handleExportToExcel}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-green-600 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-green-700 transition-colors flex items-center gap-2 w-fit h-fit"
                 >
-                    📥 Exportar Excel
+                    📥 Exportar {viewMode === 'candidates' ? 'Candidatos' : 'Talento'}
                 </button>
             </div>
 
@@ -164,62 +209,88 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="glass-card rounded-xl p-4">
-                    <p className="text-sm text-gray-600 mb-1">Total Candidatos</p>
-                    <p className="text-3xl font-bold gradient-primary">{candidates.length}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total {viewMode === 'candidates' ? 'Candidatos' : 'Perfiles Unete'}</p>
+                    <p className="text-3xl font-black italic tracking-tighter text-slate-900">{currentData.length}</p>
                 </div>
                 <div className="glass-card rounded-xl p-4">
-                    <p className="text-sm text-gray-600 mb-1">Filtrados</p>
-                    <p className="text-3xl font-bold text-violet-600">{filteredCandidates.length}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Filtrados</p>
+                    <p className="text-3xl font-black italic tracking-tighter text-violet-600">{filteredData.length}</p>
                 </div>
                 <div className="glass-card rounded-xl p-4">
-                    <p className="text-sm text-gray-600 mb-1">Holdings con Candidatos</p>
-                    <p className="text-3xl font-bold text-cyan-600">
-                        {new Set(candidates.map(c => c.holdingId).filter(Boolean)).size}
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Holdings Impactados</p>
+                    <p className="text-3xl font-black italic tracking-tighter text-cyan-600">
+                        {new Set(currentData.map(c => c.holdingId || c.holdingSlug).filter(Boolean)).size}
                     </p>
                 </div>
             </div>
 
-            {/* Candidates Table */}
+            {/* Data Table */}
             {
-                filteredCandidates.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg">
-                        <p className="text-gray-500">No se encontraron candidatos</p>
+                filteredData.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-slate-200">
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No se encontraron resultados</p>
                     </div>
                 ) : (
-                    <div className="glass-card rounded-xl overflow-hidden">
+                    <div className="glass-card rounded-2xl overflow-hidden border border-slate-100 shadow-xl">
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-slate-50 border-b border-slate-100">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Distrito</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Postulaciones</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registro</th>
+                                        <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Nombre</th>
+                                        <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">DNI / CE</th>
+                                        <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Email</th>
+                                        <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Teléfono</th>
+                                        {viewMode === 'candidates' ? (
+                                            <>
+                                                <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Distrito</th>
+                                                <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Apps</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Ubicación</th>
+                                                <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Preferencia</th>
+                                            </>
+                                        )}
+                                        <th className="px-4 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Registro</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {filteredCandidates.slice(0, 100).map(candidate => (
-                                        <tr key={candidate.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3">
-                                                <p className="font-medium text-gray-900">
-                                                    {candidate.nombre} {candidate.apellidoPaterno} {candidate.apellidoMaterno}
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredData.slice(0, 100).map(item => (
+                                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-4 py-4">
+                                                <p className="font-bold text-slate-900 text-sm uppercase italic">
+                                                    {item.nombreCompleto || `${item.nombre} ${item.apellidoPaterno || item.apellidos || ''}`}
                                                 </p>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.holdingSlug || holdings.find(h => h.id === item.holdingId)?.nombre}</p>
                                             </td>
-                                            <td className="px-4 py-3 text-sm text-gray-600 font-mono">{candidate.dni}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-600">{candidate.email}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-600">{candidate.telefono}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-600">{candidate.distrito || '-'}</td>
-                                            <td className="px-4 py-3">
-                                                <span className="px-2 py-1 bg-violet-100 text-violet-700 rounded text-xs font-medium">
-                                                    {candidate.applications?.length || 0}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-gray-500">
-                                                {candidate.createdAt?.toDate
-                                                    ? candidate.createdAt.toDate().toLocaleDateString()
+                                            <td className="px-4 py-4 text-xs text-slate-600 font-mono font-bold">{item.dni}</td>
+                                            <td className="px-4 py-4 text-xs text-slate-600 lowercase">{item.email}</td>
+                                            <td className="px-4 py-4 text-xs text-slate-600">{item.telefono}</td>
+                                            {viewMode === 'candidates' ? (
+                                                <>
+                                                    <td className="px-4 py-4 text-xs text-slate-600 uppercase font-medium">{item.distrito || '-'}</td>
+                                                    <td className="px-4 py-4">
+                                                        <span className="px-2 py-1 bg-violet-100 text-violet-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-violet-200">
+                                                            {item.applications?.length || 0}
+                                                        </span>
+                                                    </td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td className="px-4 py-4">
+                                                        <p className="text-xs text-slate-900 font-bold uppercase">{item.distrito || '-'}</p>
+                                                        <p className="text-[9px] font-medium text-slate-400 uppercase">{item.departamento || '-'}</p>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${item.preferenciaRol === 'administrativo' ? 'bg-cyan-50 border-cyan-100 text-cyan-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
+                                                            {item.preferenciaRol || 'tienda'}
+                                                        </span>
+                                                    </td>
+                                                </>
+                                            )}
+                                            <td className="px-4 py-4 text-xs text-slate-500 font-medium">
+                                                {(item.createdAt || item.appliedAt)?.toDate
+                                                    ? (item.createdAt || item.appliedAt).toDate().toLocaleDateString()
                                                     : '-'}
                                             </td>
                                         </tr>
@@ -227,9 +298,9 @@ export default function GlobalCandidatesView({ holdings }: GlobalCandidatesViewP
                                 </tbody>
                             </table>
                         </div>
-                        {filteredCandidates.length > 100 && (
-                            <div className="px-4 py-3 bg-gray-50 text-center text-sm text-gray-500">
-                                Mostrando 100 de {filteredCandidates.length} candidatos. Usa filtros para ver más específicos o exporta a Excel.
+                        {filteredData.length > 100 && (
+                            <div className="px-4 py-4 bg-slate-50 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Mostrando 100 de {filteredData.length} resultados. Usa filtros o exporta para ver todo.
                             </div>
                         )}
                     </div>

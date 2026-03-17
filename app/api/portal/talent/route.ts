@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
         }
 
         const candidateData = JSON.parse(payloadStr);
-        const { nombre, apellidos, dni, email, telefono, expectativa } = candidateData;
+        const { 
+            nombre, apellidos, dni, email, telefono, expectativa,
+            departamento, provincia, distrito, preferenciaRol, notificacionesCerca 
+        } = candidateData;
 
         // 1. Convert file to buffer for upload and AI
         const buffer = Buffer.from(await file.arrayBuffer());
@@ -96,6 +99,11 @@ export async function POST(req: NextRequest) {
             email: (email || '').toLowerCase(),
             telefono: telefono || '',
             expectativa: expectativa || '',
+            departamento: departamento || '',
+            provincia: provincia || '',
+            distrito: distrito || '',
+            preferenciaRol: preferenciaRol || 'tienda',
+            notificacionesCerca: notificacionesCerca !== undefined ? notificacionesCerca : true,
             holdingSlug,
             cvUrl,
             cvPath: filePath,
