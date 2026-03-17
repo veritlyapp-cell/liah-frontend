@@ -159,7 +159,8 @@ service cloud.firestore {
     // BLACKLIST
     // ==========================================
     match /blacklist/{entryId} {
-      allow read: if isAuthenticated() && (isAdmin() || isRecruiter());
+      allow get: if true;
+      allow list: if isAuthenticated() && (isAdmin() || isRecruiter());
       
       allow create, update, delete: if isAuthenticated() && isAdmin();
     }

@@ -378,13 +378,12 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             } catch (emailErr) {
                 console.warn('Email notification failed (non-blocking):', emailErr);
             }
-
             setSuccess(true);
             window.scrollTo(0, 0);
 
         } catch (error: any) {
-            console.error('Error submitting application:', error);
-            alert('Error al enviar la postulación: ' + error.message);
+            console.error('[ApplyPage] Error sending application:', error);
+            alert(`Error al enviar la postulación: ${error?.message || error}`);
         } finally {
             setSubmitting(false);
         }

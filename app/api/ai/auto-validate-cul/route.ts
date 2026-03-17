@@ -8,14 +8,11 @@ export const dynamic = 'force-dynamic';
 // Initialize Gemini with fallback models
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 
-// Model priority list (2026 - Gemini models)
 const VISION_MODELS = [
     'gemini-2.5-flash',
     'gemini-2.5-pro',
     'gemini-3-pro',
-    'gemini-2.0-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash-lite'
+    'gemini-2.5-flash-lite'
 ];
 
 // CUL validation prompt based on real document format
@@ -57,6 +54,7 @@ Si SÍ es un CUL válido, extrae TODA esta información:
 REGLAS DE VALIDACIÓN:
 - Si el documento NO es un CUL válido → RECHAZAR
 - Si el DNI o Carnet de Extranjería NO coincide con el del candidato ({candidateDni}) → RECHAZAR (Indicar "DNI mismatch")
+- Si los nombres/apellidos detectados NO coinciden de forma razonable con los declarados ({candidateNombre}) → RECHAZAR (Indicar "El nombre no coincide con el registrado")
 - Si el documento tiene más de 6 meses desde su emisión (Hoy es: {hoy}) → REVISIÓN MANUAL (Indicar "Vencido")
 - Si TODOS los antecedentes dicen "No registra antecedentes" → APROBAR
 - Si CUALQUIER antecedente tiene contenido diferente → RECHAZAR (Listar los antecedentes)
@@ -184,12 +182,15 @@ export async function POST(req: NextRequest) {
         const { getAdminFirestore } = await import('@/lib/firebase-admin');
         const dbAdmin = getAdminFirestore();
 
-        // 1. Fetch candidate info to get DNI for comparison
+        // 1. Fetch candidate info to get DNI and names for comparison
         let candidateDni = 'No provisto';
+        let candidateNombre = 'No provisto';
         if (candidateId) {
             const candDoc = await dbAdmin.collection('candidates').doc(candidateId).get();
             if (candDoc.exists) {
-                candidateDni = candDoc.data()?.dni || 'No provisto';
+                const data = candDoc.data();
+                candidateDni = data?.dni || 'No provisto';
+                candidateNombre = `${data?.nombre || ''} ${data?.apellidoPaterno || ''} ${data?.apellidoMaterno || ''}`.trim();
             }
         }
 
@@ -197,6 +198,7 @@ export async function POST(req: NextRequest) {
         const hoy = new Date().toLocaleDateString('es-PE');
         const dynamicPrompt = CUL_VALIDATION_PROMPT
             .replace('{candidateDni}', candidateDni)
+            .replace('{candidateNombre}', candidateNombre)
             .replace('{hoy}', hoy);
 
         // 3. Analyze with AI

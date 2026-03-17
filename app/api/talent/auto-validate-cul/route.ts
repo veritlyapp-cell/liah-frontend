@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 
 const VISION_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro'
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-3-pro',
+    'gemini-2.5-flash-lite'
 ];
 
 const CUL_VALIDATION_PROMPT = `Analiza esta imagen de un Certificado Único Laboral (CUL) del Perú.
@@ -46,6 +47,7 @@ Si SÍ es un CUL válido, extrae TODA esta información:
 REGLAS DE VALIDACIÓN:
 - Si el documento NO es un CUL válido → RECHAZAR
 - Si el DNI o Carnet de Extranjería NO coincide con el del candidato ({candidateDni}) → RECHAZAR (Indicar "DNI mismatch")
+- Si los nombres/apellidos detectados NO coinciden de forma razonable con los declarados ({candidateNombre}) → RECHAZAR (Indicar "El nombre no coincide con el registrado")
 - Si el documento tiene más de 6 meses desde su emisión (Hoy es: {hoy}) → REVISIÓN MANUAL (Indicar "Vencido")
 - Si TODOS los antecedentes dicen "No registra antecedentes" → APROBAR
 - Si CUALQUIER antecedente tiene contenido diferente → RECHAZAR (Listar los antecedentes)
@@ -118,13 +120,14 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
 
 export async function POST(req: NextRequest) {
     try {
-        const { candidateId, culUrl, candidateDni } = await req.json();
+        const { candidateId, culUrl, candidateDni, candidateNombre } = await req.json();
 
         if (!culUrl) return NextResponse.json({ error: 'culUrl is required' }, { status: 400 });
 
         const hoy = new Date().toLocaleDateString('es-PE');
         const dynamicPrompt = CUL_VALIDATION_PROMPT
             .replace('{candidateDni}', candidateDni || 'No provisto')
+            .replace('{candidateNombre}', candidateNombre || 'No provisto')
             .replace('{hoy}', hoy);
 
         const analysisResult = await analyzeWithVision(culUrl, dynamicPrompt);

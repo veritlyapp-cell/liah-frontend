@@ -121,11 +121,20 @@ export async function getInvitationByToken(token: string): Promise<Invitation | 
     } as Invitation;
 
     // Verificar si expiró
-    if (invitation.status !== 'expired') {
+    if (invitation.status !== 'expired' && invitation.expiresAt) {
         const now = new Date();
-        const expiresAt = invitation.expiresAt.toDate();
+        let expiresAt: Date;
+        
+        if (typeof invitation.expiresAt.toDate === 'function') {
+            expiresAt = invitation.expiresAt.toDate();
+        } else if (invitation.expiresAt instanceof Date) {
+            expiresAt = invitation.expiresAt;
+        } else {
+            // String or number
+            expiresAt = new Date(invitation.expiresAt);
+        }
 
-        if (now > expiresAt) {
+        if (now > expiresAt && !isNaN(expiresAt.getTime())) {
             // Marcar como expirada
             await updateDoc(snapshot.docs[0].ref, {
                 status: 'expired'

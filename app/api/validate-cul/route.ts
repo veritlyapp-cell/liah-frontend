@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Data = buffer.toString('base64');
 
-        // Utilizamos gemini-1.5-flash por su rapidez para visión/multimodal
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        // Utilizamos gemini-2.5-flash-lite por su rapidez para visión/multimodal
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
         const prompt = `Analiza este documento (probablemente un Certificado Único Laboral de Perú o un DNI). 
 Tu tarea es extraer estrictamente la siguiente información de la persona titular del documento:

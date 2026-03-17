@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         let summary_ai = '';
 
         try {
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' }); // Use flash for speed
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' }); // Use flash for speed
             const prompt = `Analiza este CV para una base de datos de talento.
             Extrae una lista de hasta 10 etiquetas/keywords (habilidades técnicas, blandas, años de experiencia clave).
             También genera un resumen profesional de 2 líneas.

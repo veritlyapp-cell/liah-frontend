@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Analyze CUL with Gemini Vision
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
         const prompt = `Analiza el siguiente Certificado Único Laboral (CUL) del Perú y extrae la información en formato JSON.
 
