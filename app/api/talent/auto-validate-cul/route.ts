@@ -133,12 +133,19 @@ export async function POST(req: NextRequest) {
 
         const analysisResult = await analyzeWithVision(culUrl, dynamicPrompt);
 
+        // Refuerzo de detección de mismatch de DNI o Nombre
+        const cleanExtractedDni = analysisResult.datosPersonales?.numeroDocumento?.replace(/\D/g, '');
+        const cleanCandidateDni = candidateDni ? candidateDni.replace(/\D/g, '') : null;
+        const isDniMismatch = analysisResult.esDocumentoValido && cleanExtractedDni && cleanCandidateDni && cleanExtractedDni !== cleanCandidateDni;
+        const obsLower = (analysisResult.observacion || '').toLowerCase();
+        const isNameMismatch = analysisResult.recomendacion === 'rechazar' && (obsLower.includes('nombre no coincide') || obsLower.includes('dni mismatch'));
+        
         let validationStatus = 'pending_review';
         let validationMessage = '';
 
-        if (!analysisResult.esDocumentoValido) {
+        if (!analysisResult.esDocumentoValido || isDniMismatch || isNameMismatch) {
             validationStatus = 'rejected_invalid_doc';
-            validationMessage = analysisResult.observacion || 'Documento no válido';
+            validationMessage = analysisResult.observacion || (isDniMismatch ? 'El DNI del documento no coincide con el tuyo' : 'Documento no válido o no coincide');
         } else if (analysisResult.recomendacion === 'aprobar' && analysisResult.confidence >= 80) {
             validationStatus = 'approved_ai';
             validationMessage = '✅ Datos Validados por LIAH (DNI, Nombre Completo y Sin Antecedentes)';
