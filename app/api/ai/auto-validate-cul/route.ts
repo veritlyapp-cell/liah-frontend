@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
             validationMessage = analysisResult.observacion || 'Documento no válido';
         } else if (analysisResult.recomendacion === 'aprobar' && analysisResult.confidence >= 80) {
             validationStatus = 'approved_ai';
-            validationMessage = '✅ CUL verificado - Sin antecedentes registrados';
+            validationMessage = '✅ Datos Validados por LIAH (DNI, Nombre Completo y Sin Antecedentes)';
         } else if (analysisResult.recomendacion === 'rechazar') {
             validationStatus = 'rejected_ai';
             validationMessage = analysisResult.observacion || 'Antecedentes encontrados';

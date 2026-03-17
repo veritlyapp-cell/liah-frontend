@@ -26,6 +26,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
     const [marcaLogo, setMarcaLogo] = useState<string>('');
     const [holdingLogo, setHoldingLogo] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    const [aiValidationResult, setAiValidationResult] = useState<any>(null);
 
     const [formData, setFormData] = useState({
         dni: '',
@@ -341,21 +342,30 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
             // 4. Marcar invitación como completada
             await markInvitationAsCompleted(invitation.id, candidateId);
 
-            // 5. NUEVO: Validación automática de CUL con IA (en background)
+            // 5. NUEVO: Validación automática de CUL con IA (sincrona)
             const culUrl = uploadedDocs['cul'] || candidateData.certificadoUnicoLaboral;
             if (culUrl && candidateId) {
                 console.log('🤖 Triggering automatic CUL validation...');
-                // No await - run in background to not block user
-                fetch('/api/ai/auto-validate-cul', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        candidateId,
-                        culUrl
-                    })
-                }).then(res => res.json())
-                    .then(data => console.log('🤖 Auto-validation result:', data.validationStatus))
-                    .catch(err => console.warn('Auto-validation failed (non-blocking):', err));
+                try {
+                    const culResponse = await fetch('/api/ai/auto-validate-cul', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            candidateId,
+                            culUrl,
+                            candidateDni: formData.dni,
+                            candidateNombre: `${formData.nombre} ${formData.apellidoPaterno} ${formData.apellidoMaterno}`.trim()
+                        })
+                    });
+                    
+                    if (culResponse.ok) {
+                        const data = await culResponse.json();
+                        console.log('🤖 Auto-validation result:', data.validationStatus);
+                        setAiValidationResult(data);
+                    }
+                } catch (err) {
+                    console.warn('Auto-validation failed (non-blocking):', err);
+                }
             }
 
             // 5. Enviar correo de confirmación al candidato
@@ -442,8 +452,26 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                 <div className="max-w-md w-full glass-card rounded-2xl p-8 text-center">
                     <div className="text-6xl mb-4">✅</div>
                     <h2 className="text-2xl font-bold gradient-primary mb-2">
-                        ¡Postulación Completada!
+                        {aiValidationResult?.validationStatus === 'approved_ai' 
+                            ? 'Registro Exitoso: Datos Validados' 
+                            : '¡Postulación Completada!'}
                     </h2>
+                    
+                    {aiValidationResult?.validationStatus === 'approved_ai' && (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 text-green-700 font-medium text-sm flex items-center justify-center gap-2">
+                            <span>✨</span> Datos Validados Automáticamente por LIAH
+                        </div>
+                    )}
+                    {aiValidationResult?.validationStatus === 'rejected_invalid_doc' && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-red-700 font-medium text-sm flex items-center justify-center gap-2">
+                            <span>⚠️</span> Hubo un problema validando tu documento subido.
+                        </div>
+                    )}
+                    {aiValidationResult?.validationStatus === 'rejected_ai' && (
+                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 text-orange-700 font-medium text-sm flex items-center justify-center gap-2">
+                            <span>⚠️</span> Tu documento fue recibido pero requiere revisión adicional.
+                        </div>
+                    )}
                     <p className="text-gray-600 mb-2">
                         Tu postulación a:
                     </p>
