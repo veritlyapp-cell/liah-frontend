@@ -593,7 +593,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                 onChange={(e) => setFormData({ ...formData, documentType: e.target.value as 'DNI' | 'CE', dni: '' })}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
                                 required
-                                disabled={!!existingCandidate}
+                                
                             >
                                 <option value="DNI">DNI</option>
                                 <option value="CE">CE (Extranjería)</option>
@@ -616,7 +616,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
                                 required
                                 placeholder={formData.documentType === 'DNI' ? '8 dígitos' : 'Número de carnet'}
-                                disabled={!!existingCandidate}
+                                
                             />
                         </div>
                     </div>
@@ -632,7 +632,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                             onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
                             required
-                            disabled={!!existingCandidate}
+                            
                         />
                     </div>
 
@@ -648,7 +648,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                 onChange={(e) => setFormData({ ...formData, apellidoPaterno: e.target.value })}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
                                 required
-                                disabled={!!existingCandidate}
+                                
                             />
                         </div>
                         <div>
@@ -660,7 +660,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                 value={formData.apellidoMaterno}
                                 onChange={(e) => setFormData({ ...formData, apellidoMaterno: e.target.value })}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-                                disabled={!!existingCandidate}
+                                
                             />
                         </div>
                     </div>
@@ -677,7 +677,7 @@ export default function ApplyPage({ params }: { params: Promise<{ token: string 
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
                                 required
-                                disabled={!!existingCandidate}
+                                
                             />
                         </div>
                         <div>
