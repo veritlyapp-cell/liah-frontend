@@ -481,6 +481,15 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 ⟳ REINGRESO
                             </span>
                         )}
+                        {/* Priority Badge */}
+                        {latestApp?.priority && (
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold border flex items-center gap-1 ${latestApp.priority === 'principal'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
+                                }`}>
+                                {latestApp.priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'}
+                            </span>
+                        )}
                     </div>
                     <button
                         onClick={onClose}

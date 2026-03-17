@@ -468,17 +468,15 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                 }
                                                 return null;
                                             })()}
-
                                             {/* Priority Badge from Gerente de Tienda - Visible to Recruiters */}
                                             {latestApp?.priority && (
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${latestApp.priority === 'principal'
-                                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                                    : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm border ${latestApp.priority === 'principal'
+                                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                                    : 'bg-slate-100 text-slate-700 border-slate-300'
                                                     }`}>
-                                                    {latestApp.priority === 'principal' ? '⭐ Principal' : '📋 Backup'}
+                                                    {latestApp.priority === 'principal' ? '⭐ PRINCIPAL' : '📋 BACKUP'}
                                                 </span>
                                             )}
-
                                             {/* Warning if selected for another RQ IN THE SAME HOLDING */}
                                             {(() => {
                                                 const holdingId = (claims as any)?.tenant_id;
@@ -552,12 +550,12 @@ export default function CandidatesListView({ storeId, storeIds, marcaId, filterS
                                                     )}
                                                     {latestApp.priority && (
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-gray-500">Prioridad:</span>
-                                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${latestApp.priority === 'principal'
+                                                            <span className="text-gray-500">Clasificación:</span>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${latestApp.priority === 'principal'
                                                                 ? 'bg-amber-100 text-amber-800'
-                                                                : 'bg-gray-100 text-gray-700'
+                                                                : 'bg-slate-100 text-slate-700'
                                                                 }`}>
-                                                                {latestApp.priority === 'principal' ? '⭐ Principal' : 'Backup'}
+                                                                {latestApp.priority === 'principal' ? '⭐ PRINCIPAL' : 'BACKUP'}
                                                             </span>
                                                         </div>
                                                     )}
