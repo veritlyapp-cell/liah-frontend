@@ -227,6 +227,21 @@ export default function CreateUserModalSuperAdmin({ show, onCancel, onSave }: Cr
                                     <p className="font-semibold text-gray-900">👨‍💼 Admin de Holding</p>
                                     <p className="text-xs text-gray-500">Acceso total a la empresa</p>
                                 </button>
+                                
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setRol('kam');
+                                        setSelectedLevel(null);
+                                    }}
+                                    className={`p-4 border-2 rounded-lg transition-all text-left ${rol === 'kam'
+                                        ? 'border-violet-600 bg-violet-50'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <p className="font-semibold text-gray-900">🤝 KAM (Account Manager)</p>
+                                    <p className="text-xs text-gray-500">Dashboard de consumo y logs</p>
+                                </button>
 
                                 <button
                                     type="button"

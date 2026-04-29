@@ -12,6 +12,8 @@ import RQTrackingView from '@/components/admin/RQTrackingView';
 import EmailTemplatesConfig from '@/components/admin/EmailTemplatesConfig';
 import { useRouter } from 'next/navigation';
 import UnifiedAnalytics from '@/components/admin/UnifiedAnalytics';
+import ApprovedRQSummary from '@/components/admin/ApprovedRQSummary';
+import { subscribeToAllRQs, type RQ } from '@/lib/firestore/rqs';
 import InterviewAgenda from '@/components/store-manager/InterviewAgenda';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -67,8 +69,9 @@ export default function RecruiterDashboard() {
     const [holdingId, setHoldingId] = useState<string>('');
     const [holdingName, setHoldingName] = useState<string>('');
     const [enableInterviews, setEnableInterviews] = useState(true);
+    const [allRQs, setAllRQs] = useState<RQ[]>([]);
 
-    // Load user assignment to get marcas
+    // 1. Separate Effect: Load Assignment
     useEffect(() => {
         async function loadAssignment() {
             if (!user) return;
@@ -122,7 +125,6 @@ export default function RecruiterDashboard() {
                 const aStores = assignment.assignedStores || (assignment as any).tiendasAsignadas;
                 if (aStores && Array.isArray(aStores)) {
                     aStores.forEach((store: any) => {
-                        // Could be store object or just ID
                         if (store && typeof store !== 'string') {
                             const mid = store.marcaId || store.brandId || store.idMarca || store.brand_id;
                             if (mid && !loadedMarcas.some(lm => lm.id === mid)) {
@@ -135,29 +137,17 @@ export default function RecruiterDashboard() {
                     });
                 }
 
-                // 5. Check if they have ANY assignment at all (as a fallback for admins or misconfigured data)
+                // 5. Fallback for admins
                 const role = claims?.role || assignment.role || '';
                 const isAdmin = ['super_admin', 'admin', 'client_admin'].includes(role);
-
-                // EXTRA REDUNDANCY: Check for ANY property that suggests assignment
-                const hasAnyAssignment =
-                    loadedMarcas.length > 0 ||
-                    (aStores && aStores.length > 0) ||
-                    assignment.tiendaId ||
-                    (assignment as any).storeId ||
-                    assignment.marcaId ||
-                    assignment.assignedStore ||
-                    assignment.assignedMarca;
+                const hasAnyAssignment = loadedMarcas.length > 0 || (aStores && aStores.length > 0) || assignment.tiendaId || (assignment as any).storeId || assignment.marcaId || assignment.assignedStore || assignment.assignedMarca;
 
                 if (loadedMarcas.length === 0 && (isAdmin || hasAnyAssignment) && assignment.holdingId) {
-                    console.log('🛡️ Assignment detected via fallback. Using placeholder for holding:', assignment.holdingId);
-                    loadedMarcas.push({
-                        id: 'all_holding',
-                        nombre: 'Todas las Marcas (vía fallback)'
-                    });
+                    loadedMarcas.push({ id: 'all_holding', nombre: 'Todas las Marcas (vía fallback)' });
                 }
 
                 setMarcas(loadedMarcas);
+                
                 if (assignment.holdingId) {
                     setHoldingId(assignment.holdingId);
                     try {
@@ -172,28 +162,40 @@ export default function RecruiterDashboard() {
                         console.error('Error loading holding config:', e);
                     }
                 }
+                
                 if (assignment.assignedZones && Array.isArray(assignment.assignedZones)) {
                     setAssignedZones(assignment.assignedZones.map((z: any) => z.zoneId || z.id || z));
                 }
 
                 console.log('✅ Recruiter brands final selection:', loadedMarcas);
-
-                if (loadedMarcas.length > 0) {
-                    // Success path
-                    setLoading(false); // Make sure loading is false if we found marcas
-                } else {
-                    console.log('❌ Recruiter: Hard fail - No brands found. Assignment object:', JSON.stringify(assignment));
-                    setLoading(false);
-                }
+                setLoadingAssignment(false);
+                setLoading(false);
             } catch (error) {
                 console.error('Error loading assignment:', error);
-                setLoading(false);
-            } finally {
                 setLoadingAssignment(false);
+                setLoading(false);
             }
         }
         loadAssignment();
-    }, [user]);
+    }, [user, claims?.role]);
+
+    // 2. Separate Effect: Subscribe to RQs
+    useEffect(() => {
+        if (holdingId && marcas.length > 0) {
+            const unsubscribe = subscribeToAllRQs(holdingId, (loadedRQs) => {
+                const allowedMarcaIds = new Set(marcas.map(m => m.id));
+                const allowedStoreIds = new Set(stores.map(s => s.id));
+                
+                const filtered = loadedRQs.filter(rq => {
+                    const matchesMarca = allowedMarcaIds.has(rq.marcaId || '') || allowedMarcaIds.has('all_holding');
+                    const matchesStore = allowedStoreIds.size === 0 || allowedStoreIds.has(rq.tiendaId || '');
+                    return matchesMarca && matchesStore;
+                });
+                setAllRQs(filtered);
+            });
+            return () => unsubscribe();
+        }
+    }, [holdingId, marcas, stores]);
 
     useEffect(() => {
         if (marcas.length > 0) {
@@ -499,12 +501,31 @@ export default function RecruiterDashboard() {
                 )}
 
                 {activeTab === 'requerimientos' && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
-                        <RQTrackingView
-                            holdingId=""
-                            marcas={marcas}
-                            allowedStoreIds={assignedZones.length > 0 ? stores.map(s => s.id) : undefined}
-                        />
+                    <div className="space-y-6">
+                        {/* Consolidado Summary */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="flex-1 h-[1px] bg-slate-200"></span>
+                                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] whitespace-nowrap">
+                                    Resumen de Vacantes Aprobadas
+                                </h3>
+                                <span className="flex-1 h-[1px] bg-slate-200"></span>
+                            </div>
+                            <ApprovedRQSummary 
+                                rqs={allRQs} 
+                                showMarca={selectedMarca === 'all'} 
+                                showTienda={true} 
+                            />
+                        </div>
+
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
+                            <RQTrackingView
+                                holdingId={holdingId}
+                                marcas={marcas}
+                                allowedStoreIds={assignedZones.length > 0 ? stores.map(s => s.id) : undefined}
+                                selectedMarcaId={selectedMarca}
+                            />
+                        </div>
                     </div>
                 )}
 

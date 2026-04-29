@@ -88,6 +88,12 @@ export interface RQ {
     // Ubicación
     tiendaId?: string;
     tiendaNombre?: string;
+    tiendaDistrito?: string;
+    tiendaProvincia?: string;
+    tiendaDepartamento?: string;
+    tiendaSlug?: string;
+    storeCoordinates?: any;
+    marcaSlug?: string;
     marcaId: string;
     marcaNombre: string;
 
@@ -97,6 +103,7 @@ export interface RQ {
     requisitos?: any; // Camaleónico: puede ser string[] o JobProfileRequisitos
     fechaLimite?: any;
     motivo?: 'Reemplazo' | 'Necesidad de Venta'; // Para métricas
+    personasReemplazadas?: string[]; // Nombres de personas a reemplazar (cuando motivo === 'Reemplazo')
 
     // Status del RQ
     status: 'active' | 'recruiting' | 'filled' | 'closed' | 'cancelled';
@@ -105,6 +112,11 @@ export interface RQ {
     closedAt?: any;
     closedBy?: string;
     closureReason?: string;
+
+    // Cancelación
+    cancellationReason?: string;
+    cancelledBy?: string;
+    cancelledAt?: any;
 
     // Aprobación multi-nivel
     approvalStatus: 'pending' | 'approved' | 'rejected';
@@ -294,6 +306,7 @@ export async function createRQInstances(
             descripcion: jobProfile.descripcion,
             requisitos: jobProfile.requisitos || null,
             motivo: (jobProfile as any).motivo, // Motivo del RQ para métricas
+            personasReemplazadas: (jobProfile as any).motivo === 'Reemplazo' ? ((jobProfile as any).personasReemplazadas || []) : undefined,
 
             status: 'active', // Default status for new RQs
             filledCount: 0,
@@ -553,16 +566,70 @@ export async function deleteRQ(
 ): Promise<void> {
     const rqRef = doc(db, 'rqs', rqId);
 
+    const rqSnap = await getDoc(rqRef);
+    if (!rqSnap.exists()) throw new Error('RQ no encontrado');
+    const rq = rqSnap.data() as RQ;
+
+    // Add deletion tracking entry to approval chain history
+    const deletionEntry = {
+        level: 99,
+        role: 'recruiter' as any,
+        status: 'rejected' as const,
+        approvedBy: deletedBy,
+        approvedByName: deletedBy,
+        approvedAt: Timestamp.now(),
+        rejectionReason: `[ELIMINADO] ${reason}`
+    };
+
     await updateDoc(rqRef, {
         status: 'cancelled',
         approvalStatus: 'rejected',
         deletion_approved: true,
         deletion_requested_by: deletedBy,
         deletion_requested_at: Timestamp.now(),
+        cancellationReason: reason,
+        approvalChain: [...(rq.approvalChain || []), deletionEntry],
         updatedAt: Timestamp.now()
     });
+}
 
-    // TODO: Generar alerta al equipo de reclutamiento
+/**
+ * Cancelar un RQ (Recruiter) - diferente a eliminar, es una cancelación operativa
+ */
+export async function cancelRQ(
+    rqId: string,
+    cancelledBy: string,
+    cancelledByName: string,
+    reason: string
+): Promise<void> {
+    const rqRef = doc(db, 'rqs', rqId);
+    const rqSnap = await getDoc(rqRef);
+
+    if (!rqSnap.exists()) {
+        throw new Error('RQ no encontrado');
+    }
+
+    const rq = rqSnap.data() as RQ;
+
+    // Add cancellation tracking entry to approval chain
+    const cancellationEntry = {
+        level: 98,
+        role: 'recruiter' as any,
+        status: 'rejected' as const,
+        approvedBy: cancelledBy,
+        approvedByName: cancelledByName,
+        approvedAt: Timestamp.now(),
+        rejectionReason: `[CANCELADO] ${reason}`
+    };
+
+    await updateDoc(rqRef, {
+        status: 'cancelled',
+        cancellationReason: reason,
+        cancelledBy,
+        cancelledAt: Timestamp.now(),
+        approvalChain: [...(rq.approvalChain || []), cancellationEntry],
+        updatedAt: Timestamp.now()
+    });
 }
 
 /**

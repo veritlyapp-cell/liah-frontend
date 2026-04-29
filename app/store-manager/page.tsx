@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import CreateRQModal from '@/components/CreateRQModal';
 import InviteCandidateModal from '@/components/InviteCandidateModal';
 import RQListView from '@/components/RQListView';
+import ApprovedRQSummary from '@/components/admin/ApprovedRQSummary';
 import CandidatesListView from '@/components/CandidatesListView';
 import CandidatosAptosView from '@/components/CandidatosAptosView';
 import ConfigurationView from '@/components/ConfigurationView';
@@ -19,6 +20,7 @@ import StoreScheduleConfig from '@/components/store-manager/StoreScheduleConfig'
 import InterviewAgenda from '@/components/store-manager/InterviewAgenda';
 import SidebarNav from '@/components/SidebarNav';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
+import { useRQCreationStatus } from '@/lib/hooks/useRQCreationStatus';
 
 export default function StoreManagerDashboard() {
     const { user, claims, signOut } = useAuth();
@@ -33,12 +35,11 @@ export default function StoreManagerDashboard() {
 
     const [assignment, setAssignment] = useState<UserAssignment | null>(null);
     const [marcaNombre, setMarcaNombre] = useState<string>('');
-    const [isRQLocked, setIsRQLocked] = useState(false);
     const [loadingAssignment, setLoadingAssignment] = useState(true);
     const [showCreateRQModal, setShowCreateRQModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showBajaModal, setShowBajaModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'rqs' | 'entrevistas' | 'selection' | 'aptos' | 'bajas' | 'horarios' | 'configuracion'>('rqs');
+    const [activeTab, setActiveTab] = useState<'home' | 'rqs' | 'entrevistas' | 'selection' | 'aptos' | 'bajas' | 'horarios' | 'configuracion'>('home');
     const [enableInterviews, setEnableInterviews] = useState(true);
     const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; logo?: string } | null>(null);
 
@@ -70,36 +71,28 @@ export default function StoreManagerDashboard() {
 
                 // Fetch marca name if we have a marcaId
                 if (userAssignment?.assignedStore?.marcaId) {
-                    console.log('[StoreManager] 🏷️ Fetching brand info for ID:', userAssignment.assignedStore.marcaId);
                     const marcaDoc = await getDoc(doc(db, 'marcas', userAssignment.assignedStore.marcaId));
                     if (marcaDoc.exists()) {
                         const mData = marcaDoc.data();
-                        console.log('[StoreManager] ✅ Brand found:', mData.nombre);
                         if (isMounted) setMarcaNombre(mData.nombre || 'Sin Marca');
-                    } else {
-                        console.warn('[StoreManager] ⚠️ Brand document NOT FOUND');
                     }
                 }
 
                 // Check for global RQ lock and interview config
                 if (userAssignment?.holdingId) {
-                    console.log('[StoreManager] 🏢 Fetching holding info for ID:', userAssignment.holdingId);
                     const holdingDoc = await getDoc(doc(db, 'holdings', userAssignment.holdingId));
                     if (holdingDoc.exists()) {
                         const hData = holdingDoc.data();
-                        console.log('[StoreManager] ✅ Holding found, blockRQ:', hData.blockRQCreation);
-                        if (isMounted) setIsRQLocked(hData.blockRQCreation || false);
-                        if (isMounted) setHoldingInfo({ nombre: hData.nombre, logo: hData.logo });
-                        const responsible = hData.interviewResponsible || 'store_manager';
-                        if (isMounted) setEnableInterviews(responsible === 'store_manager');
-                    } else {
-                        console.warn('[StoreManager] ⚠️ Holding document NOT FOUND');
+                        setHoldingInfo({
+                            id: holdingDoc.id,
+                            nombre: hData.nombre,
+                        });
+                        setEnableInterviews(!hData.interviewResponsible || hData.interviewResponsible === 'store_manager');
                     }
                 }
             } catch (error) {
                 console.error('[StoreManager] ❌ Error loading assignment:', error);
             } finally {
-                console.log('[StoreManager] 🏁 Finishing loadAssignment, setting loadingAssignment to false');
                 if (isMounted) setLoadingAssignment(false);
                 clearTimeout(safetyTimeout);
             }
@@ -116,6 +109,11 @@ export default function StoreManagerDashboard() {
     const STORE_ID = assignment?.assignedStore?.tiendaId || '';
     const STORE_NAME = assignment?.assignedStore?.tiendaNombre || 'Mi Tienda';
     const MARCA_ID = assignment?.assignedStore?.marcaId || '';
+    const HOLDING_ID = assignment?.holdingId || null;
+
+    // Load RQ Creation schedule/block status in real time
+    const { status: rqCreationStatus, message: rqLockMessage } = useRQCreationStatus(HOLDING_ID);
+    const isRQLocked = rqCreationStatus !== 'allowed';
 
     // Hook de RQs (scope: store)
     const {
@@ -167,6 +165,7 @@ export default function StoreManagerDashboard() {
     }
 
     const sidebarItems = [
+        { id: 'home', label: 'Inicio', icon: '🏠' },
         { id: 'rqs', label: 'RQs Pendientes', icon: '📋', badge: stats.total > 0 ? stats.total : undefined },
         { id: 'entrevistas', label: 'Entrevistas', icon: '📅', hidden: !enableInterviews },
         { id: 'selection', label: 'Selección', icon: '🎯' },
@@ -193,21 +192,21 @@ export default function StoreManagerDashboard() {
             storeId={STORE_ID}
             onConfigClick={() => setActiveTab('configuracion')}
         >
-            <div className="space-y-10">
-                {/* Lock Notice Banner */}
+            <div className="space-y-8 pb-20">
+                {/* Lock Notice Banner - Global */}
                 {isRQLocked && (
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl">
                         <div className="px-6 py-4 flex items-center gap-3 text-amber-800">
                             <span className="text-xl">🔒</span>
                             <div>
-                                <p className="font-semibold text-sm">Creación de RQs deshabilitada temporalmente</p>
-                                <p className="text-xs">El administrador ha bloqueado la creación de nuevos requerimientos.</p>
+                                <p className="font-semibold text-sm">Creación de RQs deshabilitada</p>
+                                <p className="text-xs">{rqLockMessage}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Action Buttons Bar */}
+                {/* Action Buttons Bar - Global */}
                 <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
@@ -221,29 +220,46 @@ export default function StoreManagerDashboard() {
                     <div className="grid grid-cols-2 md:flex items-center gap-2 md:gap-3 w-full sm:w-auto">
                         <button
                             onClick={() => setShowInviteModal(true)}
-                            className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2"
+                            className="px-4 py-2.5 bg-[#0f172a] text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2"
                         >
-                            <span>➕</span> Invitar
+                            <span className="text-violet-400">➕</span> Invitar
                         </button>
                         {!isRQLocked && (
                             <button
                                 onClick={() => setShowCreateRQModal(true)}
-                                className="px-4 py-2.5 gradient-bg text-white rounded-xl text-[10px] md:text-xs font-bold hover:opacity-90 transition-all shadow-lg flex items-center justify-center gap-2"
+                                className="px-4 py-2.5 bg-violet-600 text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-violet-700 transition-all shadow-lg flex items-center justify-center gap-2"
                             >
-                                <span>📋</span> Crear RQ
+                                <span className="opacity-80">📋</span> Crear RQ
                             </button>
                         )}
                         <button
                             onClick={() => setShowBajaModal(true)}
-                            className="col-span-2 md:col-span-1 px-4 py-2.5 bg-red-500 text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-red-600 transition-all shadow-lg flex items-center justify-center gap-2"
+                            className="col-span-2 md:col-span-1 px-4 py-2.5 bg-[#ef4444] text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-red-600 transition-all shadow-lg flex items-center justify-center gap-2"
                         >
-                            <span>📤</span> Reportar Baja
+                            <span className="opacity-80">📤</span> Reportar Baja
                         </button>
                     </div>
                 </div>
 
-                <div className="space-y-12 pb-20">
-                    {activeTab === 'rqs' && (
+                {activeTab === 'home' && (
+                    <div className="space-y-10">
+                        {/* Summary of Approved RQs */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-[1px] flex-1 bg-slate-100"></div>
+                                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] whitespace-nowrap">
+                                    Resumen Operativo de Aprobados
+                                </h3>
+                                <div className="h-[1px] flex-1 bg-slate-100"></div>
+                            </div>
+                            <ApprovedRQSummary rqs={rqs} />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'rqs' && (
+                    <div className="space-y-10">
+                        {/* Requerimientos List */}
                         <div className="space-y-6">
                             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">📋</span>
@@ -272,83 +288,88 @@ export default function StoreManagerDashboard() {
                                 </div>
                             )}
                         </div>
-                    )}
+                    </div>
+                )}
 
-                    {enableInterviews && activeTab === 'entrevistas' && (
-                        <div className="space-y-6">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">📅</span>
-                                Entrevistas
-                            </h2>
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
-                                <InterviewAgenda storeId={STORE_ID} holdingId={assignment?.holdingId} />
+                {enableInterviews && activeTab === 'entrevistas' && (
+                    <div className="space-y-6">
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">📅</span>
+                            Entrevistas
+                        </h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
+                            <InterviewAgenda storeId={STORE_ID} holdingId={assignment?.holdingId} />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'selection' && (
+                    <div className="space-y-6">
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">🎯</span>
+                            Selección
+                        </h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
+                            <CandidatesListView storeId={STORE_ID} />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'aptos' && (
+                    <div className="space-y-6">
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">⏳</span>
+                            Pre-Ingreso
+                        </h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
+                            <CandidatosAptosView storeId={STORE_ID} marcaId={MARCA_ID} />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'bajas' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">
+                                <span className="text-2xl">📤</span>
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Reporte de Bajas</h3>
+                                <p className="text-sm text-gray-500">Gestión de salidas de personal.</p>
                             </div>
                         </div>
-                    )}
+                        <button
+                            onClick={() => setShowBajaModal(true)}
+                            className="w-full md:w-auto px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg"
+                        >
+                            Reportar Nueva Baja
+                        </button>
+                    </div>
+                )}
 
-                    {activeTab === 'selection' && (
-                        <div className="space-y-6">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">🎯</span>
-                                Selección
-                            </h2>
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
-                                <CandidatesListView storeId={STORE_ID} />
-                            </div>
-                        </div>
-                    )}
+                {activeTab === 'horarios' && <StoreScheduleConfig storeId={STORE_ID} />}
 
-                    {activeTab === 'aptos' && (
-                        <div className="space-y-6">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">⏳</span>
-                                Pre-Ingreso
-                            </h2>
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 overflow-hidden">
-                                <CandidatosAptosView storeId={STORE_ID} marcaId={MARCA_ID} />
-                            </div>
-                        </div>
-                    )}
+                {activeTab === 'configuracion' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                        <ConfigurationView />
+                    </div>
+                )}
 
-                    {activeTab === 'bajas' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">
-                                    <span className="text-2xl">📤</span>
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-lg">Reporte de Bajas</h3>
-                                    <p className="text-sm text-gray-500">Gestión de salidas de personal.</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowBajaModal(true)}
-                                className="w-full md:w-auto px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg"
-                            >
-                                Reportar Nueva Baja
-                            </button>
-                        </div>
-                    )}
-
-                    {activeTab === 'horarios' && <StoreScheduleConfig storeId={STORE_ID} />}
-
-                    {activeTab === 'configuracion' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                            <ConfigurationView />
-                        </div>
-                    )}
-                </div>
-
-                <CreateRQModal
-                    isOpen={showCreateRQModal}
-                    onClose={() => setShowCreateRQModal(false)}
-                    onSuccess={handleCreateRQSuccess}
-                    storeId={STORE_ID}
-                    storeName={STORE_NAME}
-                    marcaId={MARCA_ID}
-                    marcaNombre={marcaNombre}
-                    isLocked={isRQLocked}
-                />
+                {/* Create RQ Modal - Bulk Form */}
+                {assignment?.assignedStore && (
+                    <CreateRQModal
+                        isOpen={showCreateRQModal}
+                        onClose={() => setShowCreateRQModal(false)}
+                        onSuccess={() => {
+                            setShowCreateRQModal(false);
+                        }}
+                        storeId={assignment.assignedStore.tiendaId}
+                        storeName={assignment.assignedStore.tiendaNombre}
+                        marcaId={assignment.assignedStore.marcaId}
+                        marcaNombre={marcaNombre}
+                        creatorRole="store_manager"
+                    />
+                )}
 
                 <InviteCandidateModal
                     isOpen={showInviteModal}

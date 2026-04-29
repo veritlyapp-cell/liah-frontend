@@ -389,18 +389,33 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                     documentType: 'cul',
                     documentUrl: culUrl,
                     candidateId: localCandidate.id,
-                    candidateDni: localCandidate.dni // [NEW] For DNI verification
+                    candidateDni: localCandidate.dni
                 })
-
             });
-
 
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
 
             setAiResult(data);
 
-            // Auto-update CUL status based on AI recommendation
+            // SAVE AI RESULT IN DB FOR PERSISTENCE
+            await fetch('/api/candidates/update-validation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidateId: localCandidate.id,
+                    updateType: 'cul_validation',
+                    validatedBy: user?.uid,
+                    data: {
+                        status: data.validationStatus,
+                        aiObservation: data.aiObservation,
+                        denunciasEncontradas: data.denunciasEncontradas,
+                        confidence: data.confidence
+                    }
+                })
+            });
+
+            // Auto-update CUL global status based on AI recommendation
             if (data.validationStatus === 'approved_ai') {
                 await handleUpdateCUL('apto', `IA: ${data.aiObservation}`);
             } else if (data.validationStatus === 'rejected_ai') {
@@ -409,7 +424,8 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 await handleUpdateCUL('manual_review', `IA: ${data.aiObservation}`);
             }
 
-            alert(`✅ Análisis completado\n\nRecomendación: ${data.validationStatus}\nConfianza: ${data.confidence}%`);
+            alert(`✅ Análisis completado y guardado.\n\nRecomendación: ${data.validationStatus}\nConfianza: ${data.confidence}%`);
+            onRefresh();
         } catch (error: any) {
             console.error('Error analyzing CUL:', error);
             alert(`❌ Error: ${error.message}`);
@@ -636,12 +652,19 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
 
 
                         {/* AI Result Display */}
-                        {(aiResult || localCandidate.culAiObservation) && (
+                        {(aiResult || localCandidate.culAiObservation || (localCandidate as any).culValidationStatus) && (
                             <div className="mb-4 bg-violet-50 border border-violet-200 rounded-2xl overflow-hidden shadow-sm">
                                 <div className="bg-violet-600 px-4 py-2 flex items-center justify-between text-white">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xl">🤖</span>
-                                        <p className="font-bold text-sm tracking-wide">ANÁLISIS LIAH IA</p>
+                                        <div>
+                                            <p className="font-bold text-[10px] tracking-widest leading-none">ANÁLISIS LIAH IA</p>
+                                            {(localCandidate as any).culValidatedAt && (
+                                                <p className="text-[9px] text-violet-200 font-medium">
+                                                    {(localCandidate as any).culValidatedBy ? 'Validado manualmente' : 'Validado automáticamente'} el {((localCandidate as any).culValidatedAt?.toDate() || new Date((localCandidate as any).culValidatedAt)).toLocaleString()}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                     {(aiResult?.confidence || (localCandidate as any).culConfidence) && (
                                         <div className="flex items-center gap-2 bg-violet-500 px-3 py-1 rounded-full border border-violet-400">
@@ -652,10 +675,25 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                 </div>
 
                                 <div className="p-4 space-y-3">
+                                    {/* DNI Mismatch Warning */}
+                                    {((localCandidate as any).culDocumentoNumero?.replace(/\D/g, '') && 
+                                      localCandidate.dni?.replace(/\D/g, '') && 
+                                      (localCandidate as any).culDocumentoNumero?.replace(/\D/g, '') !== localCandidate.dni?.replace(/\D/g, '')) && (
+                                        <div className="p-3 bg-red-600 text-white rounded-xl shadow-lg border-2 border-white animate-pulse">
+                                            <p className="text-xs font-black uppercase mb-1 flex items-center gap-2">
+                                                🚨 ALERTA DE SEGURIDAD: DNI NO COINCIDE
+                                            </p>
+                                            <p className="text-[10px] font-bold leading-tight">
+                                                El DNI en el documento ({ (localCandidate as any).culDocumentoNumero }) NO coincide 
+                                                con el DNI del perfil ({ localCandidate.dni }). Posible suplantación o error de documento.
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <div>
-                                        <p className="text-xs font-bold text-violet-400 uppercase mb-1">Observación de Inteligencia Artificial</p>
+                                        <p className="text-xs font-bold text-violet-400 uppercase mb-1">Observación de la IA</p>
                                         <p className="text-sm text-violet-900 leading-relaxed font-medium">
-                                            {aiResult?.aiObservation || localCandidate.culAiObservation}
+                                            {aiResult?.aiObservation || localCandidate.culAiObservation || (localCandidate as any).culAiObservation}
                                         </p>
                                     </div>
 
@@ -675,7 +713,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                         </div>
                                     )}
 
-                                    {!aiResult?.denunciasEncontradas?.length && !(localCandidate as any).culDenunciasEncontradas?.length && (
+                                    {(!(aiResult?.denunciasEncontradas?.length > 0) && !((localCandidate as any).culDenunciasEncontradas?.length > 0) && ((localCandidate as any).culValidationStatus === 'approved_ai' || aiResult?.validationStatus === 'approved_ai')) && (
                                         <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
                                             <span className="text-sm">🛡️</span>
                                             <span className="text-xs font-bold uppercase tracking-tight">No se detectaron antecedentes penales ni judiciales</span>
@@ -689,7 +727,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                         <div className="flex gap-2 flex-wrap items-center">
                             <div className="w-full mb-3 flex items-center justify-between">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Controles Manuales de Reclutador</p>
-                                {!(aiResult || localCandidate.culAiObservation) && (candidate.certificadoUnicoLaboral || candidate.documents?.cul) && (
+                                {(candidate.certificadoUnicoLaboral || candidate.documents?.cul) && (
                                     <button
                                         onClick={handleAnalyzeCUL}
                                         disabled={analyzingCUL}
@@ -702,7 +740,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                             </>
                                         ) : (
                                             <>
-                                                🤖 Disparar Análisis IA
+                                                🤖 {(aiResult || localCandidate.culAiObservation) ? 'Volver a Analizar IA' : 'Disparar Análisis IA'}
                                             </>
                                         )}
                                     </button>

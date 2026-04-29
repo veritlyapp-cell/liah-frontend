@@ -132,6 +132,18 @@ export default function EditUserModalSuperAdmin({ show, user, onCancel, onSave }
 
                             <button
                                 type="button"
+                                onClick={() => setRol('kam')}
+                                className={`p-4 border-2 rounded-lg transition-all ${rol === 'kam'
+                                    ? 'border-violet-600 bg-violet-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                            >
+                                <p className="font-semibold text-gray-900">🤝 KAM</p>
+                                <p className="text-sm text-gray-500 text-center">Gestión de cuenta</p>
+                            </button>
+
+                            <button
+                                type="button"
                                 onClick={() => setRol('brand_recruiter')}
                                 className={`p-4 border-2 rounded-lg transition-all ${rol === 'brand_recruiter'
                                     ? 'border-violet-600 bg-violet-50'

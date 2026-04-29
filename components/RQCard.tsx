@@ -334,7 +334,30 @@ export default function RQCard({
             </div>
 
             {/* Info adicional al pie */}
-            <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
+            <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500 space-y-1">
+                {/* Motivo del RQ */}
+                {rq.motivo && (
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
+                            rq.motivo === 'Reemplazo'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-violet-50 text-violet-700 border-violet-200'
+                        }`}>
+                            {rq.motivo === 'Reemplazo' ? '🔄 Reemplazo' : '✨ Nueva Vacante'}
+                        </span>
+                        {rq.motivo === 'Reemplazo' && rq.personasReemplazadas && rq.personasReemplazadas.length > 0 && (
+                            <span className="text-[10px] text-amber-600 font-medium">
+                                ({rq.personasReemplazadas.join(' / ')})
+                            </span>
+                        )}
+                    </div>
+                )}
+                {/* Sustento de cancelación */}
+                {rq.status === 'cancelled' && rq.cancellationReason && (
+                    <div className="p-2 bg-orange-50 rounded-lg border border-orange-100 text-orange-700 text-[10px] italic">
+                        ⊘ Cancelado: "{rq.cancellationReason}"
+                    </div>
+                )}
                 <p>Creado por: {rq.creadorEmail}</p>
                 <p>Fecha: {new Date(rq.createdAt.toDate()).toLocaleDateString('es-PE')}</p>
             </div>

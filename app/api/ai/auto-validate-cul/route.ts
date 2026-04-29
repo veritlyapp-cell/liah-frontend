@@ -100,18 +100,21 @@ async function analyzeWithVision(imageUrl: string, prompt: string): Promise<any>
     const imageBuffer = await imageResponse.arrayBuffer();
     const base64Image = Buffer.from(imageBuffer).toString('base64');
 
-    // Determine mime type from URL
-    let mimeType = 'image/jpeg';
-    const lowerUrl = imageUrl.toLowerCase();
-    if (lowerUrl.includes('.png')) mimeType = 'image/png';
-    else if (lowerUrl.includes('.pdf') || lowerUrl.includes('alt=media')) {
-        // Firebase Storage URLs often end with alt=media, but the file might be a PDF
-        // Try to check if 'pdf' is in the path
-        if (lowerUrl.includes('pdf')) mimeType = 'application/pdf';
-        else mimeType = 'application/pdf'; // Default to PDF for CUL as it's common
-    } else if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) {
-        mimeType = 'image/jpeg';
+    // Determine mime type: Use content-type header from fetch for accuracy
+    const contentTypeHeader = imageResponse.headers.get('content-type');
+    let mimeType = contentTypeHeader || 'image/jpeg';
+    
+    // Fallback if header is type octet-stream (common in some storage providers) or missing
+    if (mimeType.includes('application/octet-stream') || !contentTypeHeader) {
+        const lowerUrl = imageUrl.toLowerCase();
+        if (lowerUrl.includes('.png')) mimeType = 'image/png';
+        else if (lowerUrl.includes('.pdf')) mimeType = 'application/pdf';
+        else if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) mimeType = 'image/jpeg';
+        else if (lowerUrl.includes('cul')) mimeType = 'application/pdf'; // Common assumption for this app
+        else mimeType = 'image/jpeg';
     }
+
+    console.log(`[AUTO-VALIDATE] Document fetched. Size: ${imageBuffer.byteLength} bytes, Type: ${mimeType}`);
 
     // Try models in order until one works
     for (const modelName of VISION_MODELS) {

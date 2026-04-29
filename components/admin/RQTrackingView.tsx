@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { RQ } from '@/lib/firestore/rqs';
-import { rejectRQ } from '@/lib/firestore/rqs';
+import { rejectRQ, cancelRQ } from '@/lib/firestore/rqs';
 import { useAuth } from '@/contexts/AuthContext';
 import InviteCandidateModal from '@/components/InviteCandidateModal';
 import { exportRQsExcel } from '@/lib/utils/export-excel';
@@ -16,9 +16,10 @@ interface RQTrackingViewProps {
     holdingId: string;
     marcas: { id: string; nombre: string }[];
     allowedStoreIds?: string[];
+    selectedMarcaId?: string; // filter from parent (recruiter page)
 }
 
-export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: RQTrackingViewProps) {
+export default function RQTrackingView({ holdingId, marcas, allowedStoreIds, selectedMarcaId }: RQTrackingViewProps) {
     const { user, claims } = useAuth();
     const [rqs, setRQs] = useState<RQ[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,6 +32,7 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
     const [selectedRQForInvite, setSelectedRQForInvite] = useState<RQ | null>(null);
     const [selectedRQForHistory, setSelectedRQForHistory] = useState<RQ | null>(null);
     const [showCreateFlow, setShowCreateFlow] = useState(false);
+    const [cancelling, setCancelling] = useState<string | null>(null);
 
     useEffect(() => {
         loadRQs();
@@ -107,8 +109,9 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
             }
         }
 
-        // Marca filter
-        if (marcaFilter !== 'all' && rq.marcaId !== marcaFilter) return false;
+        // Marca filter (from props or internal)
+        const effectiveMarcaFilter = selectedMarcaId && selectedMarcaId !== 'all' ? selectedMarcaId : marcaFilter;
+        if (effectiveMarcaFilter !== 'all' && rq.marcaId !== effectiveMarcaFilter) return false;
 
         // Category filter
         if (categoryFilter !== 'all') {
@@ -221,6 +224,22 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
         );
     }
 
+    async function handleCancel(rqId: string) {
+        const reason = prompt('Motivo de cancelación (quedará registrado en el historial y visible para todos):');
+        if (!reason || !user) return;
+
+        setCancelling(rqId);
+        try {
+            await cancelRQ(rqId, user.uid, user.email || user.displayName || 'Recruiter', reason);
+            await loadRQs();
+        } catch (error) {
+            console.error('Error cancelling RQ:', error);
+            alert('Error al cancelar el RQ');
+        } finally {
+            setCancelling(null);
+        }
+    }
+
     async function handleReject(rqId: string) {
         const reason = prompt('Motivo de rechazo (se devolverá al Jefe de Marca):');
         if (!reason || !user) return;
@@ -237,7 +256,9 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
         }
     }
 
-    const canRejectRQs = claims?.role === 'recruiter' || claims?.role === 'client_admin';
+    const recruiterRoles = ['recruiter', 'brand_recruiter', 'hrbp', 'jefe_zonal', 'client_admin', 'admin'];
+    const canRejectRQs = recruiterRoles.includes(claims?.role || '');
+    const canInvite = recruiterRoles.includes(claims?.role || '');
     const canCreateRQs = claims?.role === 'super_admin' || claims?.role === 'admin' || claims?.role === 'client_admin';
 
     if (loading) {
@@ -285,11 +306,12 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
             {/* Premium Stats Widgets */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                    { label: 'Total RQs', val: rqs.length, color: 'slate' },
+                                { label: 'Total RQs', val: rqs.length, color: 'slate' },
                     { label: 'Pendientes', val: rqs.filter(r => r.approvalStatus === 'pending').length, color: 'amber' },
                     { label: 'Aprobados', val: rqs.filter(r => r.approvalStatus === 'approved' && r.status !== 'closed').length, color: 'emerald' },
-                    { label: 'Cerrados', val: rqs.filter(r => r.status === 'closed' || r.status === 'filled').length, color: 'slate' },
-                    { label: 'Rechazados', val: rqs.filter(r => r.approvalStatus === 'rejected').length, color: 'rose' },
+                    { label: 'Cancelados', val: rqs.filter(r => r.status === 'cancelled' && !r.deletion_approved).length, color: 'orange' },
+                    { label: 'Eliminados', val: rqs.filter(r => r.deletion_approved).length, color: 'rose' },
+                    { label: 'Rechazados', val: rqs.filter(r => r.approvalStatus === 'rejected' && r.status !== 'cancelled').length, color: 'rose' },
                 ].map((stat, i) => (
                     <div key={i} className="white-label-card p-6 flex flex-col items-center justify-center text-center group hover:border-brand/30 transition-all">
                         <span className={`text-3xl font-black italic tracking-tighter text-${stat.color}-500 mb-1 group-hover:scale-110 transition-transform`}>
@@ -375,7 +397,6 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
                                     <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Vacantes</th>
                                     <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
                                     <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creado</th>
-                                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Aprobación</th>
                                     <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
                                 </tr>
                             </thead>
@@ -403,7 +424,18 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
-                                            {getStatusBadge(rq)}
+                                            <div className="flex flex-col gap-1">
+                                                {getStatusBadge(rq)}
+                                                {rq.motivo && (
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+                                                        rq.motivo === 'Reemplazo'
+                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                            : 'bg-violet-50 text-violet-700 border-violet-200'
+                                                    }`}>
+                                                        {rq.motivo === 'Reemplazo' ? '🔄 Reemplazo' : '✨ Nueva Vacante'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="flex items-center gap-2 text-slate-500">
@@ -411,37 +443,60 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
                                                 <span className="text-xs font-medium">{formatDate(rq.createdAt)}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5">
-                                            {rq.approvalChain && rq.approvalChain.length > 0 ? (
+                                        <td className="px-6 py-5 text-right">
+                                            <div className="flex items-center justify-end gap-2 flex-wrap">
+                                                {/* Historial - always visible */}
                                                 <button
                                                     onClick={() => setSelectedRQForHistory(rq)}
-                                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                                    className="px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-wide hover:bg-slate-200 active:scale-95 transition-all flex items-center gap-1"
                                                 >
+                                                    <ChevronRight size={12} />
                                                     Historial
-                                                    <ChevronRight size={10} />
                                                 </button>
-                                            ) : (
-                                                <span className="text-[10px] font-black text-slate-300 uppercase italic">Sin flujo</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+
+                                                {/* Invitar: active if approved, disabled if pending */}
+                                                {canInvite && rq.status !== 'closed' && rq.status !== 'cancelled' && (
                                                     <button
-                                                        onClick={() => setSelectedRQForInvite(rq)}
-                                                        className="px-4 py-2 brand-bg text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand/10 hover:brightness-110 active:scale-95 transition-all"
+                                                        onClick={() => rq.approvalStatus === 'approved' && setSelectedRQForInvite(rq)}
+                                                        disabled={rq.approvalStatus !== 'approved'}
+                                                        title={rq.approvalStatus !== 'approved' ? 'Requiere aprobación' : 'Invitar candidato'}
+                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                                            rq.approvalStatus === 'approved'
+                                                                ? 'bg-violet-600 text-white shadow hover:bg-violet-700 active:scale-95'
+                                                                : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                                        }`}
                                                     >
                                                         Invitar
                                                     </button>
                                                 )}
-                                                {canRejectRQs && rq.approvalStatus === 'approved' && rq.status !== 'closed' && (
+                                                {/* Cancelar: active if approved, greyed if pending */}
+                                                {canRejectRQs && rq.status !== 'closed' && rq.status !== 'cancelled' && rq.approvalStatus !== 'rejected' && (
                                                     <button
-                                                        onClick={() => handleReject(rq.id)}
-                                                        disabled={rejecting === rq.id}
-                                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
-                                                        title="Rechazar"
+                                                        onClick={() => rq.approvalStatus === 'approved' && handleCancel(rq.id)}
+                                                        disabled={rq.approvalStatus !== 'approved' || cancelling === rq.id}
+                                                        title={rq.approvalStatus !== 'approved' ? 'Solo se pueden cancelar RQs aprobados' : 'Cancelar RQ'}
+                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                                            rq.approvalStatus === 'approved'
+                                                                ? 'bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200 active:scale-95'
+                                                                : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed'
+                                                        }`}
                                                     >
-                                                        {rejecting === rq.id ? '...' : <LayoutDashboard size={18} />}
+                                                        {cancelling === rq.id ? '...' : 'Cancelar'}
+                                                    </button>
+                                                )}
+                                                {/* Rechazar: active if approved */}
+                                                {canRejectRQs && rq.status !== 'closed' && rq.status !== 'cancelled' && rq.approvalStatus !== 'rejected' && (
+                                                    <button
+                                                        onClick={() => rq.approvalStatus === 'approved' && handleReject(rq.id)}
+                                                        disabled={rq.approvalStatus !== 'approved' || rejecting === rq.id}
+                                                        title={rq.approvalStatus !== 'approved' ? 'Solo se pueden rechazar RQs aprobados' : 'Rechazar RQ'}
+                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                                            rq.approvalStatus === 'approved'
+                                                                ? 'bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 active:scale-95'
+                                                                : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed'
+                                                        }`}
+                                                    >
+                                                        {rejecting === rq.id ? '...' : 'Rechazar'}
                                                     </button>
                                                 )}
                                             </div>
@@ -531,11 +586,11 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-white"
+                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-white max-h-[90vh] flex flex-col"
                     >
-                        <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                        <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">Historial de Aprobaciones</h3>
+                                <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">Historial del RQ</h3>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">RQ ID: {selectedRQForHistory.rqNumber || selectedRQForHistory.id}</p>
                             </div>
                             <button
@@ -545,25 +600,58 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
                                 ✕
                             </button>
                         </div>
-                        <div className="p-10">
+                        <div className="p-10 overflow-y-auto flex-1">
+                            {/* Motivo + personas reemplazadas */}
+                            {selectedRQForHistory.motivo && (
+                                <div className={`mb-6 p-4 rounded-2xl border ${selectedRQForHistory.motivo === 'Reemplazo' ? 'bg-amber-50 border-amber-200' : 'bg-violet-50 border-violet-200'}`}>
+                                    <p className={`text-xs font-black uppercase tracking-widest mb-1 ${selectedRQForHistory.motivo === 'Reemplazo' ? 'text-amber-500' : 'text-violet-500'}`}>
+                                        Motivo del Requerimiento
+                                    </p>
+                                    <p className={`text-sm font-bold ${selectedRQForHistory.motivo === 'Reemplazo' ? 'text-amber-700' : 'text-violet-700'}`}>
+                                        {selectedRQForHistory.motivo === 'Reemplazo' ? '🔄 Reemplazo' : '✨ Nueva Vacante'}
+                                    </p>
+                                    {selectedRQForHistory.motivo === 'Reemplazo' && selectedRQForHistory.personasReemplazadas && selectedRQForHistory.personasReemplazadas.length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                            <p className="text-[10px] font-black uppercase text-amber-600 tracking-widest">Personas a reemplazar:</p>
+                                            {selectedRQForHistory.personasReemplazadas.map((nombre, i) => (
+                                                <p key={i} className="text-xs font-semibold text-amber-800">• {nombre}</p>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="space-y-6">
                                 {selectedRQForHistory.approvalChain?.filter(step => step.status !== 'pending').map((step, idx) => {
-                                    const levelNames = ['', 'Tienda', 'Supervisor', 'Jefe Marca'];
+                                    const levelNames: Record<number, string> = { 1: 'Tienda', 2: 'Supervisor', 3: 'Jefe Marca', 98: 'Recruiter', 99: 'Eliminado' };
                                     const isApproved = step.status === 'approved';
-                                    const badgeClass = isApproved ? 'soft-badge-emerald' : 'soft-badge-rose';
+                                    const isCancellation = step.level === 98;
+                                    const isRejectionReason = step.rejectionReason?.startsWith('[CANCELADO]') || step.rejectionReason?.startsWith('[ELIMINADO]');
+
+                                    const iconBg = isApproved
+                                        ? 'bg-emerald-50 border-emerald-100 text-emerald-500'
+                                        : isCancellation
+                                            ? 'bg-orange-50 border-orange-200 text-orange-500'
+                                            : 'bg-rose-50 border-rose-100 text-rose-500';
+
+                                    const badgeEl = isApproved
+                                        ? <div className="soft-badge-emerald">Aprobado</div>
+                                        : isCancellation
+                                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 text-[10px] font-black uppercase border border-orange-200">Cancelado</span>
+                                            : <div className="soft-badge-rose">Rechazado</div>;
 
                                     return (
                                         <div key={idx} className="flex gap-6 relative">
                                             {idx !== selectedRQForHistory.approvalChain!.length - 1 && (
                                                 <div className="absolute left-6 top-12 w-0.5 h-10 bg-slate-100" />
                                             )}
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border ${isApproved ? 'bg-emerald-50 border-emerald-100 text-emerald-500' : 'bg-rose-50 border-rose-100 text-rose-500'}`}>
-                                                {isApproved ? '✓' : '✕'}
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border ${iconBg}`}>
+                                                {isApproved ? '✓' : isCancellation ? '⊘' : '✕'}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between gap-3 mb-1">
                                                     <p className="text-sm font-black text-slate-900 uppercase italic tracking-tight">{levelNames[step.level] || `Nivel ${step.level}`}</p>
-                                                    <div className={badgeClass}>{isApproved ? 'Aprobado' : 'Rechazado'}</div>
+                                                    {badgeEl}
                                                 </div>
                                                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none mb-2">
                                                     {step.approvedByName || 'System Auto-Proc'}
@@ -573,8 +661,12 @@ export default function RQTrackingView({ holdingId, marcas, allowedStoreIds }: R
                                                     {formatDateTime(step.approvedAt)}
                                                 </div>
                                                 {step.rejectionReason && (
-                                                    <div className="mt-4 p-4 bg-rose-50/50 rounded-2xl border border-rose-100/50 text-rose-600 text-xs italic font-medium leading-relaxed">
-                                                        "{step.rejectionReason}"
+                                                    <div className={`mt-4 p-4 rounded-2xl border text-xs italic font-medium leading-relaxed ${
+                                                        isRejectionReason
+                                                            ? 'bg-orange-50/50 border-orange-100/50 text-orange-700'
+                                                            : 'bg-rose-50/50 border-rose-100/50 text-rose-600'
+                                                    }`}>
+                                                        "{step.rejectionReason.replace('[CANCELADO] ', '').replace('[ELIMINADO] ', '')}"
                                                     </div>
                                                 )}
                                             </div>

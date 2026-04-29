@@ -12,7 +12,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface UserClaims {
-    role?: 'super_admin' | 'client_admin' | 'admin' | 'gerente' | 'jefe_marca' | 'supervisor' | 'brand_recruiter' | 'recruiter' | 'store_manager' | 'lider_reclutamiento' | 'hiring_manager' | 'approver' | 'compensaciones';
+    role?: 'super_admin' | 'kam' | 'client_admin' | 'admin' | 'gerente' | 'jefe_marca' | 'supervisor' | 'brand_recruiter' | 'recruiter' | 'store_manager' | 'lider_reclutamiento' | 'hiring_manager' | 'approver' | 'compensaciones';
     tenant_id?: string | null;
     holdingId?: string | null;
     marcaId?: string | null;
@@ -209,10 +209,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             console.log('🔐 Login successful, role:', userClaims.role);
 
+            // Log activity
+            try {
+                const { logAction } = await import('@/lib/firestore/logs');
+                await logAction({
+                    userId: userCredential.user.uid,
+                    userEmail: userCredential.user.email || '',
+                    userName: userCredential.user.displayName || 'Usuario',
+                    holdingId: userClaims.holdingId || 'N/A',
+                    marcaId: userClaims.marcaId || undefined,
+                    action: 'login',
+                    details: `Login exitoso con rol ${userClaims.role}`,
+                    metadata: {
+                        userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Server',
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            } catch (logErr) {
+                console.warn('Logging failed (non-blocking):', logErr);
+            }
+
             // Redirect según rol
             switch (userClaims.role) {
                 case 'super_admin':
                     router.push('/super-admin');
+                    break;
+                case 'kam':
+                    router.push('/kam');
                     break;
                 case 'client_admin':
                 case 'admin':
@@ -245,10 +268,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     router.push('/talent');
             }
         } catch (error: any) {
-            console.error('Login error:', error);
+            console.error('Login error full:', error);
             // Map Firebase error codes to user-friendly messages
-            const errorCode = error.code || '';
-            let errorMessage = 'Error al iniciar sesión';
+            const errorCode = error.code || 'UNKNOWN_CODE';
+            const originalMsg = error.message || 'Sin mensaje original';
+            let errorMessage = `Error [${errorCode}]: ${originalMsg}`;
 
             if (errorCode === 'auth/invalid-credential' ||
                 errorCode === 'auth/wrong-password' ||

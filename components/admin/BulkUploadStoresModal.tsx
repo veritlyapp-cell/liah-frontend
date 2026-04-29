@@ -116,10 +116,12 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
             const marcasSnapshot = await getDocs(marcasQuery);
 
             const marcaMap: Record<string, string> = {};
+            const marcaNameMap: Record<string, string> = {};
             marcasSnapshot.docs.forEach(doc => {
                 const data = doc.data();
                 const nombreLower = (data.nombre || '').toLowerCase().trim();
                 marcaMap[nombreLower] = doc.id;
+                marcaNameMap[doc.id] = data.nombre || '';
             });
 
             console.log('Marcas disponibles:', Object.keys(marcaMap));
@@ -148,6 +150,7 @@ export default function BulkUploadStoresModal({ show, holdingId, onCancel, onCom
                         codigo,
                         nombre: store.nombre,
                         marcaId: marcaId,
+                        marcaNombre: marcaNameMap[marcaId] || store.marca,
                         holdingId: holdingId,
                         departamento: store.departamento,
                         provincia: store.provincia,

@@ -31,6 +31,9 @@ function LoginContent() {
                 case 'super_admin':
                     router.push('/super-admin');
                     break;
+                case 'kam':
+                    router.push('/kam');
+                    break;
                 case 'client_admin':
                 case 'admin':
                 case 'gerente':

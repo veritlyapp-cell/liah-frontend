@@ -85,7 +85,15 @@ async function analyzeWithVision(documentUrl: string, prompt: string): Promise<a
 
     const buffer = await response.arrayBuffer();
     const base64Data = Buffer.from(buffer).toString('base64');
-    const mimeType = getMimeType(documentUrl);
+    
+    // Improved MIME type detection: Try header first, then fallback to URL helper
+    const contentTypeHeader = response.headers.get('content-type');
+    let mimeType = contentTypeHeader || getMimeType(documentUrl);
+    
+    // Normalize common types and handle Firebase Storage quirks
+    if (mimeType.includes('application/octet-stream')) {
+        mimeType = getMimeType(documentUrl);
+    }
 
     console.log(`[DOCUMENT IA] 📄 Document fetched. Size: ${buffer.byteLength} bytes, Type: ${mimeType}`);
 

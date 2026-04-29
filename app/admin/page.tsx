@@ -21,6 +21,8 @@ import { LayoutDashboard, Users, ClipboardList, Briefcase, BarChart3, Wallet, Se
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { db, auth } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
+import { subscribeToAllRQs, type RQ } from '@/lib/firestore/rqs';
+import ApprovedRQSummary from '@/components/admin/ApprovedRQSummary';
 import UnifiedAnalytics from '@/components/admin/UnifiedAnalytics';
 import ConfigSidebarView from '@/components/admin/ConfigSidebarView';
 import CompensacionesTab from '@/components/talent/CompensacionesTab';
@@ -40,6 +42,8 @@ export default function AdminDashboard() {
     const [interviewCounts, setInterviewCounts] = useState<Record<string, number>>({});
     const [rqCounts, setRqCounts] = useState<Record<string, number>>({});
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [rawStores, setRawStores] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [stores, setStores] = useState<any[]>([]);
     const [loadingBrands, setLoadingBrands] = useState(true);
     const [loadingStores, setLoadingStores] = useState(true);
@@ -56,6 +60,7 @@ export default function AdminDashboard() {
 
     const [storeCounts, setStoreCounts] = useState<Record<string, number>>({});
     const [holdingInfo, setHoldingInfo] = useState<{ nombre: string; plan: string; logo?: string; isTrial?: boolean; hasExitAnalytics?: boolean; color?: string } | null>(null);
+    const [allRQs, setAllRQs] = useState<RQ[]>([]);
 
     const { hasFeature, isTrial } = useFeatures();
 
@@ -211,24 +216,19 @@ export default function AdminDashboard() {
     useEffect(() => {
         if (!user || !holdingId) return;
 
-        const rqsRef = collection(db, 'rqs');
-        const q = query(rqsRef, where('holdingId', '==', holdingId));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        return subscribeToAllRQs(holdingId, (loadedRQs) => {
+            setAllRQs(loadedRQs);
+            
+            // Calculate counts for brands
             const countMap: Record<string, number> = {};
-
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                const marcaId = data.marcaId;
+            loadedRQs.forEach(rq => {
+                const marcaId = rq.marcaId;
                 if (marcaId) {
                     countMap[marcaId] = (countMap[marcaId] || 0) + 1;
                 }
             });
-
             setRqCounts(countMap);
         });
-
-        return () => unsubscribe();
     }, [user, holdingId]);
 
     // Load stores from Firestore
@@ -242,8 +242,17 @@ export default function AdminDashboard() {
             const loadedStores = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
+            })) as any[];
+
+            // Enrich marcaNombre from brands if missing in Firestore document
+            const brandMap: Record<string, string> = {};
+            brands.forEach((b: any) => { if (b.id) brandMap[b.id] = b.nombre; });
+            const enriched = loadedStores.map(s => ({
+                ...s,
+                marcaNombre: s.marcaNombre || brandMap[s.marcaId] || ''
             }));
-            setStores(loadedStores);
+
+            setRawStores(loadedStores as any[]);
             setLoadingStores(false);
         }, (error) => {
             console.error('Error cargando tiendas:', error);
@@ -252,6 +261,17 @@ export default function AdminDashboard() {
 
         return () => unsubscribe();
     }, [user, holdingId]);
+
+    // Enrich rawStores with marcaNombre from brands whenever either changes
+    useEffect(() => {
+        if (rawStores.length === 0) return;
+        const brandMap: Record<string, string> = {};
+        brands.forEach((b: any) => { if (b.id) brandMap[b.id] = b.nombre; });
+        setStores(rawStores.map(s => ({
+            ...s,
+            marcaNombre: s.marcaNombre || brandMap[s.marcaId] || ''
+        })));
+    }, [rawStores, brands]);
 
     // Count stores per brand
     useEffect(() => {
@@ -349,6 +369,22 @@ export default function AdminDashboard() {
                                 <Plus size={16} strokeWidth={3} />
                                 <span className="hidden sm:inline">Nueva Marca</span>
                             </button>
+                        </div>
+
+                        {/* Approved RQs Summary - Dashboard Requirement */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-1">
+                                <span className="flex-1 h-[2px] bg-slate-100"></span>
+                                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] whitespace-nowrap">
+                                    Resumen Consolidado de Aprobados
+                                </h3>
+                                <span className="flex-1 h-[2px] bg-slate-100"></span>
+                            </div>
+                            <ApprovedRQSummary 
+                                rqs={allRQs} 
+                                showMarca={true} 
+                                showTienda={true} 
+                            />
                         </div>
 
                         {loadingBrands ? (

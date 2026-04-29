@@ -23,7 +23,12 @@ export default function PushNotificationManager() {
             setIsSupported(true);
 
             // Request permission
-            if (Notification.permission === 'default') {
+            if (Notification.permission === 'denied') {
+                console.log('Push notifications blocked by user');
+                return;
+            }
+
+            if (Notification.permission !== 'granted') {
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') return;
             }

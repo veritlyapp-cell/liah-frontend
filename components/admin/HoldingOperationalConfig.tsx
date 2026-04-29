@@ -10,7 +10,12 @@ interface HoldingOperationalConfigProps {
 
 export default function HoldingOperationalConfig({ holdingId }: HoldingOperationalConfigProps) {
     const [holdingName, setHoldingName] = useState('');
-    const [blockRQCreation, setBlockRQCreation] = useState(false);
+    const [rqCreationMode, setRqCreationMode] = useState<'free' | 'blocked' | 'scheduled'>('free');
+    const [scheduleStartDay, setScheduleStartDay] = useState<number>(1);
+    const [scheduleStartTime, setScheduleStartTime] = useState<string>('09:00');
+    const [scheduleEndDay, setScheduleEndDay] = useState<number>(4);
+    const [scheduleEndTime, setScheduleEndTime] = useState<string>('14:00');
+    
     const [interviewResponsible, setInterviewResponsible] = useState<'store_manager' | 'recruiter'>('store_manager');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -23,8 +28,23 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
                 if (snap.exists()) {
                     const data = snap.data();
                     setHoldingName(data.nombre || '');
-                    setBlockRQCreation(data.blockRQCreation || false);
                     setInterviewResponsible(data.interviewResponsible || 'store_manager');
+                    
+                    // Prioritize new mode field, fallback to legacy boolean
+                    if (data.rqCreationMode) {
+                        setRqCreationMode(data.rqCreationMode);
+                    } else if (data.blockRQCreation === true) {
+                        setRqCreationMode('blocked');
+                    } else {
+                        setRqCreationMode('free');
+                    }
+
+                    if (data.rqSchedule) {
+                        setScheduleStartDay(data.rqSchedule.startDay ?? 1);
+                        setScheduleStartTime(data.rqSchedule.startTime || '09:00');
+                        setScheduleEndDay(data.rqSchedule.endDay ?? 4);
+                        setScheduleEndTime(data.rqSchedule.endTime || '14:00');
+                    }
                 }
             } catch (error) {
                 console.error('Error loading operational config:', error);
@@ -41,7 +61,15 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
             const holdingRef = doc(db, 'holdings', holdingId);
             await updateDoc(holdingRef, {
                 nombre: holdingName,
-                blockRQCreation: blockRQCreation,
+                rqCreationMode,
+                // Mantener compatibilidad legada por si algo más lo usa
+                blockRQCreation: rqCreationMode === 'blocked',
+                rqSchedule: rqCreationMode === 'scheduled' ? {
+                    startDay: scheduleStartDay,
+                    startTime: scheduleStartTime,
+                    endDay: scheduleEndDay,
+                    endTime: scheduleEndTime
+                } : null,
                 interviewResponsible: interviewResponsible,
                 updatedAt: Timestamp.now()
             });
@@ -55,6 +83,16 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
     }
 
     if (loading) return <div className="animate-pulse h-40 bg-gray-100 rounded-xl" />;
+
+    const DAYS_OF_WEEK = [
+        { value: 1, label: 'Lunes' },
+        { value: 2, label: 'Martes' },
+        { value: 3, label: 'Miércoles' },
+        { value: 4, label: 'Jueves' },
+        { value: 5, label: 'Viernes' },
+        { value: 6, label: 'Sábado' },
+        { value: 0, label: 'Domingo' }
+    ];
 
     return (
         <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
@@ -73,22 +111,66 @@ export default function HoldingOperationalConfig({ holdingId }: HoldingOperation
                     />
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
+                {/* NUEVO PANEL DE HORARIOS DE RQ */}
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
                     <div>
-                        <p className="font-semibold text-red-900">Bloquear Nuevos Requerimientos</p>
-                        <p className="text-sm text-red-700/70">
-                            Si se activa, los Gerentes de Tienda no podrán crear nuevos RQs.
+                        <p className="font-semibold text-slate-900">Creación de Nuevos Requerimientos (RQs)</p>
+                        <p className="text-sm text-slate-500 mb-3">
+                            Controla si los Gerentes de Tienda pueden solicitar personal o no.
                         </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <label className={`cursor-pointer rounded-lg p-3 border-2 transition-all ${rqCreationMode === 'free' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <input type="radio" name="rqMode" value="free" checked={rqCreationMode === 'free'} onChange={() => setRqCreationMode('free')} className="text-green-600 focus:ring-green-500" />
+                                    <span className="font-semibold text-green-900">Abierto (Libre)</span>
+                                </div>
+                                <p className="text-xs text-green-700">Cualquiera puede crear en cualquier momento.</p>
+                            </label>
+
+                            <label className={`cursor-pointer rounded-lg p-3 border-2 transition-all ${rqCreationMode === 'blocked' ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <input type="radio" name="rqMode" value="blocked" checked={rqCreationMode === 'blocked'} onChange={() => setRqCreationMode('blocked')} className="text-red-600 focus:ring-red-500" />
+                                    <span className="font-semibold text-red-900">Bloqueado</span>
+                                </div>
+                                <p className="text-xs text-red-700">Nadie puede crear (excepto Administradores).</p>
+                            </label>
+
+                            <label className={`cursor-pointer rounded-lg p-3 border-2 transition-all ${rqCreationMode === 'scheduled' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <input type="radio" name="rqMode" value="scheduled" checked={rqCreationMode === 'scheduled'} onChange={() => setRqCreationMode('scheduled')} className="text-violet-600 focus:ring-violet-500" />
+                                    <span className="font-semibold text-violet-900">Horario Semanal</span>
+                                </div>
+                                <p className="text-xs text-violet-700">Se abrirá y cerrará automáticamente.</p>
+                            </label>
+                        </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={blockRQCreation}
-                            onChange={(e) => setBlockRQCreation(e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                    </label>
+
+                    {rqCreationMode === 'scheduled' && (
+                        <div className="mt-4 p-4 bg-white rounded-lg border border-violet-100 flex flex-col md:flex-row gap-4 items-center">
+                            <div className="flex-1 w-full">
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Apertura</label>
+                                <div className="flex gap-2">
+                                    <select value={scheduleStartDay} onChange={(e) => setScheduleStartDay(Number(e.target.value))} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        {DAYS_OF_WEEK.map(d => <option key={`start-${d.value}`} value={d.value}>{d.label}</option>)}
+                                    </select>
+                                    <input type="time" value={scheduleStartTime} onChange={(e) => setScheduleStartTime(e.target.value)} className="w-[110px] px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                                </div>
+                            </div>
+                            
+                            <div className="text-gray-400 font-bold hidden md:block mt-6">➔</div>
+                            
+                            <div className="flex-1 w-full">
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Cierre</label>
+                                <div className="flex gap-2">
+                                    <select value={scheduleEndDay} onChange={(e) => setScheduleEndDay(Number(e.target.value))} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        {DAYS_OF_WEEK.map(d => <option key={`end-${d.value}`} value={d.value}>{d.label}</option>)}
+                                    </select>
+                                    <input type="time" value={scheduleEndTime} onChange={(e) => setScheduleEndTime(e.target.value)} className="w-[110px] px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-4 bg-violet-50 rounded-lg border border-violet-100 space-y-3">

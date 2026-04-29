@@ -96,19 +96,20 @@ export default function DashboardLayout({
     // Fetch marca info if not provided
     React.useEffect(() => {
         const fetchMarca = async () => {
-            if (!marcaId || marcaName) return;
+            if (!marcaId || (marcaName && marcaLogo)) return;
             try {
                 const mDoc = await getDoc(doc(db, 'marcas', marcaId));
                 if (mDoc.exists()) {
+                    const data = mDoc.data();
                     setMarcaInfo({
-                        nombre: mDoc.data().nombre,
-                        logoUrl: mDoc.data().logoUrl
+                        nombre: data.nombre,
+                        logoUrl: data.logoUrl
                     });
                 }
             } catch (e) { console.error(e); }
         };
         fetchMarca();
-    }, [marcaId, marcaName]);
+    }, [marcaId, marcaName, marcaLogo]);
 
     const displayHoldingName = holdingName || holdingInfo?.nombre;
     const displayHoldingLogo = holdingLogo || holdingInfo?.logoUrl;
@@ -151,8 +152,8 @@ export default function DashboardLayout({
 
             {/* Content Area */}
             <div
-                className="flex-1 flex flex-col transition-all duration-300 min-w-0"
-                style={{ marginLeft: isMobile ? '0px' : 'var(--sidebar-width, 0px)' }}
+                className="flex-1 flex flex-col transition-all duration-300 min-w-0 overflow-y-auto"
+                style={{ marginLeft: isMobile ? '0px' : 'var(--sidebar-width, 0px)', height: '100vh' }}
             >
                 {/* Standard Unified Header */}
                 <DashboardHeader
@@ -203,7 +204,7 @@ export default function DashboardLayout({
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-brand rounded-b-full" />
                                 )}
                                 <span className={`text-lg ${isActive ? '-translate-y-0.5 scale-110' : ''} transition-all duration-300`}>
-                                    {React.isValidElement(item.icon) ? React.cloneElement(item.icon as React.ReactElement<any>, { size: 20, strokeWidth: isActive ? 2.5 : 2 }) : item.icon}
+                                    {React.isValidElement(item.icon) ? React.cloneElement(item.icon, { size: 20, strokeWidth: isActive ? 2.5 : 2 } as React.SVGProps<SVGSVGElement> & { size?: number }) : item.icon}
                                 </span>
                                 <span className={`text-[8px] font-bold uppercase tracking-wider leading-none mt-1 transition-all duration-300 truncate max-w-[56px] text-center ${isActive ? 'opacity-100 font-black' : 'opacity-60'}`}>{item.label.length > 8 ? item.label.slice(0, 8) : item.label}</span>
                             </button>
