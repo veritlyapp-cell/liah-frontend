@@ -33,25 +33,31 @@ Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones:
 }`;
 
 const CUL_PROMPT = `Analiza este Certificado Único Laboral (CUL) del Perú (Certificado CERTIJOVEN o CERTIADULTO).
-Este documento es CRÍTICO para la seguridad de la empresa. Contiene el historial laboral y antecedentes penales, judiciales y policiales.
+Este documento contiene el historial laboral y antecedentes penales, judiciales y policiales.
 
 INSTRUCCIONES DE ANÁLISIS:
-1. ANTECEDENTES: Busca CUALQUIER mención de "ANTECEDENTES PENALES", "ANTECEDENTES POLICIALES" o "ANTECEDENTES JUDICIALES". Reporta si hay registros o si está limpio.
-2. DENUNCIAS: Busca tablas o secciones de "DENUNCIAS" o "PROCESSES".
-3. FECHA DE EMISIÓN: Busca la fecha en que se generó este documento (generalmente dice "Fecha de emisión" o aparece cerca del código QR).
-4. VALIDACIÓN: El documento debe ser un PDF oficial del Ministerio de Trabajo.
+1. ANTECEDENTES: Reporta ESPECÍFICAMENTE el estado de cada uno:
+   - PENALES: ¿Tiene antecedentes? (Encontrado / No Encontrado)
+   - JUDICIALES: ¿Tiene procesos? (Encontrado / No Encontrado)
+   - POLICIALES: ¿Tiene registros? (Encontrado / No Encontrado)
+2. FORMACIÓN: Resume brevemente los estudios mencionados.
+3. EXPERIENCIA: Resume brevemente la última experiencia laboral.
+4. FECHA DE EMISIÓN: Busca la fecha de generación del documento.
 
 Responde ÚNICAMENTE con JSON válido:
 {
-  "tieneDenuncias": true/false (true si hay CUALQUIER antecedente o denuncia),
-  "tieneAntecedentesNegativos": true/false,
-  "documentoAutentico": true/false/"no_claro",
   "nombreTitular": "Nombre completo",
   "dniTitular": "DNI",
   "fechaEmision": "DD/MM/AAAA",
-  "denunciasEncontradas": ["Lista detallada de antecedentes o denuncias detectadas"],
+  "antecedentesPenales": "Encontrado" | "No Encontrado",
+  "antecedentesJudiciales": "Encontrado" | "No Encontrado",
+  "antecedentesPoliciales": "Encontrado" | "No Encontrado",
+  "estudios": "Resumen estudios",
+  "experienciaLaboral": "Resumen última experiencia",
+  "tieneDenuncias": true/false,
+  "tieneAntecedentesNegativos": true/false,
   "observacion": "Resumen ejecutivo del perfil de seguridad",
-  "recomendacion": "aprobar" (si no hay nada), "rechazar" (si hay antecedentes graves), "revisar_manual" (si hay dudas o es antiguo),
+  "recomendacion": "aprobar" | "rechazar" | "revisar_manual",
   "confidence": 0-100
 }`;
 
@@ -226,14 +232,18 @@ export async function POST(req: NextRequest) {
                 sexo: analysisResult.sexo
             } : {
                 nombreTitular: analysisResult.nombreTitular,
-                dniTitular: analysisResult.dniTitular
+                dniTitular: analysisResult.dniTitular,
+                antecedentesPenales: analysisResult.antecedentesPenales,
+                antecedentesJudiciales: analysisResult.antecedentesJudiciales,
+                antecedentesPoliciales: analysisResult.antecedentesPoliciales,
+                estudios: analysisResult.estudios,
+                experienciaLaboral: analysisResult.experienciaLaboral
             },
             validationStatus,
             dniMismatch,
             aiObservation: dniMismatch
                 ? `⚠️ DNI NO COINCIDE: El CUL pertenece a DNI ${analysisResult.dniTitular || 'no legible'}. ${analysisResult.observacion || ''}`
                 : analysisResult.observacion,
-            denunciasEncontradas: analysisResult.denunciasEncontradas || [],
             confidence: analysisResult.confidence,
             rawAnalysis: analysisResult
         });

@@ -410,7 +410,13 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                         status: data.validationStatus,
                         aiObservation: data.aiObservation,
                         denunciasEncontradas: data.denunciasEncontradas,
-                        confidence: data.confidence
+                        confidence: data.confidence,
+                        antecedentesPenales: data.extractedData?.antecedentesPenales,
+                        antecedentesJudiciales: data.extractedData?.antecedentesJudiciales,
+                        antecedentesPoliciales: data.extractedData?.antecedentesPoliciales,
+                        estudios: data.extractedData?.estudios,
+                        experienciaLaboral: data.extractedData?.experienciaLaboral,
+                        fechaEmision: data.extractedData?.fechaEmision
                     }
                 })
             });
@@ -696,6 +702,40 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                                             {aiResult?.aiObservation || localCandidate.culAiObservation || (localCandidate as any).culAiObservation}
                                         </p>
                                     </div>
+
+                                    {/* Detailed Records Grid */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { label: 'Penales', val: aiResult?.extractedData?.antecedentesPenales || localCandidate.culAntecedentesPenales },
+                                            { label: 'Judiciales', val: aiResult?.extractedData?.antecedentesJudiciales || localCandidate.culAntecedentesJudiciales },
+                                            { label: 'Policiales', val: aiResult?.extractedData?.antecedentesPoliciales || localCandidate.culAntecedentesPoliciales },
+                                        ].map((rec, i) => (
+                                            <div key={i} className="bg-white p-2 rounded-xl border border-violet-100">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{rec.label}</p>
+                                                <p className={`text-[10px] font-bold ${rec.val === 'Encontrado' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                    {rec.val || '---'}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {(aiResult?.extractedData?.estudios || localCandidate.culEstudios) && (
+                                        <div className="bg-white/50 p-3 rounded-xl border border-blue-100">
+                                            <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">🎓 Formación Detectada</p>
+                                            <p className="text-xs text-slate-700 font-medium">
+                                                {aiResult?.extractedData?.estudios || localCandidate.culEstudios}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {(aiResult?.extractedData?.experienciaLaboral || localCandidate.culExperienciaLaboral) && (
+                                        <div className="bg-white/50 p-3 rounded-xl border border-orange-100">
+                                            <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">💼 Última Experiencia</p>
+                                            <p className="text-xs text-slate-700 font-medium">
+                                                {aiResult?.extractedData?.experienciaLaboral || localCandidate.culExperienciaLaboral}
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {(aiResult?.denunciasEncontradas?.length > 0 || (localCandidate as any).culDenunciasEncontradas?.length > 0) && (
                                         <div className="p-3 bg-red-100/50 border border-red-200 rounded-xl">

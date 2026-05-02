@@ -69,7 +69,14 @@ export async function POST(req: NextRequest) {
                 culDenunciasEncontradas: data.denunciasEncontradas || [],
                 culConfidence: data.confidence || null,
                 culValidatedBy: validatedBy || null,
-                culValidatedAt: Timestamp.now()
+                culValidatedAt: Timestamp.now(),
+                // New 2026 fields
+                culAntecedentesPenales: data.antecedentesPenales || null,
+                culAntecedentesJudiciales: data.antecedentesJudiciales || null,
+                culAntecedentesPoliciales: data.antecedentesPoliciales || null,
+                culEstudios: data.estudios || null,
+                culExperienciaLaboral: data.experienciaLaboral || null,
+                culFechaEmision: data.fechaEmision || null
             };
             console.log(`[CANDIDATE UPDATE] CUL validation for ${candidateId}: ${data.status}`);
 

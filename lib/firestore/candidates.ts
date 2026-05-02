@@ -146,6 +146,14 @@ export interface Candidate {
     culConfidence?: number;
     culValidatedAt?: any;
 
+    // Detailed CUL extraction (2026)
+    culAntecedentesPenales?: string;
+    culAntecedentesJudiciales?: string;
+    culAntecedentesPoliciales?: string;
+    culEstudios?: string;
+    culExperienciaLaboral?: string;
+    culFechaEmision?: string;
+
     // Tracking completo
     assignments: CandidateAssignment[];  // Asignaciones a RQs
     applications: Application[];  // Historial de postulaciones

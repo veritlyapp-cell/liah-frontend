@@ -1,0 +1,293 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import type { Candidate } from '@/lib/firestore/candidates';
+import { Search, Filter, Mail, Smartphone, ExternalLink, Hash, FileText, Download, Play, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
+
+interface CandidateBaseViewProps {
+    holdingId: string;
+}
+
+export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps) {
+    const [candidates, setCandidates] = useState<Candidate[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
+
+    useEffect(() => {
+        loadCandidates();
+    }, [holdingId]);
+
+    async function loadCandidates() {
+        setLoading(true);
+        try {
+            const candidatesRef = collection(db, 'candidates');
+            // Since candidates might not have holdingId yet, we might need to filter by applications or just get all for now
+            // But if we want multi-tenancy, we should ideally have holdingId on candidate or filter by applications.holdingId
+            const q = query(candidatesRef); 
+            const snapshot = await getDocs(q);
+            
+            const loaded = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as Candidate));
+
+            setCandidates(loaded);
+        } catch (error) {
+            console.error('Error loading candidates:', error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const filteredCandidates = candidates.filter(c => {
+        if (!searchTerm) return true;
+        const search = searchTerm.toLowerCase();
+        const fullName = `${c.nombre} ${c.apellidoPaterno} ${c.apellidoMaterno}`.toLowerCase();
+        return fullName.includes(search) || c.dni?.includes(search) || c.email?.toLowerCase().includes(search);
+    });
+
+    const runAutoAnalysis = async () => {
+        const toAnalyze = filteredCandidates.filter(c => c.certificadoUnicoLaboral && !c.culAntecedentesPenales);
+        if (toAnalyze.length === 0) {
+            alert('No hay candidatos con CUL pendiente de análisis en esta vista.');
+            return;
+        }
+
+        if (!confirm(`Se analizarán ${toAnalyze.length} candidatos con Vertex AI. ¿Continuar?`)) return;
+
+        setIsAnalyzing(true);
+        setAnalysisProgress({ current: 0, total: toAnalyze.length });
+
+        for (let i = 0; i < toAnalyze.length; i++) {
+            const candidate = toAnalyze[i];
+            setAnalysisProgress({ current: i + 1, total: toAnalyze.length });
+
+            try {
+                const response = await fetch('/api/ai/analyze-document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        documentType: 'cul',
+                        documentUrl: candidate.certificadoUnicoLaboral,
+                        candidateId: candidate.id,
+                        candidateDni: candidate.dni
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success && result.extractedData) {
+                    const data = result.extractedData;
+                    // Update Firestore
+                    const candidateRef = doc(db, 'candidates', candidate.id);
+                    await updateDoc(candidateRef, {
+                        culAntecedentesPenales: data.antecedentesPenales,
+                        culAntecedentesJudiciales: data.antecedentesJudiciales,
+                        culAntecedentesPoliciales: data.antecedentesPoliciales,
+                        culEstudios: data.estudios,
+                        culExperienciaLaboral: data.experienciaLaboral,
+                        culAiObservation: result.aiObservation,
+                        culConfidence: result.confidence,
+                        culStatus: result.validationStatus === 'approved_ai' ? 'apto' : (result.validationStatus === 'rejected_ai' ? 'no_apto' : 'manual_review'),
+                        culValidatedAt: Timestamp.now()
+                    });
+                }
+            } catch (err) {
+                console.error(`Error analyzing candidate ${candidate.id}:`, err);
+            }
+        }
+
+        setIsAnalyzing(false);
+        loadCandidates();
+        alert('Análisis masivo completado.');
+    };
+
+    const exportToExcel = () => {
+        // Simple CSV export for now
+        const headers = ['DNI', 'Nombre Completo', 'Celular', 'Email', 'Ultima Marca', 'Ultima Tienda', 'Ultimo Puesto', 'Penales', 'Judiciales', 'Policiales', 'Estudios', 'Experiencia'];
+        const rows = filteredCandidates.map(c => {
+            const latestApp = c.applications?.[c.applications.length - 1];
+            return [
+                c.dni,
+                `${c.nombre} ${c.apellidoPaterno} ${c.apellidoMaterno}`,
+                c.telefono,
+                c.email,
+                latestApp?.marcaNombre || '',
+                latestApp?.tiendaNombre || '',
+                latestApp?.posicion || '',
+                c.culAntecedentesPenales || 'Pendiente',
+                c.culAntecedentesJudiciales || 'Pendiente',
+                c.culAntecedentesPoliciales || 'Pendiente',
+                c.culEstudios || '',
+                c.culExperienciaLaboral || ''
+            ].join(',');
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `base_candidatos_ngr_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+    };
+
+    return (
+        <div className="space-y-6 animate-fade-in">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic mb-1">
+                        Base Maestra de Candidatos
+                    </h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        Información consolidada y validación Vertex AI
+                    </p>
+                </div>
+                
+                <div className="flex gap-3">
+                    <button 
+                        onClick={runAutoAnalysis}
+                        disabled={isAnalyzing}
+                        className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-dark transition-all shadow-lg shadow-brand/20 disabled:opacity-50"
+                    >
+                        {isAnalyzing ? <Clock className="animate-spin" size={14} /> : <Play size={14} />}
+                        {isAnalyzing ? `Analizando (${analysisProgress.current}/${analysisProgress.total})...` : 'Analizar CULs con Vertex AI'}
+                    </button>
+
+                    <button 
+                        onClick={exportToExcel}
+                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                    >
+                        <Download size={14} />
+                        Exportar Excel (CSV)
+                    </button>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="white-label-card p-4">
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre o DNI..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand focus:bg-white transition-all outline-none"
+                    />
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="white-label-card overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Candidato</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">DNI / Contacto</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Última Postulación</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Penales</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Judiciales</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Policiales</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Estudios / Exp.</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={7} className="py-20 text-center">
+                                        <div className="w-8 h-8 border-4 border-slate-100 border-t-brand rounded-full animate-spin mx-auto mb-4"></div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cargando base de datos...</span>
+                                    </td>
+                                </tr>
+                            ) : filteredCandidates.map(candidate => {
+                                const latestApp = candidate.applications?.[candidate.applications.length - 1];
+                                return (
+                                    <tr key={candidate.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-900 uppercase">
+                                                    {candidate.nombre} {candidate.apellidoPaterno}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400">{candidate.apellidoMaterno}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded w-fit">{candidate.dni}</span>
+                                                <span className="text-[10px] text-slate-500">{candidate.telefono}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {latestApp ? (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-black text-brand uppercase">{latestApp.marcaNombre}</span>
+                                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{latestApp.tiendaNombre} - {latestApp.posicion}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[9px] text-slate-300 italic">Sin historial</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {renderRecordStatus(candidate.culAntecedentesPenales)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {renderRecordStatus(candidate.culAntecedentesJudiciales)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {renderRecordStatus(candidate.culAntecedentesPoliciales)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1 max-w-[200px]">
+                                                {candidate.culEstudios && (
+                                                    <div className="text-[9px] text-slate-600 line-clamp-1 italic bg-blue-50/50 p-1 rounded">
+                                                        🎓 {candidate.culEstudios}
+                                                    </div>
+                                                )}
+                                                {candidate.culExperienciaLaboral && (
+                                                    <div className="text-[9px] text-slate-600 line-clamp-1 italic bg-orange-50/50 p-1 rounded">
+                                                        💼 {candidate.culExperienciaLaboral}
+                                                    </div>
+                                                )}
+                                                {!candidate.culEstudios && !candidate.culExperienciaLaboral && (
+                                                    <span className="text-[9px] text-slate-300">No analizado</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function renderRecordStatus(status?: string) {
+    if (!status) return <span className="text-[9px] text-slate-300 italic">Pendiente</span>;
+    
+    const isNegative = status.toLowerCase().includes('no encontrado') || status.toLowerCase() === 'limpio';
+    
+    if (isNegative) {
+        return (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-bold border border-emerald-100">
+                <CheckCircle size={10} />
+                Limpio
+            </div>
+        );
+    }
+    
+    return (
+        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-rose-50 text-rose-600 rounded text-[9px] font-bold border border-rose-100">
+            <AlertCircle size={10} />
+            Detectado
+        </div>
+    );
+}

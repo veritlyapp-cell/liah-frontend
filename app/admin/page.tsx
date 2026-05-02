@@ -16,6 +16,7 @@ import HoldingLogoUpload from '@/components/admin/HoldingLogoUpload';
 import JobProfilesManagement from '@/components/admin/JobProfilesManagement';
 import RQTrackingView from '@/components/admin/RQTrackingView';
 import AdminCandidatesView from '@/components/admin/AdminCandidatesView';
+import CandidateBaseView from '@/components/admin/CandidateBaseView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Users, ClipboardList, Briefcase, BarChart3, Wallet, Settings, MapPin, FileText, Building2, Upload, Plus, Pencil, Trash2, Map as MapIcon } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
@@ -35,7 +36,7 @@ import CandidateActivationPanel from '@/components/recruiter/CandidateActivation
 export default function AdminDashboard() {
     const { user, claims, loading } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'analitica' | 'compensaciones' | 'zonas' | 'activacion'>('marcas');
+    const [activeTab, setActiveTab] = useState<'marcas' | 'usuarios' | 'tiendas' | 'perfiles' | 'configuracion' | 'rqs' | 'candidatos' | 'analitica' | 'compensaciones' | 'zonas' | 'activacion' | 'base_candidatos'>('marcas');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [brands, setBrands] = useState<any[]>([]);
     const [candidateCounts, setCandidateCounts] = useState<Record<string, number>>({});
@@ -320,6 +321,7 @@ export default function AdminDashboard() {
         { id: 'usuarios', label: 'Usuarios', icon: <Users />, hidden: claims?.role === 'compensaciones' },
         { id: 'rqs', label: 'RQs', icon: <ClipboardList />, hidden: claims?.role === 'compensaciones' || !hasFeature('rq_management') },
         { id: 'candidatos', label: 'Candidatos', icon: <Users />, hidden: claims?.role === 'compensaciones' },
+        { id: 'base_candidatos', label: 'Base Maestra', icon: <FileText />, hidden: claims?.role === 'compensaciones' },
         { id: 'activacion', label: 'Exportar / SMS', icon: <Upload />, hidden: claims?.role === 'compensaciones' },
         { id: 'perfiles', label: 'Perfiles', icon: <Briefcase />, hidden: claims?.role === 'compensaciones' },
         { id: 'analitica', label: 'Analítica', icon: <BarChart3 />, hidden: claims?.role === 'compensaciones' || !hasFeature('advanced_analytics') },
@@ -625,6 +627,7 @@ export default function AdminDashboard() {
             {activeTab === 'usuarios' && <UserManagementView holdingId={holdingId} />}
             {activeTab === 'rqs' && hasFeature('rq_management') && <RQTrackingView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
             {activeTab === 'candidatos' && <AdminCandidatesView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} tiendas={stores.map(s => ({ id: s.id, nombre: s.nombre, marcaId: s.marcaId }))} />}
+            {activeTab === 'base_candidatos' && <CandidateBaseView holdingId={holdingId} />}
             {activeTab === 'activacion' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                     <CandidateActivationPanel />
