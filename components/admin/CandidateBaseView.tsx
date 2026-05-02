@@ -14,8 +14,11 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterMarca, setFilterMarca] = useState('');
+    const [filterStatus, setFilterStatus] = useState(''); // 'clean', 'detected', 'pending'
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
+    const [marcas, setMarcas] = useState<string[]>([]);
 
     useEffect(() => {
         loadCandidates();
@@ -36,6 +39,13 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
             } as Candidate));
 
             setCandidates(loaded);
+
+            // Extract unique brands for filter
+            const uniqueMarcas = Array.from(new Set(
+                loaded.map(c => c.applications?.[c.applications.length - 1]?.marcaNombre)
+                    .filter(Boolean) as string[]
+            )).sort();
+            setMarcas(uniqueMarcas);
         } catch (error) {
             console.error('Error loading candidates:', error);
         } finally {
@@ -44,10 +54,31 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
     }
 
     const filteredCandidates = candidates.filter(c => {
-        if (!searchTerm) return true;
+        // Search filter
         const search = searchTerm.toLowerCase();
         const fullName = `${c.nombre} ${c.apellidoPaterno} ${c.apellidoMaterno}`.toLowerCase();
-        return fullName.includes(search) || c.dni?.includes(search) || c.email?.toLowerCase().includes(search);
+        const matchesSearch = !searchTerm || fullName.includes(search) || c.dni?.includes(search) || c.email?.toLowerCase().includes(search);
+        
+        // Brand filter
+        const latestApp = c.applications?.[c.applications.length - 1];
+        const matchesMarca = !filterMarca || latestApp?.marcaNombre === filterMarca;
+
+        // Status filter
+        let matchesStatus = true;
+        if (filterStatus === 'clean') {
+            matchesStatus = !!c.culAntecedentesPenales && 
+                           (c.culAntecedentesPenales.toLowerCase().includes('no encontrado') || c.culAntecedentesPenales === 'Limpio') &&
+                           (c.culAntecedentesJudiciales?.toLowerCase().includes('no encontrado') || c.culAntecedentesJudiciales === 'Limpio') &&
+                           (c.culAntecedentesPoliciales?.toLowerCase().includes('no encontrado') || c.culAntecedentesPoliciales === 'Limpio');
+        } else if (filterStatus === 'detected') {
+            matchesStatus = (c.culAntecedentesPenales === 'Encontrado') || 
+                           (c.culAntecedentesJudiciales === 'Encontrado') || 
+                           (c.culAntecedentesPoliciales === 'Encontrado');
+        } else if (filterStatus === 'pending') {
+            matchesStatus = !c.culAntecedentesPenales;
+        }
+
+        return matchesSearch && matchesMarca && matchesStatus;
     });
 
     const runAutoAnalysis = async () => {
@@ -170,15 +201,45 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
 
             {/* Filters */}
             <div className="white-label-card p-4">
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre o DNI..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand focus:bg-white transition-all outline-none"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre o DNI..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand focus:bg-white transition-all outline-none"
+                        />
+                    </div>
+
+                    <div className="relative">
+                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <select
+                            value={filterMarca}
+                            onChange={(e) => setFilterMarca(e.target.value)}
+                            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand focus:bg-white transition-all outline-none appearance-none"
+                        >
+                            <option value="">Todas las Marcas</option>
+                            {marcas.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="relative">
+                        <AlertCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand focus:bg-white transition-all outline-none appearance-none"
+                        >
+                            <option value="">Todos los Estados CUL</option>
+                            <option value="clean">Solo Limpios (Sin antecedentes)</option>
+                            <option value="detected">Solo con Antecedentes Detectados</option>
+                            <option value="pending">Pendientes de Análisis</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

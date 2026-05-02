@@ -80,6 +80,8 @@ Responde ÚNICAMENTE con este JSON:
       "detalle": "texto exacto que aparece"
     }
   },
+  "estudios": "Resumen de formación académica detectada",
+  "experienciaLaboral": "Resumen de última experiencia laboral",
   "recomendacion": "aprobar" o "rechazar" o "revisar_manual",
   "observacion": "resumen detallado de lo encontrado",
   "confidence": número del 0 al 100
@@ -167,7 +169,14 @@ export async function POST(req: NextRequest) {
                 culValidationStatus: validationStatus,
                 culAiObservation: validationMessage,
                 culExtractedData: analysisResult,
-                culValidatedAt: Timestamp.now()
+                culValidatedAt: Timestamp.now(),
+                // Map to top level fields for dashboard consistency
+                culAntecedentesPenales: analysisResult.antecedentes?.penales?.estado === 'con_registros' ? 'Encontrado' : 'No Encontrado',
+                culAntecedentesJudiciales: analysisResult.antecedentes?.judiciales?.estado === 'con_registros' ? 'Encontrado' : 'No Encontrado',
+                culAntecedentesPoliciales: analysisResult.antecedentes?.policiales?.estado === 'con_registros' ? 'Encontrado' : 'No Encontrado',
+                culEstudios: analysisResult.estudios || null,
+                culExperienciaLaboral: analysisResult.experienciaLaboral || null,
+                culFechaEmision: analysisResult.fechaEmision
             };
 
             await dbAdmin.collection('talent_candidates').doc(candidateId).update(updateData);

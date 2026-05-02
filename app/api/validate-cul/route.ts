@@ -22,20 +22,30 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Data = buffer.toString('base64');
 
-        // Utilizamos gemini-2.5-flash-lite por su rapidez para visión/multimodal
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+        // Utilizamos gemini-2.5-flash por su potencia y visión
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-        const prompt = `Analiza este documento (probablemente un Certificado Único Laboral de Perú o un DNI). 
-Tu tarea es extraer estrictamente la siguiente información de la persona titular del documento:
-1. El número de DNI / Documento de identidad
-2. Los nombres completos y apellidos
+        const prompt = `Analiza este Certificado Único Laboral (CUL) del Perú.
+Reporta ESPECÍFICAMENTE:
+1. PENALES: ¿Tiene antecedentes? (Encontrado / No Encontrado)
+2. JUDICIALES: ¿Tiene procesos? (Encontrado / No Encontrado)
+3. POLICIALES: ¿Tiene registros? (Encontrado / No Encontrado)
+4. FORMACIÓN: Resumen estudios.
+5. EXPERIENCIA: Resumen última experiencia.
+6. DNI: Número de documento.
+7. NOMBRE: Nombres y apellidos completos.
 
-Responde ÚNICAMENTE con un objeto JSON válido con este formato exacto, sin markdown (\`\`\`json) ni otros caracteres. Solo el objeto {}:
+Responde ÚNICAMENTE con JSON válido:
 {
   "isValid": true,
-  "dni": "12345678",
-  "nombres": "JUAN PEREZ",
-  "apellidos": "GOMEZ"
+  "dni": "string",
+  "nombres": "string",
+  "antecedentesPenales": "Encontrado" | "No Encontrado",
+  "antecedentesJudiciales": "Encontrado" | "No Encontrado",
+  "antecedentesPoliciales": "Encontrado" | "No Encontrado",
+  "estudios": "Resumen",
+  "experiencia": "Resumen",
+  "recomendacion": "aprobar" | "rechazar" | "revisar_manual"
 }`;
 
         const result = await model.generateContent([
@@ -56,7 +66,12 @@ Responde ÚNICAMENTE con un objeto JSON válido con este formato exacto, sin mar
             return NextResponse.json(data);
         } else {
             console.warn('[Validate CUL] No valid JSON returned by Gemini:', text);
-            return NextResponse.json({ isValid: false, dni: '', nombres: '', error: 'El documento no parece ser un CUL válido o está ilegible.' });
+            return NextResponse.json({ 
+                isValid: false, 
+                dni: '', 
+                nombres: '', 
+                error: 'El documento no parece ser un CUL válido o está ilegible.' 
+            });
         }
     } catch (error: any) {
         console.error('Error in Validate CUL API:', error);
