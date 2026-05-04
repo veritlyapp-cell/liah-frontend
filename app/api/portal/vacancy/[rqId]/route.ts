@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/firebase-admin';
 
-const ACTIVE_STATUSES = ['recruiting', 'approved', 'active', 'published', 'activo', 'aprobado'];
+const ACTIVE_STATUSES = ['recruiting', 'approved', 'active', 'published', 'activo', 'aprobado', 'open'];
 
 export async function GET(
     request: NextRequest,
@@ -26,8 +26,14 @@ export async function GET(
         const data = rqDoc.data()!;
 
         // Check if still active (accept all valid statuses)
-        if (!ACTIVE_STATUSES.includes(data.status) && !ACTIVE_STATUSES.includes(data.estado)) {
-            console.log('[Vacancy API] RQ status not active:', data.status, data.estado);
+        const currentStatus = (data.status || data.estado || '').toLowerCase();
+        const approvalStatus = (data.approvalStatus || '').toLowerCase();
+        
+        const isStatusActive = ACTIVE_STATUSES.includes(currentStatus);
+        const isApproved = approvalStatus === 'approved' || approvalStatus === 'aprobado';
+
+        if (!isStatusActive && !isApproved) {
+            console.log('[Vacancy API] RQ not accessible. Status:', currentStatus, 'Approval:', approvalStatus);
             return NextResponse.json({ error: 'Esta vacante ya no está disponible' }, { status: 410 });
         }
 

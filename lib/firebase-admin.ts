@@ -24,36 +24,7 @@ function initializeFirebaseAdmin(): App {
         return adminApp;
     }
 
-    // Try environment variables (for production)
-    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
-        console.log('[Firebase Admin] Using environment variables');
-
-        // Robust sanitization
-        let privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim();
-
-        // Remove any surrounding quotes (single or double)
-        privateKey = privateKey.replace(/^["']|["']$/g, '');
-
-        // Replace literal \n or escaped \\n with actual newlines
-        privateKey = privateKey.replace(/\\+n/g, '\n');
-
-        // Check for headers
-        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-            console.error('[Firebase Admin] ❌ Private key missing headers. Starts with:', privateKey.substring(0, 20));
-        }
-
-        adminApp = admin.initializeApp({
-            credential: cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: privateKey,
-            }),
-        });
-        console.log('[Firebase Admin] ✅ Initialized for project:', process.env.FIREBASE_PROJECT_ID);
-        return adminApp;
-    }
-
-    // Development: Try file-based service account
+    // Development: Try file-based service account FIRST
     try {
         const fs = require('fs');
         const path = require('path');
@@ -74,7 +45,40 @@ function initializeFirebaseAdmin(): App {
             }
         }
     } catch (error) {
-        // File system not available (edge runtime)
+        // File system not available or file not found
+    }
+
+    // Try environment variables (for production / fallback)
+    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
+        console.log('[Firebase Admin] Using environment variables');
+
+        try {
+            // Robust sanitization
+            let privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim();
+
+            // Remove any surrounding quotes (single or double)
+            privateKey = privateKey.replace(/^["']|["']$/g, '');
+
+            // Replace literal \n or escaped \\n with actual newlines
+            privateKey = privateKey.replace(/\\+n/g, '\n');
+
+            // Check for headers
+            if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+                console.error('[Firebase Admin] ❌ Private key missing headers. Starts with:', privateKey.substring(0, 20));
+            }
+
+            adminApp = admin.initializeApp({
+                credential: cert({
+                    projectId: process.env.FIREBASE_PROJECT_ID,
+                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                    privateKey: privateKey,
+                }),
+            });
+            console.log('[Firebase Admin] ✅ Initialized for project:', process.env.FIREBASE_PROJECT_ID);
+            return adminApp;
+        } catch (error) {
+            console.error('[Firebase Admin] Failed to initialize via env variables:', error);
+        }
     }
 
     throw new Error(

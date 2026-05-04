@@ -104,10 +104,7 @@ service cloud.firestore {
     // TIENDAS (Stores)
     // ==========================================
     match /tiendas/{tiendaId} {
-      allow read: if isAuthenticated() && 
-                     (isAdmin() || 
-                      resource.data.marcaId == getUserMarca() ||
-                      resource.data.holdingId == getUserTenant());
+      allow read: if true; // Allow public read for portal transparency
       
       allow create, update: if isAuthenticated() && 
                                (isAdmin() || isStoreManager());

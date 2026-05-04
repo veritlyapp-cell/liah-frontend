@@ -8,9 +8,10 @@ import { collection, query, where, getDocs, doc, updateDoc, Timestamp } from 'fi
 
 interface CandidateBaseViewProps {
     holdingId: string;
+    marcas: { id: string; nombre: string }[];
 }
 
-export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps) {
+export default function CandidateBaseView({ holdingId, marcas: marcasProp }: CandidateBaseViewProps) {
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -18,34 +19,28 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
     const [filterStatus, setFilterStatus] = useState(''); // 'clean', 'detected', 'pending'
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
-    const [marcas, setMarcas] = useState<string[]>([]);
+    const [marcas, setMarcas] = useState<{ id: string; nombre: string }[]>(marcasProp);
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
     useEffect(() => {
         loadCandidates();
-    }, [holdingId]);
+    }, [holdingId, marcasProp]);
 
     async function loadCandidates() {
         setLoading(true);
         try {
-            const candidatesRef = collection(db, 'candidates');
-            // Since candidates might not have holdingId yet, we might need to filter by applications or just get all for now
-            // But if we want multi-tenancy, we should ideally have holdingId on candidate or filter by applications.holdingId
-            const q = query(candidatesRef); 
-            const snapshot = await getDocs(q);
+            const { getCandidatesByMarca } = await import('@/lib/firestore/candidate-queries');
             
-            const loaded = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as Candidate));
-
-            setCandidates(loaded);
-
-            // Extract unique brands for filter
-            const uniqueMarcas = Array.from(new Set(
-                loaded.map(c => c.applications?.[c.applications.length - 1]?.marcaNombre)
-                    .filter(Boolean) as string[]
-            )).sort();
-            setMarcas(uniqueMarcas);
+            const allCandidates: Candidate[] = [];
+            for (const marca of marcasProp) {
+                const marcaCandidates = await getCandidatesByMarca(marca.id);
+                allCandidates.push(...marcaCandidates);
+            }
+            
+            // Remove duplicates and set
+            const unique = allCandidates.filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
+            setCandidates(unique);
+            setMarcas(marcasProp);
         } catch (error) {
             console.error('Error loading candidates:', error);
         } finally {
@@ -78,8 +73,33 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
             matchesStatus = !c.culAntecedentesPenales;
         }
 
+        // Date range filter
+        if (dateRange.start || dateRange.end) {
+            const appDate = latestApp?.appliedAt?.toDate ? latestApp.appliedAt.toDate() : (latestApp?.appliedAt ? new Date(latestApp.appliedAt) : null);
+            if (appDate) {
+                if (dateRange.start && appDate < new Date(dateRange.start)) return false;
+                if (dateRange.end && appDate > new Date(dateRange.end + 'T23:59:59')) return false;
+            } else if (dateRange.start || dateRange.end) {
+                return false;
+            }
+        }
+
         return matchesSearch && matchesMarca && matchesStatus;
     });
+
+    const handleDeleteCandidate = async (candidateId: string, name: string) => {
+        if (!confirm(`¿Estás seguro de eliminar a ${name}? Esta acción no se puede deshacer.`)) return;
+
+        try {
+            const { deleteDoc, doc } = await import('firebase/firestore');
+            await deleteDoc(doc(db, 'candidates', candidateId));
+            setCandidates(candidates.filter(c => c.id !== candidateId));
+            alert('Candidato eliminado.');
+        } catch (error) {
+            console.error('Error deleting candidate:', error);
+            alert('Error al eliminar candidato.');
+        }
+    };
 
     const runAutoAnalysis = async () => {
         const toAnalyze = filteredCandidates.filter(c => c.certificadoUnicoLaboral && !c.culAntecedentesPenales);
@@ -181,15 +201,6 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
                 
                 <div className="flex gap-3">
                     <button 
-                        onClick={runAutoAnalysis}
-                        disabled={isAnalyzing}
-                        className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-dark transition-all shadow-lg shadow-brand/20 disabled:opacity-50"
-                    >
-                        {isAnalyzing ? <Clock className="animate-spin" size={14} /> : <Play size={14} />}
-                        {isAnalyzing ? `Analizando (${analysisProgress.current}/${analysisProgress.total})...` : 'Analizar CULs con Vertex AI'}
-                    </button>
-
-                    <button 
                         onClick={exportToExcel}
                         className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
                     >
@@ -222,7 +233,7 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
                         >
                             <option value="">Todas las Marcas</option>
                             {marcas.map(m => (
-                                <option key={m} value={m}>{m}</option>
+                                <option key={m.id} value={m.nombre}>{m.nombre}</option>
                             ))}
                         </select>
                     </div>
@@ -240,6 +251,33 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
                             <option value="pending">Pendientes de Análisis</option>
                         </select>
                     </div>
+
+                    <div className="md:col-span-3 flex flex-col md:flex-row gap-4 items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Filtrar por Fecha Postulación:</span>
+                        <div className="flex items-center gap-2 w-full">
+                            <input 
+                                type="date" 
+                                value={dateRange.start}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand"
+                            />
+                            <span className="text-slate-400 text-xs">a</span>
+                            <input 
+                                type="date" 
+                                value={dateRange.end}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand"
+                            />
+                            {(dateRange.start || dateRange.end) && (
+                                <button 
+                                    onClick={() => setDateRange({ start: '', end: '' })}
+                                    className="text-[10px] font-bold text-brand hover:underline"
+                                >
+                                    Limpiar
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -252,10 +290,12 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Candidato</th>
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">DNI / Contacto</th>
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Última Postulación</th>
+                                <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Fecha CUL</th>
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Penales</th>
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Judiciales</th>
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Policiales</th>
                                 <th className="px-6 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Estudios / Exp.</th>
+                                <th className="px-6 py-4 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -289,9 +329,17 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] font-black text-brand uppercase">{latestApp.marcaNombre}</span>
                                                     <span className="text-[9px] font-bold text-slate-500 uppercase">{latestApp.tiendaNombre} - {latestApp.posicion}</span>
+                                                    <span className="text-[8px] text-slate-400 mt-0.5">Postuló: {latestApp.appliedAt?.toDate ? latestApp.appliedAt.toDate().toLocaleDateString('es-PE') : '---'}</span>
                                                 </div>
                                             ) : (
                                                 <span className="text-[9px] text-slate-300 italic">Sin historial</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {candidate.culFechaEmision ? (
+                                                <span className="text-[10px] font-bold text-slate-600">{candidate.culFechaEmision}</span>
+                                            ) : (
+                                                <span className="text-[9px] text-slate-300 italic">Sin fecha</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4">
@@ -319,6 +367,15 @@ export default function CandidateBaseView({ holdingId }: CandidateBaseViewProps)
                                                     <span className="text-[9px] text-slate-300">No analizado</span>
                                                 )}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button 
+                                                onClick={() => handleDeleteCandidate(candidate.id, `${candidate.nombre} ${candidate.apellidoPaterno}`)}
+                                                className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="Eliminar candidato de la base maestra"
+                                            >
+                                                <AlertCircle size={14} />
+                                            </button>
                                         </td>
                                     </tr>
                                 );

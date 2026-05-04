@@ -627,7 +627,7 @@ export default function AdminDashboard() {
             {activeTab === 'usuarios' && <UserManagementView holdingId={holdingId} />}
             {activeTab === 'rqs' && hasFeature('rq_management') && <RQTrackingView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
             {activeTab === 'candidatos' && <AdminCandidatesView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} tiendas={stores.map(s => ({ id: s.id, nombre: s.nombre, marcaId: s.marcaId }))} />}
-            {activeTab === 'base_candidatos' && <CandidateBaseView holdingId={holdingId} />}
+            {activeTab === 'base_candidatos' && <CandidateBaseView holdingId={holdingId} marcas={brands.map(b => ({ id: b.id, nombre: b.nombre }))} />}
             {activeTab === 'activacion' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                     <CandidateActivationPanel />
