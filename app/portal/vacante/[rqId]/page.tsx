@@ -36,7 +36,7 @@ function VacanteDetailContent() {
     const [vacancy, setVacancy] = useState<VacancyDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [brandColor, setBrandColor] = useState('#4F46E5');
+    const [brandColor, setBrandColor] = useState('#4F46E5'); // Default purple, but will be overwritten
     const [brandLogo, setBrandLogo] = useState('');
     const [brandName, setBrandName] = useState('');
 
@@ -81,6 +81,16 @@ function VacanteDetailContent() {
                         }
                     } catch (e) { console.warn('Brand error:', e); }
                 }
+            }
+            
+            // Safety check for NGR orange
+            const isNGR = data.vacancy.holdingSlug?.toLowerCase() === 'ngr' || 
+                         data.vacancy.marcaNombre?.toLowerCase() === 'bembos' || 
+                         holdingSlug?.toLowerCase() === 'ngr' ||
+                         (brandName?.toLowerCase() === 'ngr' || data.vacancy.branding?.name?.toLowerCase() === 'ngr');
+            
+            if (isNGR && (brandColor === '#4F46E5' || !brandColor)) {
+                setBrandColor('#FF6B35');
             }
         } catch (e) {
             setError('Error al cargar la vacante');
@@ -245,7 +255,7 @@ function VacanteDetailContent() {
                                 <div>
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Tu Perfil</h4>
                                     <div className="flex items-start gap-3">
-                                        <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 text-violet-600">
+                                        <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center flex-shrink-0" style={{ color: brandColor }}>
                                             <CheckCircle2 size={20} />
                                         </div>
                                         <div>
@@ -292,8 +302,8 @@ function VacanteDetailContent() {
                     </div>
                 </motion.div>
 
-                <p className="text-center text-gray-300 text-[10px] font-black uppercase tracking-[0.3em] mt-8">
-                    Powered by <span className="text-gray-400">LIAH Bot</span>
+                <p className="text-center text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-8">
+                    POWERED BY <span className="text-gray-500">LIAH</span> DESIGN BY <span className="text-gray-500">RELIÉ LABS</span>
                 </p>
             </div>
 
@@ -304,8 +314,8 @@ function VacanteDetailContent() {
 export default function VacanteDetailPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-                <div className="animate-spin w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full" />
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="animate-spin w-10 h-10 border-4 border-gray-200 rounded-full" style={{ borderTopColor: '#4F46E5' }} />
             </div>
         }>
             <VacanteDetailContent />

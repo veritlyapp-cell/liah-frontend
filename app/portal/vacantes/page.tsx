@@ -124,6 +124,13 @@ function VacantesContent() {
                     if (data.nombre) setBrandName(data.nombre);
                     if (data.logoUrl) setBrandLogo(data.logoUrl);
                 }
+                
+                // NGR Orange Fallback
+                if (holdingSlug.toLowerCase() === 'ngr' || (brandName && brandName.toLowerCase() === 'ngr')) {
+                    if (!brandColor || brandColor === '#4F46E5') {
+                        setBrandColor('#FF6B35');
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching holding:', error);
             }
@@ -383,10 +390,9 @@ function VacantesContent() {
                 )}
             </div>
 
-            {/* Footer */}
-            <div className="bg-white border-t py-6 mt-8">
-                <p className="text-center text-gray-400 text-sm">
-                    Powered by <span className="font-black italic uppercase tracking-tighter" style={{ color: brandColor || '#4F46E5' }}>LIAH</span>
+            <div className="bg-white border-t py-8 mt-8">
+                <p className="text-center text-gray-400 text-[10px] font-black uppercase tracking-[0.3em]">
+                    POWERED BY <span className="text-gray-500">LIAH</span> DESIGN BY <span className="text-gray-500">RELIÉ LABS</span>
                 </p>
             </div>
         </div>

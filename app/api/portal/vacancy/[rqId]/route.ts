@@ -162,6 +162,15 @@ export async function GET(
             }
         }
 
+        // Final fallback for NGR orange if no color found
+        const isNGR = (branding.name?.toLowerCase() === 'ngr') || 
+                     (holdingId.toLowerCase() === 'ngr') || 
+                     (data.holdingSlug?.toLowerCase() === 'ngr');
+        
+        if (isNGR && branding.primaryColor === '#4F46E5') {
+            branding.primaryColor = '#FF6B35'; // NGR Orange
+        }
+
         // Fetch store address if available
         let storeAddress = data.storeAddress || data.direccionTienda || '';
         if (!storeAddress && data.tiendaId) {

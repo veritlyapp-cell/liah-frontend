@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore, getAdminStorage, getFieldValue } from '@/lib/firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting: max 10 uploads per minute per IP
+        const rateLimit = checkRateLimit(getClientIP(req), { ...RATE_LIMITS.ai, keyPrefix: 'talent_upload' });
+        if (!rateLimit.allowed) {
+            return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } });
+        }
+
         const formData = await req.formData();
         const file = formData.get('file') as File;
         const payloadStr = formData.get('payload') as string;

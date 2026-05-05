@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/firebase-admin';
 import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
 import { v4 as uuidv4 } from 'uuid';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 const ACTIVE_STATUSES = ['recruiting', 'approved', 'active', 'published', 'activo', 'aprobado'];
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limiting: max 5 applications per minute per IP
+        const rateLimit = checkRateLimit(getClientIP(request), { ...RATE_LIMITS.email, keyPrefix: 'apply' });
+        if (!rateLimit.allowed) {
+            return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } });
+        }
+
         const body = await request.json();
         const {
             candidateId,

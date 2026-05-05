@@ -128,7 +128,17 @@ function PostularContent() {
                     if (v.branding.name) setBrandName(v.branding.name);
                     if (v.branding.logoUrl) setBrandLogo(v.branding.logoUrl);
                 } else if (holdingSlug || v.holdingSlug) {
-                    loadBrandConfig(holdingSlug || v.holdingSlug);
+                    await loadBrandConfig(holdingSlug || v.holdingSlug);
+                }
+                
+                // NGR Orange Fallback
+                const isNGR = (holdingSlug?.toLowerCase() === 'ngr') || 
+                             (v.holdingSlug?.toLowerCase() === 'ngr') || 
+                             (v.branding?.name?.toLowerCase() === 'ngr') ||
+                             (brandName?.toLowerCase() === 'ngr');
+                
+                if (isNGR && (!brandColor || brandColor === '#4F46E5')) {
+                    setBrandColor('#FF6B35');
                 }
 
             } catch (error) {
@@ -225,7 +235,7 @@ function PostularContent() {
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: accentColor }}>
                 <div className="text-center text-white">
                     <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full mx-auto mb-4"></div>
-                    <p>Cargando vacante...</p>
+                    <p className="font-bold tracking-widest uppercase italic text-sm">Cargando vacante...</p>
                 </div>
             </div>
         );
@@ -241,7 +251,7 @@ function PostularContent() {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Felicidades!</h2>
                     <p className="text-gray-600 mb-4">Tu perfil calza con esta vacante. El equipo de selección se contactará contigo pronto.</p>
-                    <div className="rounded-xl p-4 mb-6" style={{ backgroundColor: accentColor + '15' }}>
+                    <div className="rounded-xl p-4 mb-6" style={{ backgroundColor: `${accentColor}10` }}>
                         <p className="font-bold italic uppercase" style={{ color: accentColor }}>{vacancy?.posicion}</p>
                         <p className="text-sm text-gray-600">{vacancy?.marcaNombre} • {vacancy?.tiendaNombre}</p>
                     </div>
@@ -320,7 +330,7 @@ function PostularContent() {
                         {kqList.map((kq, index) => (
                             <div key={kq.id} className="group">
                                 <label className="block text-gray-900 font-black uppercase italic tracking-tight text-base mb-4 flex items-center gap-3">
-                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] not-italic border-2 transition-colors group-focus-within:bg-gray-900 group-focus-within:text-white group-focus-within:border-gray-900" style={{ borderColor: accentColor + '40', color: accentColor }}>
+                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] not-italic border-2 transition-colors group-focus-within:bg-gray-900 group-focus-within:text-white group-focus-within:border-gray-900" style={{ borderColor: `${accentColor}40`, color: accentColor }}>
                                         {index + 1}
                                     </span>
                                     {kq.question}
@@ -407,8 +417,8 @@ function PostularContent() {
                     </form>
                 </div>
 
-                <p className="text-center text-gray-300 text-[10px] font-black uppercase tracking-[0.4em] mt-10">
-                    POWERED BY <span className="text-gray-400">LIAH BOT</span>
+                <p className="text-center text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mt-10">
+                    POWERED BY <span className="text-gray-500">LIAH</span> DESIGN BY <span className="text-gray-500">RELIÉ LABS</span>
                 </p>
             </div>
         </div>
@@ -419,7 +429,7 @@ function PostularContent() {
 export default function PostularPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-indigo-900 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: accentColor }}>
                 <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full"></div>
             </div>
         }>

@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/firebase-admin';
 import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limiting: max 10 bookings per minute per IP
+        const rateLimit = checkRateLimit(getClientIP(request), { ...RATE_LIMITS.ai, keyPrefix: 'book_interview' });
+        if (!rateLimit.allowed) {
+            return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } });
+        }
+
         const {
             sessionToken,
             rqId,

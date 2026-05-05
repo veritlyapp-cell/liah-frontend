@@ -73,6 +73,13 @@ function RegistroContent() {
                     if (d.nombre) setBrandName(d.nombre);
                     if (d.logoUrl) setBrandLogo(d.logoUrl);
                 }
+                
+                // NGR Orange Fallback
+                if (holdingSlug.toLowerCase() === 'ngr' || (brandName && brandName.toLowerCase() === 'ngr')) {
+                    if (!brandColor || brandColor === '#4F46E5') {
+                        setBrandColor('#FF6B35');
+                    }
+                }
             } catch (e) { /* ignore */ }
         })();
     }, [holdingSlug]);
@@ -483,8 +490,8 @@ function RegistroContent() {
                     )}
                 </div>
 
-                <p className="text-white/30 text-center text-xs mt-4">
-                    Powered by <span className="text-white/50 font-semibold">LIAH</span>
+                <p className="text-white/30 text-center text-[10px] font-black uppercase tracking-[0.3em] mt-8">
+                    POWERED BY <span className="text-white/50">LIAH</span> DESIGN BY <span className="text-white/50">RELIÉ LABS</span>
                 </p>
             </div>
         </div>
@@ -494,7 +501,7 @@ function RegistroContent() {
 export default function RegistroPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-indigo-900 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#1E1B4B' }}>
                 <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full" />
             </div>
         }>

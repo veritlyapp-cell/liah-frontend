@@ -30,3 +30,9 @@ Thumbs.db
 
 .vercel
 .env*.local
+
+# Temporary scripts (debug/scratch)
+scratch/
+*.dump.json
+rq-dump.json
+tambo-dump.json

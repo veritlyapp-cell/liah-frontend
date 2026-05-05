@@ -70,6 +70,13 @@ function AgendarContent() {
                         if (hData.nombre) setBrandName(hData.nombre);
                         if (hData.logoUrl) setBrandLogo(hData.logoUrl);
                     }
+                    
+                    // NGR Orange Fallback
+                    if (holdingSlug.toLowerCase() === 'ngr' || (brandName && brandName.toLowerCase() === 'ngr')) {
+                        if (!brandColor || brandColor === '#4F46E5') {
+                            setBrandColor('#FF6B35');
+                        }
+                    }
                 } catch (e) { console.warn('Brand load error:', e); }
             }
 
@@ -383,7 +390,8 @@ function AgendarContent() {
             <div className="max-w-2xl mx-auto px-5 py-8">
                 {/* Header Info */}
                 <div className="mb-8">
-                    <div className="inline-flex px-3 py-1 bg-violet-100 text-violet-600 rounded-lg text-[10px] font-black uppercase tracking-widest mb-3">
+                    <div className="inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest mb-3"
+                        style={{ backgroundColor: `${accent}15`, color: accent }}>
                         {vacancyInfo?.posicion}
                     </div>
                     <h2 className="text-4xl font-black text-gray-900 uppercase italic tracking-tighter leading-none mb-2">Selecciona tu horario</h2>
@@ -399,13 +407,15 @@ function AgendarContent() {
                         {availableDates.map((d) => (
                             <button key={d.iso} onClick={() => setSelectedDate(d.iso)}
                                 className={`flex-shrink-0 w-20 h-24 rounded-3xl flex flex-col items-center justify-center transition-all border-2 ${selectedDate === d.iso
-                                    ? 'bg-white border-transparent shadow-xl ring-2 ring-violet-500/20'
-                                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>
-                                <span className={`text-[10px] font-black tracking-widest uppercase mb-1 ${selectedDate === d.iso ? 'text-violet-600' : ''}`}>{d.day}</span>
+                                    ? 'bg-white border-transparent shadow-xl'
+                                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}
+                                style={selectedDate === d.iso ? { ringColor: `${accent}20`, ringWidth: '2px' } : {}}>
+                                <span className="text-[10px] font-black tracking-widest uppercase mb-1"
+                                    style={selectedDate === d.iso ? { color: accent } : {}}>{d.day}</span>
                                 <span className={`text-xl font-black leading-none ${selectedDate === d.iso ? 'text-gray-900' : 'text-gray-400'}`}>{d.label.split(' ')[0]}</span>
                                 <span className={`text-[10px] font-bold uppercase tracking-tighter mt-1 ${selectedDate === d.iso ? 'text-gray-400' : 'text-gray-300'}`}>{d.label.split(' ')[1]}</span>
                                 {selectedDate === d.iso && (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-violet-600 mt-2" />
+                                    <div className="w-1.5 h-1.5 rounded-full mt-2" style={{ backgroundColor: accent }} />
                                 )}
                             </button>
                         ))}
@@ -431,11 +441,13 @@ function AgendarContent() {
                                     onClick={() => slot.available && setSelectedSlot(slot.id)}
                                     disabled={!slot.available}
                                     className={`py-6 px-4 rounded-[2rem] border-2 transition-all text-center relative overflow-hidden active:scale-[0.98] ${selectedSlot === slot.id
-                                        ? 'bg-white border-violet-600 shadow-xl shadow-violet-100 ring-2 ring-violet-600/10'
+                                        ? 'bg-white shadow-xl shadow-gray-100'
                                         : !slot.available
                                             ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-60'
-                                            : 'bg-white border-gray-100 hover:border-violet-200 text-gray-400 hover:text-gray-600'
+                                            : 'bg-white border-gray-100 hover:border-gray-200 text-gray-400 hover:text-gray-600'
                                         }`}
+                                    style={selectedSlot === slot.id ? { borderColor: accent, ringColor: `${accent}10`, ringWidth: '4px' } : {}}
+                                >
                                 >
                                     <span className={`text-xl font-black uppercase italic tracking-tight ${selectedSlot === slot.id ? 'text-gray-900' : ''}`}>
                                         {slot.time}
@@ -447,7 +459,7 @@ function AgendarContent() {
                                     )}
                                     {selectedSlot === slot.id && slot.available && (
                                         <div className="absolute top-2 right-4">
-                                            <CheckCircle2 size={16} className="text-violet-600" />
+                                            <CheckCircle2 size={16} style={{ color: accent }} />
                                         </div>
                                     )}
                                 </button>
@@ -484,6 +496,10 @@ function AgendarContent() {
                     </motion.div>
                 )}
             </AnimatePresence>
+            
+            <p className="text-center text-gray-300 text-[10px] font-black uppercase tracking-[0.3em] mt-12 pb-8">
+                POWERED BY <span className="text-gray-400">LIAH</span> DESIGN BY <span className="text-gray-400">RELIÉ LABS</span>
+            </p>
         </div>
     );
 }
@@ -496,7 +512,7 @@ export default function AgendarPage() {
     return (
         <Suspense fallback={
             <div className="min-h-screen bg-white flex items-center justify-center">
-                <div className="animate-spin w-12 h-12 border-4 border-violet-100 border-t-violet-600 rounded-full" />
+                <div className="animate-spin w-12 h-12 border-4 border-gray-100 rounded-full" style={{ borderTopColor: accent }} />
             </div>
         }>
             <AgendarContent />

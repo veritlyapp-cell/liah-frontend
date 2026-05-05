@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 // Initialize Gemini with fallback models
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
@@ -147,6 +148,12 @@ async function analyzeWithVision(documentUrl: string, prompt: string): Promise<a
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting: max 10 AI document analyses per minute per IP
+        const rateLimit = checkRateLimit(getClientIP(req), { ...RATE_LIMITS.ai, keyPrefix: 'analyze_doc' });
+        if (!rateLimit.allowed) {
+            return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } });
+        }
+
         const body = await req.json();
         const { documentType, documentUrl, candidateId } = body;
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/middleware/rate-limit';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '');
 
@@ -9,6 +10,12 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || proces
  */
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting: max 10 CV parses per minute per IP
+        const rateLimit = checkRateLimit(getClientIP(req), { ...RATE_LIMITS.ai, keyPrefix: 'parse_cv' });
+        if (!rateLimit.allowed) {
+            return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } });
+        }
+
         const { cvText, cvBase64, mimeType } = await req.json();
 
         if (!cvText && !cvBase64) {
