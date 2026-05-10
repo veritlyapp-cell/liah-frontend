@@ -38,7 +38,7 @@ export default function LandingPage() {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? 'bg-white/95 backdrop-blur-xl shadow-lg' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <img src="/logos/liah-logo.png" alt="LIAH" style={{ height: '48px', objectFit: 'contain' }} />
+            <img src="/logos/liah-logo.png" alt="LIAH" style={{ height: '32px', objectFit: 'contain' }} />
             <div className="flex items-center gap-4">
               <a
                 href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`}
@@ -78,10 +78,10 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-8 leading-[1.1]">
-                LIAH: Más control,
+                Menos operatividad,
                 <br />
                 <span className="bg-gradient-to-r from-cyan-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                  menos rotación.
+                  más control.
                 </span>
               </h1>
 
