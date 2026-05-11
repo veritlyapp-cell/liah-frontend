@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LIAH - Más control, menos rotación",
+  title: "LIAH - Menos operatividad, más control",
   description: "Ecosistema de RR.HH. para el ciclo de vida del colaborador: Reclutamiento, Onboarding, T-Registro y Analytics.",
   manifest: "/manifest.json",
   appleWebApp: {
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "LIAH",
-    title: "LIAH - Más control, menos rotación",
+    title: "LIAH - Menos operatividad, más control",
     description: "Detén la rotación temprana y automatiza el cumplimiento legal con LIAH.",
   },
 };

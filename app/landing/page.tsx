@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
+import { CheckCircle } from 'lucide-react';
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -16,10 +17,41 @@ export default function LandingPage() {
   const features = [
     { icon: '🎯', title: 'Atracción & IA Match', desc: 'Reclutamiento inteligente con validación automática de perfiles y match cognitivo' },
     { icon: '🤖', title: 'Validación Certificado Único Laboral (CUL) por IA', desc: 'Validación automática del Certificado Único Laboral con inteligencia artificial' },
-    { icon: '📝', title: 'Onboarding Digital & Altas', desc: 'Captura la ficha del colaborador y genera automáticamente el alta masiva para SUNAT' },
-    { icon: '🚪', title: 'Offboarding & Checkout', desc: 'Gestiona renuncias y abandono legal con encuestas de salida y checklists de activos' },
-    { icon: '📉', title: 'Analytics de Fuga', desc: 'Identifica el "Sunk Cost" por rotación y detecta qué sedes afectan tu rentabilidad' },
-    { icon: '✅', title: 'Compliance SUNAT', desc: 'Automatización total de documentos y procesos legales para evitar multas' },
+    { icon: '📋', title: 'Gestión de Requerimientos Multi-nivel', desc: 'Configura flujos de aprobación y vacantes de forma jerárquica y organizada' },
+    { icon: '📅', title: 'Agendamiento de Entrevistas', desc: 'Coordina y programa reuniones con candidatos de forma automática y fluida' },
+    { icon: '💼', title: 'Bolsa de Trabajo (Careers)', desc: 'Centraliza tus vacantes en un portal de marca empleadora profesional' },
+    { icon: '📝', title: 'Encuestas de Salida', desc: 'Automatiza la recolección de feedback para identificar causas de rotación' },
+  ];
+
+  const plans = [
+    {
+      name: 'Starter (RQ Only)',
+      price: '174',
+      period: '/mes',
+      desc: 'Ideal para PyMEs que necesitan control total de sus vacantes y aprobaciones.',
+      features: ['Hasta 3 marcas', 'Hasta 50 tiendas', 'RQs ilimitados', '5 niveles de aprobación', 'Soporte email'],
+      button: 'Comenzar ahora',
+      highlight: false
+    },
+    {
+      name: 'Professional (Bot IA)',
+      price: '349',
+      period: '/mes',
+      desc: 'Para empresas con alto volumen que buscan automatizar el sourcing con IA.',
+      features: ['Todo de Starter', 'Bot WhatsApp con IA', '500 candidatos/mes', 'Evaluación Gemini AI', 'Soporte prioritario'],
+      button: 'Próximamente',
+      highlight: false,
+      isSoon: true
+    },
+    {
+      name: 'Enterprise (Full Stack)',
+      price: '499',
+      period: '/mes',
+      desc: 'Holdings con múltiples marcas y necesidad de analytics y gestión avanzada.',
+      features: ['Todo de Professional', 'Candidatos ilimitados', 'Asignación RQ ↔ Candidato', 'Analytics avanzado', 'Account Manager'],
+      button: 'Contactar ventas',
+      highlight: true
+    }
   ];
 
   const stats = [
@@ -181,6 +213,57 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== PRICING SECTION ==================== */}
+      <section className="py-24 bg-gray-50" id="precios">
+        <div className="container-main">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">Planes y Precios</h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Comienza hoy y escala tu gestión de talento a medida que tu empresa crece.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {plans.map((plan, idx) => (
+              <div
+                key={idx}
+                className={`relative bg-white rounded-3xl p-8 shadow-xl border-2 transition-all duration-300 hover:-translate-y-2 ${plan.highlight ? 'border-violet-500 scale-105 z-10' : 'border-gray-100'}`}
+              >
+                {plan.highlight && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-violet-600 text-white px-4 py-1 rounded-full text-sm font-bold">
+                    RECOMENDADO
+                  </div>
+                )}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-4">
+                    <span className="text-4xl font-black text-gray-900">${plan.price}</span>
+                    <span className="text-gray-500 font-medium">{plan.period}</span>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed">{plan.desc}</p>
+                </div>
+
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-3 text-sm text-gray-600">
+                      <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  className={`w-full py-4 rounded-xl font-bold transition-all ${plan.highlight ? 'bg-gradient-to-r from-violet-600 to-cyan-500 text-white shadow-lg shadow-violet-200' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'} ${plan.isSoon ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={plan.isSoon}
+                >
+                  {plan.button}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       </section>
