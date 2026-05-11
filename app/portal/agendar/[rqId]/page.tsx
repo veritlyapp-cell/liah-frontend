@@ -448,7 +448,6 @@ function AgendarContent() {
                                         }`}
                                     style={selectedSlot === slot.id ? { borderColor: accent, ringColor: `${accent}10`, ringWidth: '4px' } : {}}
                                 >
-                                >
                                     <span className={`text-xl font-black uppercase italic tracking-tight ${selectedSlot === slot.id ? 'text-gray-900' : ''}`}>
                                         {slot.time}
                                     </span>
@@ -512,7 +511,7 @@ export default function AgendarPage() {
     return (
         <Suspense fallback={
             <div className="min-h-screen bg-white flex items-center justify-center">
-                <div className="animate-spin w-12 h-12 border-4 border-gray-100 rounded-full" style={{ borderTopColor: accent }} />
+                <div className="animate-spin w-12 h-12 border-4 border-gray-100 rounded-full border-t-violet-600" />
             </div>
         }>
             <AgendarContent />
