@@ -165,7 +165,7 @@ export default function BusinessCaseGenerator() {
             const cleanBaseFee = Number(formData.baseFeePerStore);
             const cleanVariableFee = Number(formData.variableFeePerHire);
             const cleanDiscount = Number(formData.annualDiscount);
-            const cleanAnnualPrice = formData.annualFinalPrice ? Number(formData.annualFinalPrice) : undefined;
+            const cleanAnnualPrice = formData.annualFinalPrice ? Number(formData.annualFinalPrice) : null;
             const cleanGrowthClause = Number(formData.growthClause);
 
             const proposalData = {
