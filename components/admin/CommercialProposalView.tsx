@@ -49,16 +49,33 @@ export default function CommercialProposalView({ proposal }: { proposal: Proposa
         return `${symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
+    // Minimum rules config
+    const getMinimums = (curr: string) => {
+        if (curr === 'USD') return { monthly: 95, annual: 1000 };
+        if (curr === 'MXN') return { monthly: 1800, annual: 18000 };
+        return { monthly: 350, annual: 3600 }; // Default: PEN (Soles)
+    };
+
+    const minimums = getMinimums(proposal.currency);
+
     // Calculation values
     const monthlyBase = proposal.stores * proposal.baseFeePerStore;
     const monthlyVariable = proposal.hires * proposal.variableFeePerHire;
-    const totalMonthly = monthlyBase + monthlyVariable;
+    
+    // Enforce monthly minimum
+    const totalMonthly = Math.max(monthlyBase + monthlyVariable, minimums.monthly);
     const projectedAnnual = totalMonthly * 12;
 
     const calculatedDiscountedAnnual = projectedAnnual * (1 - proposal.annualDiscount / 100);
-    const finalAnnualPrice = proposal.annualFinalPrice !== undefined && proposal.annualFinalPrice !== null
+    
+    // Enforce annual minimum on final price
+    let finalAnnualPrice = proposal.annualFinalPrice !== undefined && proposal.annualFinalPrice !== null
         ? proposal.annualFinalPrice 
         : calculatedDiscountedAnnual;
+    finalAnnualPrice = Math.max(finalAnnualPrice, minimums.annual);
+
+    // Calculate actual discount percentage dynamically
+    const actualDiscount = Math.round(((projectedAnnual - finalAnnualPrice) / projectedAnnual) * 100);
 
     const handleDownloadPDF = async () => {
         try {
@@ -333,7 +350,7 @@ export default function CommercialProposalView({ proposal }: { proposal: Proposa
                             </h3>
                             <div className="h-px bg-white/10 w-1/3 mx-auto"></div>
                             <p className="text-xs text-slate-300 font-bold uppercase tracking-wider max-w-lg mx-auto">
-                                (Ahorro del {proposal.annualDiscount}% + Bonificación total de Implementación y Landing Page)
+                                ({actualDiscount > 0 ? `Ahorro del ${actualDiscount}% + ` : ''}Bonificación total de Implementación y Landing Page)
                             </p>
                         </div>
                     </div>

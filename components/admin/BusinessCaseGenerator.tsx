@@ -302,12 +302,21 @@ export default function BusinessCaseGenerator() {
         alert('Enlace copiado al portapapeles');
     };
 
+    // Minimum rules config
+    const getMinimums = (curr: string) => {
+        if (curr === 'USD') return { monthly: 95, annual: 1000 };
+        if (curr === 'MXN') return { monthly: 1800, annual: 18000 };
+        return { monthly: 350, annual: 3600 }; // Default: PEN (Soles)
+    };
+
+    const minimums = getMinimums(formData.currency);
+
     // Auto calculations for preview helpers
     const monthlyBase = Number(formData.stores) * Number(formData.baseFeePerStore);
     const monthlyVariable = Number(formData.hires) * Number(formData.variableFeePerHire);
-    const totalMonthly = monthlyBase + monthlyVariable;
+    const totalMonthly = Math.max(monthlyBase + monthlyVariable, minimums.monthly);
     const projectedAnnual = totalMonthly * 12;
-    const calculatedDiscountedAnnual = projectedAnnual * (1 - Number(formData.annualDiscount) / 100);
+    const calculatedDiscountedAnnual = Math.max(projectedAnnual * (1 - Number(formData.annualDiscount) / 100), minimums.annual);
 
     return (
         <div className="space-y-12">
