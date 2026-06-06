@@ -429,7 +429,7 @@ function PostularContent() {
 export default function PostularPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: accentColor }}>
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#4F46E5' }}>
                 <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full"></div>
             </div>
         }>

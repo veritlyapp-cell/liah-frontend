@@ -17,6 +17,7 @@ import JobProfilesManagement from '@/components/admin/JobProfilesManagement';
 import RQTrackingView from '@/components/admin/RQTrackingView';
 import AdminCandidatesView from '@/components/admin/AdminCandidatesView';
 import CandidateBaseView from '@/components/admin/CandidateBaseView';
+import GlobalCandidatesView from '@/components/admin/GlobalCandidatesView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Users, ClipboardList, Briefcase, BarChart3, Wallet, Settings, MapPin, FileText, Building2, Upload, Plus, Pencil, Trash2, Map as MapIcon } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
@@ -324,7 +325,7 @@ export default function AdminDashboard() {
         { id: 'base_candidatos', label: 'Base Maestra', icon: <FileText />, hidden: claims?.role === 'compensaciones' },
         { id: 'activacion', label: 'Exportar / SMS', icon: <Upload />, hidden: claims?.role === 'compensaciones' },
         { id: 'perfiles', label: 'Perfiles', icon: <Briefcase />, hidden: claims?.role === 'compensaciones' },
-        { id: 'analitica', label: 'Analítica', icon: <BarChart3 />, hidden: claims?.role === 'compensaciones' || !hasFeature('advanced_analytics') },
+        { id: 'analitica', label: 'Analítica', icon: <BarChart3 />, hidden: claims?.role === 'compensaciones' },
         { id: 'compensaciones', label: 'Compensaciones', icon: <Wallet /> },
         { id: 'configuracion', label: 'Configuración', icon: <Settings />, hidden: true },
     ];

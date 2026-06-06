@@ -15,12 +15,14 @@ import {
     ArrowUpRight,
     FileText,
     TrendingUp,
-    CreditCard
+    CreditCard,
+    DollarSign
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { AuditLog, getHoldingLogs, getLoginStatsByBrand } from '@/lib/firestore/logs';
 import { RecruitmentMetrics, calculateMarcaMetrics } from '@/lib/analytics/recruitment-metrics';
+import BusinessCaseGenerator from '@/components/admin/BusinessCaseGenerator';
 
 interface HoldingData {
     nombre: string;
@@ -44,7 +46,7 @@ interface MarcaData {
     holdingId: string;
 }
 
-type KAMTab = 'overview' | 'consumption' | 'logs' | 'billing';
+type KAMTab = 'overview' | 'consumption' | 'logs' | 'billing' | 'business-case';
 
 export default function KAMDashboard() {
     const { user, claims, loading } = useAuth();
@@ -117,6 +119,7 @@ export default function KAMDashboard() {
         { id: 'overview', label: 'Dashboard', icon: <LayoutDashboard /> },
         { id: 'consumption', label: 'Consumo', icon: <TrendingUp /> },
         { id: 'logs', label: 'Auditoría', icon: <ShieldCheck /> },
+        { id: 'business-case', label: 'Ventas (ROI)', icon: <DollarSign /> },
         { id: 'billing', label: 'Plan y Pagos', icon: <CreditCard /> },
     ];
 
@@ -473,6 +476,12 @@ export default function KAMDashboard() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'business-case' && (
+                    <div className="space-y-6 animate-fade-in">
+                        <BusinessCaseGenerator />
                     </div>
                 )}
             </div>

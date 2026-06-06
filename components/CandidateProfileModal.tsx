@@ -57,7 +57,7 @@ export default function CandidateProfileModal({ candidate, onClose, onRefresh }:
                 // 3. Exclude RQs where the candidate already has an application
                 const activeRQs = rqs.filter(r => {
                     const isAvailable = (r.status === 'active' || !r.status) &&
-                        r.approvalStatus === 'approved';
+                        (r.approvalStatus === 'approved' || !r.approvalStatus);
 
                     const alreadyApplied = candidate.applications?.some(app => app.rqId === r.id);
 

@@ -15,14 +15,15 @@ import BulkUploadUsersModal from '@/components/admin/BulkUploadUsersModal';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, onSnapshot, query, orderBy, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import GlobalCandidatesView from '@/components/admin/GlobalCandidatesView';
-import { LayoutDashboard, Building2, Users, ShieldCheck, BarChart3, Search, Settings, FileText, Sparkles, Plus, Trash2, ChevronRight } from 'lucide-react';
+import BusinessCaseGenerator from '@/components/admin/BusinessCaseGenerator';
+import { LayoutDashboard, Building2, Users, ShieldCheck, BarChart3, Search, Settings, FileText, Sparkles, Plus, Trash2, ChevronRight, DollarSign } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 
 // Mock data removed to avoid duplicates with Firestore
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MOCK_LOGS: any[] = [];
 
-type Tab = 'empresas' | 'usuarios' | 'candidatos' | 'logs' | 'pending' | 'configuracion';
+type Tab = 'empresas' | 'usuarios' | 'candidatos' | 'logs' | 'pending' | 'configuracion' | 'herramientas';
 
 export default function SuperAdminDashboard() {
     const { user, claims, loading } = useAuth();
@@ -300,6 +301,7 @@ export default function SuperAdminDashboard() {
         { id: 'pending', label: 'Activaciones', icon: <ShieldCheck /> },
         { id: 'candidatos', label: 'Candidatos', icon: <Search /> },
         { id: 'logs', label: 'Auditoría', icon: <BarChart3 /> },
+        { id: 'herramientas', label: 'Ventas (ROI)', icon: <DollarSign /> },
         { id: 'configuracion', label: 'Configuración', icon: <Settings />, hidden: true },
     ];
 
@@ -675,6 +677,13 @@ export default function SuperAdminDashboard() {
             {/* Tab: Pending Users Activation */}
             {activeTab === 'pending' && (
                 <PendingUsersActivation />
+            )}
+
+            {/* Tab: Herramientas / Ventas (ROI) */}
+            {activeTab === 'herramientas' && (
+                <div className="space-y-6">
+                    <BusinessCaseGenerator />
+                </div>
             )}
 
             {/* Tab: Logs */}
